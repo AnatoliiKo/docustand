@@ -58,7 +58,7 @@ Delete `docs/temp/rendered` afterwards.
 
 For a gap, the order is:
 
-1. The stack profile already has the tool: the answer `stack` is missing it; change it with `copier update -a .repo.yaml --defaults --data stack=[...]`.
+1. The stack profile already has the tool: the answer `stack` is missing it; change it with `copier update -a .repo.yaml --defaults --data 'stack=[...]'`.
 2. No profile for the stack: propose tools by the rule «use existing solutions first» in `AGENTS.md`, 2–3 options with registry data as of today, the recommended one marked. A new profile is a change of docustand (profile, template, test), not of the project.
 3. A project-only check: a task in the project `mise.toml` and a step in `hk.pkl` with an entry in `overrides`.
 
@@ -89,6 +89,7 @@ A gate not seen failing is reported as **unproven**, with the reason (needs netw
 
 Hooks are proven by behaviour, not by files in `.git/hooks/`: commit `notes/probe.md`; `check-md-placement` must reject the commit.
 Then `git reset` and delete `notes/probe.md`.
+If the commit goes through, the hooks are not installed: `git reset --soft HEAD~1` and `git reset`, delete the file, run `hk install --mise` and probe again. Report it as a finding.
 
 ### 7. Report
 

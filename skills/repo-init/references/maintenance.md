@@ -28,7 +28,7 @@ Level, stack, report schedule, branches, `md_exceptions`, `overrides` and every 
    copier update -a .repo.yaml --defaults --data <key>=<value>
    ```
 
-   Examples: `--data report_schedule=monthly`, `--data stack=[terraform]`, `--data required_ci_branches=[main,develop]`. Lists and mappings in YAML flow form.
+   Examples: `--data report_schedule=monthly`, `--data 'stack=[terraform]'`, `--data 'required_ci_branches=[main,develop]'`. Lists and mappings in YAML flow form, single-quoted: brackets and braces are globs in zsh.
 3. `--data level=full` fails with «Level "full" is not supported yet»: the full level is not available yet.
 4. Copier adds and removes the files of the changed answer (profile configs, the report workflow, `docs/operations.md`). `mise install`, then `mise run check` exits 0.
 5. A changed `required_ci_branches` also changes branch protection (SKILL.md section 6).
@@ -43,7 +43,7 @@ Edit the files textually and minimally: remove the lines named below and keep th
 2. `.mise/conf.d/standard.toml`: delete the line that starts with `"pipx:copier"`.
 3. `.claude/settings.json`: delete the `"docustand@docustand": true` entry from `enabledPlugins` and the `"docustand"` entry from `extraKnownMarketplaces`. Fix the commas so the JSON stays valid.
 4. `AGENTS.md`: delete the line `If docustand is installed: /docustand:pr-ready.` and the blank line before it; two blank lines in a row fail the Markdown lint.
-5. `renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty.
+5. `renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty. Fix the commas so the JSON stays valid.
 6. Full level only: delete the scheduled Claude task of the reports and its row in `docs/access.md`. At the base level the task does not exist.
 
 Then:

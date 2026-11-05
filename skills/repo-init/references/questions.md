@@ -46,6 +46,35 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 
 Without protection on the plan: no question, the warning «CI only reports; local hooks are the only blocking layer».
 
+**Stack.** The template offers the profiles in `${CLAUDE_PLUGIN_ROOT}/profiles/`; today only `terraform`.
+
+1. The detected profiles are right (recommended when `detect-stack` evidence matches the manifests): their tools and checks are added. Costs: the profile tools are installed by mise.
+2. Different profiles: name them from the available list. Costs: checks for what the code does not contain, or none for what it does.
+
+Code without a profile (for example PHP or TypeScript while only `terraform` exists): record nothing in `stack` for it and tell the owner that a new stack needs a profile in docustand first («new stack — profile first»). Until then the standard checks run, and the stack's own linters, types and tests do not.
+
+**Multi-repository system** (only when neighbours or references were found):
+
+1. Not part of a system (recommended when the references are only external services): `system` stays empty. Costs: cross-repository tasks are not tracked.
+2. Part of a system, this repository is the center: `system.repos` lists the others; cross-repository tasks live here. Costs: the center's report watches the whole system.
+3. Part of a system, another repository is the center: `system.center` names it. Costs: cross-repository tasks are read from the center.
+
+**API** (only when an API or a client was found):
+
+1. Provider: the contract file lives here; `contract.role: provider`. For a new project, choose the approach: code-first (the contract is generated from code; costs: the generator in the build) or schema-first (code follows the contract; costs: the schema is written before the code).
+2. Consumer: the client is generated from the provider's contract, pinned to its version; `contract.role: consumer`. Costs: a contract update is a separate PR.
+3. No API contract: `contract` stays empty. Costs: no check catches a breaking API change.
+
+**Deployed** (only for code with deploy signs):
+
+1. Deployed: `docs/operations.md` is added for deploy, rollback, restore with the last check date and alerts. Costs: the owner keeps that file current.
+2. Not deployed (recommended for libraries and tools): no operations document. Costs: none until the first deployment.
+
+**Files outside git** (only when found; listed by name, secrets never read):
+
+1. Into the inventory (recommended): each file gets a decision in migration step 1. Costs: one more table row per file.
+2. Leave as they are: nothing changes. Costs: knowledge stays outside the repository and is lost with the machine.
+
 **Architecture**, example:
 
 > In `src/` there are `entities/`, `features/`, `widgets/`, `shared/` — looks like Feature-Sliced Design. `app/` is the Next.js router.

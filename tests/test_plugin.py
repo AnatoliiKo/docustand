@@ -69,11 +69,14 @@ def check_manifests_by_docs() -> None:
         assert ".." not in source
 
 
-def test_plugin_manifest_valid(tmp_path):
+def test_plugin_manifest_valid():
     check_manifests_by_docs()
+
+
+def test_plugin_validates_with_claude_cli(tmp_path):
     claude = shutil.which("claude")
     if claude is None:
-        return
+        pytest.skip("claude CLI not installed")
     # A throwaway config dir keeps the validator away from ~/.claude.
     env = {**os.environ, "CLAUDE_CONFIG_DIR": str(tmp_path)}
     # `.` validates the marketplace; the root CLAUDE.md is a known warning, so
@@ -133,9 +136,37 @@ def test_skills_reference_no_removed_paths(removed):
                 assert removed not in path.read_text(), f"{path} mentions {removed}"
 
 
-def test_repo_init_carries_build_facts():
+def repo_init_text() -> str:
     text = (REPO_ROOT / "skills" / "repo-init" / "SKILL.md").read_text()
-    text += "".join(p.read_text() for p in (REPO_ROOT / "skills" / "repo-init" / "references").glob("*.md"))
+    return text + "".join(p.read_text() for p in (REPO_ROOT / "skills" / "repo-init" / "references").glob("*.md"))
+
+
+def skill_texts():
+    for path in (REPO_ROOT / "skills").rglob("*.md"):
+        yield path, path.read_text()
+
+
+def test_data_lists_are_quoted_for_zsh():
+    # zsh expands unquoted brackets and braces as globs: "no matches found".
+    unquoted = re.compile(r"--data\s+[\w-]+=[\[{]")
+    for path, text in skill_texts():
+        for n, line in enumerate(text.splitlines(), 1):
+            assert not unquoted.search(line), f"{path}:{n}: quote the --data value: {line.strip()}"
+
+
+def test_repo_init_finds_tags_not_releases():
+    text = repo_init_text()
+    assert "gh release view" not in text
+    assert "git ls-remote --tags --refs --sort=-v:refname https://github.com/AnatoliiKo/docustand 'v*'" in text
+
+
+def test_repo_init_names_plugin_root_for_references():
+    head = (REPO_ROOT / "skills" / "repo-init" / "SKILL.md").read_text().split("## Rules", 1)[0]
+    assert "Plugin root: `${CLAUDE_PLUGIN_ROOT}`" in head
+
+
+def test_repo_init_carries_build_facts():
+    text = repo_init_text()
     for fact in (
         "copier update -a .repo.yaml --defaults --data",
         "git status --porcelain",
@@ -149,5 +180,16 @@ def test_repo_init_carries_build_facts():
         "docs/temp/inventory.md",
         "inventory",
         "hk install --mise",
+        "merge_existing.py merge . docs/temp/rendered",
+        "--skip <file 1>",
+        "mise exec uv@0.13.7 pipx:copier@9.19.1 -- copier",
+        "notes/probe.md",
+        "otherwise stop",
+        "`_src_path` to `gh:AnatoliiKo/docustand`",
+        "explicit yes",
+        "Branch protection waits until each branch exists on GitHub",
+        "Fix the commas so the JSON stays valid.",
+        "and the blank line before it",
+        "profile first",
     ):
         assert fact in text, fact

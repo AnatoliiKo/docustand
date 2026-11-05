@@ -38,7 +38,7 @@ overrides:
     reason: generated API docs have no top-level heading
 ```
 
-`overrides` changes only through `copier update -a .repo.yaml --defaults --data overrides=[...]`.
+`overrides` changes only through `copier update -a .repo.yaml --defaults --data 'overrides=[...]'` (single-quoted: brackets are globs in zsh).
 Copier keeps the edit on update or shows a conflict in the Renovate PR.
 A deviation every project needs belongs in the docustand template instead.
 

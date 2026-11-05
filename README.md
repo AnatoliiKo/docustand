@@ -91,10 +91,14 @@ copier update -a .repo.yaml --defaults --data report_schedule=monthly
 
 Detach is a `repo-init` step, not a separate command.
 
-1. Remove `_src_path` and `_commit` from `.repo.yaml`.
-2. Remove the plugin from `.claude/settings.json`.
-3. Remove the docustand lines from `AGENTS.md`.
-4. Delete the scheduled Claude task and its line in `docs/access.md`.
+1. Remove `_src_path` and `_commit` from `.repo.yaml` and replace its Copier header comment.
+2. Remove the `pipx:copier` line from `.mise/conf.d/standard.toml`.
+3. Remove the plugin and its marketplace from `.claude/settings.json`.
+4. Remove the docustand line from `AGENTS.md`.
+5. Remove the `copier` manager and the standard-file `ignorePaths` from `renovate.json`.
+6. Full level only: delete the scheduled Claude task and its line in `docs/access.md`.
+
+The exact edits are in [`skills/repo-init/references/maintenance.md`](skills/repo-init/references/maintenance.md); `tests/integration/test_detach.py` tests steps 1-5.
 
 The repository keeps standard tools only: mise, hk, GitHub Actions, linters, README, ADRs.
 

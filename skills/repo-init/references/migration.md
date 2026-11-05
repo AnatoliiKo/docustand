@@ -16,10 +16,10 @@ Temporary files go to `docs/temp/` of the project; until step 2 adds it to `.git
 
 The template meets existing files. The order below keeps every existing line; it is the order tested by `tests/test_migration_render.py` in docustand.
 
-1. Render the template aside with the same answers. Until `mise install` brings Copier, run every `copier` command of this step as `mise exec pipx:copier@9.19.1 -- copier ...`:
+1. Render the template aside with the same answers. Until `mise install` brings Copier, run every `copier` command of this step as `mise exec uv@0.13.7 pipx:copier@9.19.1 -- copier ...`. Single-quote list and mapping values:
 
    ```bash
-   copier copy --defaults --vcs-ref <ref> --data project_name=<name> --data stack=[...] <more --data> \
+   copier copy --defaults --vcs-ref <ref> --data project_name=<name> --data 'stack=[...]' <more --data> \
      <template> docs/temp/rendered
    ```
 
@@ -38,13 +38,13 @@ The template meets existing files. The order below keeps every existing line; it
 
 4. Merge what Copier cannot: `${CLAUDE_PLUGIN_ROOT}/scripts/merge_existing.py merge . docs/temp/rendered`. It appends the missing standard lines to `.gitignore` between `# >>> repository standard` markers and reports own files next to standard ones (`mise.toml`, `CLAUDE.md`, own workflows). It never deletes a line.
 5. `mise trust`, `mise install` (runs `hk install --mise`).
-6. Commit through the hooks: `chore: apply repository standard`. Then the hook probe from SKILL.md section 5, step 6.
+6. Commit through the hooks: `chore: apply repository standard`. Then the hook probe from SKILL.md section 5, step 7.
 7. For each conflict file, the owner decides (questions.md, «Own configs»); one commit per decision:
    - take the standard: copy the file from `docs/temp/rendered/`;
    - keep own: leave the file, add an `overrides` entry with the reason;
    - merge by hand: edit the file, add an `overrides` entry with the reason.
 
-   `overrides` changes through `copier update -a .repo.yaml --defaults --data overrides=[...]`, after `git status --porcelain` prints nothing.
+   `overrides` changes through `copier update -a .repo.yaml --defaults --data 'overrides=[...]'`, after `git status --porcelain` prints nothing.
 8. Own `CLAUDE.md`: its rules move into `AGENTS.md` sections in step 5; `CLAUDE.md` becomes the line `@AGENTS.md`.
 9. Old findings of the new checks: safe autofix one tool per commit, the rest into the tool's baseline (quality-gates).
 10. Prove that each check fails on a violation (quality-gates, «Prove every gate fails»).
@@ -69,4 +69,4 @@ Delete `docs/temp/inventory.md` after the merge.
 
 ## 6. API contract
 
-Only if the repository has an API: the contract file (`openapi.yaml` or TypeSpec), the `contract` answer through `copier update -a .repo.yaml --defaults --data contract=...`, and an ADR on the approach (code-first or schema-first).
+Only if the repository has an API: the contract file (`openapi.yaml` or TypeSpec), the `contract` answer through `copier update -a .repo.yaml --defaults --data 'contract={role: provider, approach: code-first}'`, and an ADR on the approach (code-first or schema-first).
