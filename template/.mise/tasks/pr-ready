@@ -2,5 +2,11 @@
 #MISE description="Run every check and record the verified HEAD for the PR hook"
 set -euo pipefail
 
+# The recorded HEAD must be the state that was checked.
+if [ -n "$(git status --porcelain)" ]; then
+  echo "pr-ready: uncommitted changes; commit or stash them first" >&2
+  git status --short >&2
+  exit 1
+fi
 mise run check
 git rev-parse HEAD > "$(git rev-parse --git-path pr-ready)"

@@ -7,7 +7,10 @@ const FORBIDDEN = /claude|anthropic\.com/i;
 const EXEMPT_KEYS = new Set(["skip-check"]);
 const TRAILER = /^([A-Za-z0-9][A-Za-z0-9-]*)\s*:\s*(.*)$/;
 const GENERATED_WITH = /^\W*generated with\b/i;
-const GIT_GENERATED = /^(Merge |Revert "|fixup! |squash! |amend! )/;
+// Headers git writes itself; a revert counts only with the body line git adds.
+const GIT_MERGE = /^Merge (branch|branches|remote-tracking branch|tag) '|^Merge pull request #\d+ from /;
+const GIT_REVERT = /^Revert ".+"$/;
+const REVERTS_COMMIT = /^This reverts commit [0-9a-f]{7,40}\b/m;
 const SCISSORS = /^# -+ >8 -+$/;
 
 // The message as git stores it: no comment lines, nothing below the scissors line.
@@ -50,6 +53,11 @@ function generatedWithLines(raw) {
   return clean(raw).slice(1).filter((line) => GENERATED_WITH.test(line));
 }
 
+function gitGenerated(raw) {
+  const [header = "", ...body] = clean(raw);
+  return GIT_MERGE.test(header) || (GIT_REVERT.test(header) && REVERTS_COMMIT.test(body.join("\n")));
+}
+
 export default {
   // The default (Angular) header pattern without the `!` breaking-change marker of Conventional Commits.
   parserPreset: {
@@ -59,10 +67,11 @@ export default {
       headerCorrespondence: ["type", "scope", "subject"],
     },
   },
-  // Merge, revert and fixup headers written by git skip the header rules, never the trailer rules.
+  // Merge and revert messages written by git skip the header rules, never the trailer rules.
+  // fixup!/squash!/amend! commits are rejected: they must not land unsquashed.
   defaultIgnores: false,
   ignores: [
-    (message) => GIT_GENERATED.test(message)
+    (message) => gitGenerated(message)
       && claudeTrailers(message).length === 0
       && generatedWithLines(message).length === 0,
   ],

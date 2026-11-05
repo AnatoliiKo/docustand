@@ -238,10 +238,60 @@ def test_commit_msg_rejects_non_conventional_header(project):
     result = commit(project, "Add module")
 
     assert result.returncode != 0
+    assert "type-empty" in result.stdout + result.stderr
 
 
-def test_commit_msg_allows_skip_check_trailer(project):
-    result = commit(project, "fix: vendor file\n\nSkip-Check: typos — vendor file")
+def test_commit_msg_rejects_hand_written_merge_header(project):
+    header = "Merge anything " + "x" * 60
+    assert len(header) > 72
+
+    result = commit(project, header)
+
+    assert result.returncode != 0
+    assert "header-max-length" in result.stdout + result.stderr
+
+
+def test_commit_msg_rejects_fixup(project):
+    result = commit(project, "fixup! x")
+
+    assert result.returncode != 0
+    assert "type-empty" in result.stdout + result.stderr
+
+
+def test_commit_msg_allows_real_merge(project):
+    root, env = project
+    sh(root, env, "git", "switch", "-c", "feature", check=True)
+    assert commit(project, "docs: add note").returncode == 0
+    sh(root, env, "git", "switch", "main", check=True)
+
+    result = sh(root, env, "git", "merge", "--no-ff", "--no-edit", "feature")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    subject = sh(root, env, "git", "log", "-1", "--format=%s", check=True).stdout.strip()
+    assert subject == "Merge branch 'feature'"
+
+
+def test_commit_msg_allows_real_revert(project):
+    root, env = project
+    long_subject = "docs: " + "y" * 66
+    write(root, "README.md", (root / "README.md").read_text() + "\nOne more line.\n")
+    sh(root, env, "git", "add", "README.md", check=True)
+    assert commit(project, long_subject).returncode == 0
+
+    result = sh(root, env, "git", "revert", "--no-edit", "HEAD")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_commit_msg_rejects_revert_header_without_git_body(project):
+    result = commit(project, 'Revert "' + "z" * 70 + '"')
+
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("reason", ["vendor file", "vendor file from claude.ai docs"])
+def test_commit_msg_allows_skip_check_trailer(project, reason):
+    result = commit(project, f"fix: vendor file\n\nSkip-Check: typos — {reason}")
 
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -284,6 +334,18 @@ def test_pr_ready_records_head(project):
     head = sh(root, env, "git", "rev-parse", "HEAD", check=True).stdout.strip()
     marker = sh(root, env, "git", "rev-parse", "--git-path", "pr-ready", check=True).stdout.strip()
     assert (root / marker).read_text().strip() == head
+
+
+def test_pr_ready_refuses_dirty_tree(project):
+    root, env = project
+    write(root, "docs/extra.md", "# Extra\n\nText.\n")
+
+    result = sh(root, env, "mise", "run", "pr-ready")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "uncommitted changes" in result.stdout + result.stderr
+    marker = sh(root, env, "git", "rev-parse", "--git-path", "pr-ready", check=True).stdout.strip()
+    assert not (root / marker).exists()
 
 
 def test_pre_commit_budget(project):
