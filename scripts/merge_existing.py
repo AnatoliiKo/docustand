@@ -13,7 +13,7 @@ rendered template and in the project with different content. Files listed in
 `_skip_if_exists` of the template's `copier.yml` are left out: Copier never
 overwrites them. `--template` defaults to the repository holding this script.
 
-`merge` appends the `.gitignore` block of the rendered template between
+`merge` appends the `.gitignore` block lines the project lacks between
 `# >>> repository standard` and `# <<< repository standard`, once, and prints
 the project-owned files it leaves alone. With `--audit` it also adds block lines
 missing inside the markers. The script never deletes or rewrites foreign lines.
@@ -89,11 +89,15 @@ def merge_gitignore(project: Path, rendered: Path, audit: bool) -> None:
         return
     if START in current or END in current:
         sys.exit(f"merge_existing: {path} has an unpaired marker; fix it by hand")
+    present = {l.strip() for l in current}
+    missing = [l for l in lines if l not in present]
+    if not missing:
+        return
     if text and not text.endswith("\n"):
         text += "\n"
     if text:
         text += "\n"
-    path.write_text(text + "\n".join([START, *lines, END]) + "\n")
+    path.write_text(text + "\n".join([START, *missing, END]) + "\n")
 
 
 def project_owned(project: Path) -> list[str]:

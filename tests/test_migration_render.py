@@ -113,6 +113,40 @@ def test_gitignore_block_appended_once(tmp_path, existing):
     assert ".terraform/" in text
 
 
+def _fresh_render(tmp_path):
+    rendered = tmp_path / "rendered"
+    result = run("copier", "copy", "--defaults", "--vcs-ref", "HEAD", *DATA, REPO_ROOT, rendered)
+    assert result.returncode == 0, result.stderr
+    return rendered
+
+
+def test_no_markers_all_lines_present_is_noop(tmp_path):
+    rendered = _fresh_render(tmp_path)
+    project = tmp_path / "fresh"
+    project.mkdir()
+    (project / ".gitignore").write_bytes((rendered / ".gitignore").read_bytes())
+    before = (project / ".gitignore").read_bytes()
+    for args in ((), ("--audit",), ()):
+        assert script("merge", project, rendered, *args).returncode == 0
+        assert (project / ".gitignore").read_bytes() == before
+
+
+def test_no_markers_some_lines_present_appends_only_missing(tmp_path):
+    rendered = _fresh_render(tmp_path)
+    project = tmp_path / "partial"
+    project.mkdir()
+    (project / ".gitignore").write_text("/vendor\ndocs/temp/\nCLAUDE.local.md\n")
+    for args in ((), ("--audit",), ()):
+        assert script("merge", project, rendered, *args).returncode == 0
+    lines = (project / ".gitignore").read_text().splitlines()
+    assert lines.count("# >>> repository standard") == 1
+    block = lines[lines.index("# >>> repository standard") + 1:lines.index("# <<< repository standard")]
+    assert "docs/temp/" not in block and "CLAUDE.local.md" not in block
+    assert "!.claude/hooks/" in block and ".claude/*" in block
+    content = [l for l in lines if l and not l.startswith("# ")]
+    assert len(content) == len(set(content))
+
+
 def test_merge_is_idempotent_and_never_deletes(tmp_path, existing):
     rendered, _ = migrate(tmp_path, existing)
     snapshot = {p: p.read_bytes() for p in existing.rglob("*") if p.is_file() and ".git" not in p.parts}
