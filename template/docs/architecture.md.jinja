@@ -1,0 +1,28 @@
+# {{ project_name }}: architecture
+
+## Parts
+
+| Part | Responsibility |
+|---|---|
+| | |
+
+## Data flows
+
+## External services
+
+## Data model
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| | |
+
+## Methodology
+{% if architecture %}
+{% for part, style in architecture.items() %}
+- `{{ part }}`: `{{ style }}`.
+{%- endfor %}
+{% else %}
+No architectural methodology is set.
+{% endif %}

@@ -1,0 +1,11 @@
+docs/temp/
+CLAUDE.local.md
+.claude/*
+!.claude/settings.json
+!.claude/skills/
+!.claude/commands/
+!.claude/hooks/
+{% if 'terraform' in stack %}
+.terraform/
+*.tfstate*
+{% endif %}

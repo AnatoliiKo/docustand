@@ -1,0 +1,34 @@
+# {{ project_name }}
+
+One sentence on what the project does.
+
+## Setup
+
+1. Install [mise](https://mise.jdx.dev/).
+2. Run `mise install`.
+3. Run `mise tasks` to list the available commands.
+
+## Checks
+
+- `mise run check` runs all checks.
+- `mise run pr-ready` runs `mise run check` and records the verified commit.
+
+## Documentation
+
+| File | Content |
+|---|---|
+| `AGENTS.md` | Rules for agents and contributors |
+| `docs/architecture.md` | System map and architecture |
+| `docs/decisions/` | Decision records |
+| `docs/tasks.md` | Work in progress and backlog |
+| `docs/access.md` | Required accesses and expiry dates |
+{%- if deployed %}
+| `docs/operations.md` | Deploy, rollback, backup restore, alerts |
+{%- endif %}
+
+## Maintenance
+{% if report_schedule != 'off' %}
+GitHub disables scheduled workflows after 60 days without activity in public repositories. Re-enable the report workflow with `gh workflow enable standard-report.yml`.
+{% else %}
+Scheduled reports are off. Set `report_schedule` through `copier update --data report_schedule=<value>` to enable them.
+{% endif %}

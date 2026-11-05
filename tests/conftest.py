@@ -36,7 +36,10 @@ def _as_answer(value) -> str:
 
 
 def run_copier(dest: Path, src: Path = REPO_ROOT, **data) -> subprocess.CompletedProcess:
+    overwrite = data.pop("overwrite", False)
     cmd = ["copier", "copy", "--defaults", "--vcs-ref", "HEAD"]
+    if overwrite:
+        cmd.append("--overwrite")
     for key, value in data.items():
         cmd += ["--data", f"{key}={_as_answer(value)}"]
     cmd += [str(src), str(dest)]
