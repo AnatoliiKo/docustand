@@ -73,3 +73,21 @@ def test_path_with_space_is_checked(project):
 
 def test_unrelated_extension_is_ignored(project):
     assert check(project, "notes.md", "// TODO fix\n# added by me\n") == (0, "")
+
+
+@pytest.mark.parametrize("rel, text", [
+    ("src/a.ts", 'const u = "http://x"; // TODO(#1) retry\n'),
+    ("src/a.php", "<?php\n#[Attribute]\nclass A {}\n"),
+    ("bin/run.sh", "#!/usr/bin/env bash\necho hi\n"),
+    ("src/a.py", 'x = "a # TODO"\n'),
+    ("src/a.php", "<?php\n$x = f(); // @phpstan-ignore argument.type (legacy API)\n"),
+])
+def test_no_false_positive(project, rel, text):
+    assert check(project, rel, text) == (0, "")
+
+
+def test_phpstan_ignore_without_reason_fails(project):
+    code, out = check(project, "src/a.php", "<?php\n$x = f(); // @phpstan-ignore argument.type\n")
+
+    assert code == 1
+    assert "src/a.php:2:" in out
