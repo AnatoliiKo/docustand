@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "_src_path": {"type": "string"},
-    "_commit": {"type": ["string", "number"], "description": "Copier writes the file with PyYAML (YAML 1.1), which leaves a hash such as 2239e11 unquoted; check-jsonschema parses YAML 1.2 and reads it as a number."},
+    "_commit": {"type": ["string", "number"], "description": "Template version. A hash such as 2239e11 is written unquoted (YAML 1.1) and read as a number by YAML 1.2 parsers."},
     "project_name": {"type": "string"},
     "level": {"enum": ["base", "full"]},
     "team": {"enum": ["solo"]},
@@ -13,7 +13,7 @@
     "architecture": {"type": "object"},
     "system": {"type": ["object", "null"]},
     "contract": {"type": ["object", "null"]},
-    "required_ci_branches": {"type": "array", "items": {"type": "string"}},
+    "required_ci_branches": {"type": "array", "items": {"type": "string"}, "minItems": 1},
     "md_exceptions": {"type": "array", "items": {"type": "string"}},
     "report_schedule": {"enum": ["off", "monthly", "weekly", "twice-weekly"]},
     "deployed": {"type": "boolean"},

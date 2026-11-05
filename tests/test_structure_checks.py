@@ -1,7 +1,10 @@
 import os
+import re
 import subprocess
 
 import pytest
+
+from conftest import REPO_ROOT
 
 TASKS_DIR = ".mise/tasks"
 SCRIPTS = [
@@ -291,6 +294,33 @@ def test_gitignore_block_missing_line_fails(project):
 
     assert code == 1
     assert "!.claude/hooks/" in out
+
+
+def test_gitignore_block_equals_rendered_gitignore(render, tmp_path):
+    script = (REPO_ROOT / "template/.mise/tasks/check-gitignore-block").read_text()
+    block = re.search(r'^BLOCK = """\\\n(.*?)"""', script, re.S | re.M).group(1)
+    rendered = render(tmp_path, project_name="demo") / ".gitignore"
+
+    assert block.splitlines() == rendered.read_text().splitlines()
+
+
+def test_gitignore_terraform_lines_required_for_terraform_stack(project):
+    dest = project(stack=["terraform"])
+    path = dest / ".gitignore"
+    assert run(dest, "check-gitignore-block")[0] == 0
+
+    path.write_text(path.read_text().replace("*.tfstate*\n", ""))
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 1
+    assert "*.tfstate*" in out
+
+
+def test_gitignore_terraform_lines_not_required_without_stack(project):
+    dest = project()
+
+    assert run(dest, "check-gitignore-block")[0] == 0
+    assert ".terraform/" not in (dest / ".gitignore").read_text()
 
 
 def test_gitignore_block_inside_foreign_rules_passes(project):

@@ -64,7 +64,7 @@ def conflicts(project: Path, rendered: Path, template: Path) -> list[str]:
 
 
 def block_lines(rendered: Path) -> list[str]:
-    """The standard block is the rendered `.gitignore`; it is the only copy besides the check script."""
+    """The standard block is the rendered `.gitignore`; `check-gitignore-block` keeps the same lines, and a test keeps both equal."""
     path = rendered / GITIGNORE
     if not path.is_file():
         sys.exit(f"merge_existing: {path} is missing; render the template first")

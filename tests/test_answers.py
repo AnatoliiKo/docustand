@@ -57,6 +57,27 @@ def test_schema_rejects_unknown_key(render, tmp_path):
     assert bad.returncode == 1
 
 
+def test_schema_rejects_empty_ci_branches(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+    schema = dest / ".github" / "repo.schema.json"
+    answers = dest / ".repo.yaml"
+    answers.write_text(answers.read_text().replace("required_ci_branches:\n- main", "required_ci_branches: []"))
+    assert "required_ci_branches: []" in answers.read_text()
+
+    result = subprocess.run(["check-jsonschema", "--schemafile", str(schema), str(answers)],
+                            capture_output=True, text=True)
+    assert result.returncode == 1
+
+
+def test_copier_rejects_empty_ci_branches(render, tmp_path):
+    for value in ([], ""):
+        result = render(tmp_path / f"v{len(str(value))}", check=False, project_name="demo",
+                        required_ci_branches=value)
+
+        assert result.returncode != 0, value
+        assert "non-empty list" in result.stdout + result.stderr
+
+
 def test_schema_accepts_float_like_commit(render, tmp_path):
     dest = render(tmp_path, project_name="demo")
     schema = dest / ".github" / "repo.schema.json"

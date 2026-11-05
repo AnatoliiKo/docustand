@@ -2,15 +2,20 @@
 #MISE description="Fail when .gitignore lacks a line of the standard block"
 # /// script
 # requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
 # ///
 """Usage: check-gitignore-block [PATH ...]  (checks .gitignore; with paths, only if listed)
 
-The block text lives only here. New lines arrive with a template update.
+BLOCK and the rendered `.gitignore` of the template hold the same lines (a test keeps them equal).
+With `terraform` in the `stack` of `.repo.yaml`, TERRAFORM_BLOCK is required too.
+New lines arrive with a template update.
 """
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import yaml
 
 BLOCK = """\
 docs/temp/
@@ -21,6 +26,20 @@ CLAUDE.local.md
 !.claude/commands/
 !.claude/hooks/
 """
+TERRAFORM_BLOCK = """\
+.terraform/
+*.tfstate*
+"""
+
+
+def stack(root: Path) -> list:
+    """The `stack` answer of `.repo.yaml`; empty when the file is missing or unreadable."""
+    try:
+        answers = yaml.safe_load((root / ".repo.yaml").read_text())
+    except (OSError, yaml.YAMLError):
+        return []
+    value = answers.get("stack") if isinstance(answers, dict) else None
+    return value if isinstance(value, list) else []
 
 
 def relative(root: Path, arg: str) -> str | None:
@@ -39,7 +58,8 @@ def main(argv: list[str]) -> int:
         print(".gitignore:1: file is missing")
         return 1
     present = {line.strip() for line in path.read_text().splitlines()}
-    missing = [line for line in BLOCK.splitlines() if line not in present]
+    required = BLOCK + (TERRAFORM_BLOCK if "terraform" in stack(root) else "")
+    missing = [line for line in required.splitlines() if line not in present]
     for line in missing:
         print(f".gitignore:1: missing line `{line}` of the standard block")
     lines = [line.strip() for line in path.read_text().splitlines()]

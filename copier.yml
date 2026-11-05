@@ -59,6 +59,8 @@ required_ci_branches:
   type: yaml
   help: Branches that require CI
   default: [main]
+  validator: >-
+    {% if required_ci_branches is string or not required_ci_branches %}required_ci_branches needs a non-empty list of branch names.{% endif %}
 
 md_exceptions:
   type: yaml
