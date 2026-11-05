@@ -1,0 +1,72 @@
+# Migration of an existing repository
+
+Six steps, each on its own branch from the default branch and in its own PR.
+The next step starts after the owner merges the previous one.
+Temporary files go to `docs/temp/` of the project; until step 2 adds it to `.gitignore`, never stage that folder.
+
+## 1. Inventory
+
+1. Call the `docustand:inventory` agent with the project root, the files outside git from reconnaissance and the stack.
+2. The agent returns the table `| Path | Kind | Decision (move/delete/keep) | Target |`; it has no tool to write files. Save the table to `docs/temp/inventory.md`.
+3. Check the table against the files (project-docs, «Migrate», M1) and show it to the owner. Personal notes of the owner go to `CLAUDE.local.md` or `~/.claude/CLAUDE.md`, only with the owner's yes.
+4. The owner approves the table, row by row where they disagree.
+5. PR: the rows the owner approved as `delete`. Rows `move` wait for step 5.
+
+## 2. Checks
+
+The template meets existing files. The order below keeps every existing line; it is the order tested by `tests/test_migration_render.py` in docustand.
+
+1. Render the template aside with the same answers. Until `mise install` brings Copier, run every `copier` command of this step as `mise exec pipx:copier@9.19.1 -- copier ...`:
+
+   ```bash
+   copier copy --defaults --vcs-ref <ref> --data project_name=<name> --data stack=[...] <more --data> \
+     <template> docs/temp/rendered
+   ```
+
+2. List the files that exist in both with different content:
+
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/scripts/merge_existing.py conflicts . docs/temp/rendered --template ${CLAUDE_PLUGIN_ROOT}
+   ```
+
+   Files in `_skip_if_exists` (`README.md`, `CLAUDE.md`, `.gitignore`, `docs/*.md` of the template) are not listed: Copier never overwrites them.
+3. Apply the template with the same `--vcs-ref` and answers, skipping each listed file:
+
+   ```bash
+   copier copy --defaults --vcs-ref <ref> <same --data> --skip <file 1> --skip <file 2> <template> .
+   ```
+
+4. Merge what Copier cannot: `${CLAUDE_PLUGIN_ROOT}/scripts/merge_existing.py merge . docs/temp/rendered`. It appends the missing standard lines to `.gitignore` between `# >>> repository standard` markers and reports own files next to standard ones (`mise.toml`, `CLAUDE.md`, own workflows). It never deletes a line.
+5. `mise trust`, `mise install` (runs `hk install --mise`).
+6. Commit through the hooks: `chore: apply repository standard`. Then the hook probe from SKILL.md section 5, step 6.
+7. For each conflict file, the owner decides (questions.md, «Own configs»); one commit per decision:
+   - take the standard: copy the file from `docs/temp/rendered/`;
+   - keep own: leave the file, add an `overrides` entry with the reason;
+   - merge by hand: edit the file, add an `overrides` entry with the reason.
+
+   `overrides` changes through `copier update -a .repo.yaml --defaults --data overrides=[...]`, after `git status --porcelain` prints nothing.
+8. Own `CLAUDE.md`: its rules move into `AGENTS.md` sections in step 5; `CLAUDE.md` becomes the line `@AGENTS.md`.
+9. Old findings of the new checks: safe autofix one tool per commit, the rest into the tool's baseline (quality-gates).
+10. Prove that each check fails on a violation (quality-gates, «Prove every gate fails»).
+11. `mise run check` exits 0. Delete `docs/temp/rendered`.
+12. GitHub steps (SKILL.md section 6).
+
+## 3. Comment cleanup
+
+1. `mise run check` already fails on comment mechanics (`check-comments`): bare `TODO`, «added by», `@author`, linter disables without a reason. Fix each finding.
+2. Remove comments that restate the code, commented-out code, names and dates. Keep comments that state why, type annotations and public API documentation.
+3. Large deletions go to the owner as a list before the commit.
+
+## 4. Translation of the documentation to English
+
+project-docs, «Migrate», M2: a table «before → after» in `docs/temp/`, a back translation by a separate agent, differences in meaning listed in the PR.
+
+## 5. Layout
+
+project-docs, «Migrate», M3: apply the `move` rows of `docs/temp/inventory.md`.
+`mise run check` fails on every `.md` left outside the structure.
+Delete `docs/temp/inventory.md` after the merge.
+
+## 6. API contract
+
+Only if the repository has an API: the contract file (`openapi.yaml` or TypeSpec), the `contract` answer through `copier update -a .repo.yaml --defaults --data contract=...`, and an ADR on the approach (code-first or schema-first).

@@ -1,0 +1,14 @@
+{
+  "name": "docustand",
+  "description": "The docustand plugin: repository standard, documentation and quality gates",
+  "owner": {
+    "name": "AnatoliiKo"
+  },
+  "plugins": [
+    {
+      "name": "docustand",
+      "source": "./",
+      "description": "Brings a repository to one documentation and quality standard"
+    }
+  ]
+}

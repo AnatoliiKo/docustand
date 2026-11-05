@@ -17,6 +17,8 @@ Rules for agents and contributors. `CLAUDE.md` imports this file.
 | `copier.yml`, `template/` | Copier template rendered into other repositories |
 | `scripts/` | Python tools: `merge_existing.py` migrates existing repositories |
 | `profiles/` | Stack profiles, one Markdown file per stack |
+| `.claude-plugin/` | Plugin manifest and marketplace manifest |
+| `skills/`, `agents/` | Plugin skills (`SKILL.md` and `references/`) and agents |
 | `tests/` | Pytest suite; `tests/integration/` renders the template and runs the gates |
 
 Any other `.md` file fails the check unless its path is in `md_exceptions` in `.repo.yaml`.

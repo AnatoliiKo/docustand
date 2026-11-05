@@ -1,0 +1,15 @@
+{
+  "name": "docustand",
+  "version": "0.1.0",
+  "description": "Brings a repository to one documentation and quality standard with a Copier template, skills and agents",
+  "author": {
+    "name": "AnatoliiKo"
+  },
+  "repository": "https://github.com/AnatoliiKo/docustand",
+  "keywords": [
+    "documentation",
+    "quality-gates",
+    "copier",
+    "repository-standard"
+  ]
+}
