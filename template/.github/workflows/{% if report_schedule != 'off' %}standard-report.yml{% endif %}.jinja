@@ -1,0 +1,69 @@
+# Managed by the repository standard; changes arrive with `copier update`.
+name: standard-report
+
+on:
+  schedule:
+    - cron: "17 6 {{ '1 * *' if report_schedule == 'monthly' else '* * 1' if report_schedule == 'weekly' else '* * 1,4' }}"
+  workflow_dispatch:
+{% raw %}
+concurrency:
+  group: standard-report
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      monthly_due: ${{ steps.due.outputs.monthly_due }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The app token opens the pull request and reads alert settings; the default token stays read-only.
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.REPORT_APP_ID }}
+          private-key: ${{ secrets.REPORT_APP_PRIVATE_KEY }}
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Monthly checks due
+        id: due
+        env:
+          REPORT_SCHEDULE: {% endraw %}{{ report_schedule }}{% raw %}
+          REPORT_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: mise run report -- --print-monthly-due >> "$GITHUB_OUTPUT"
+      - name: Report
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          REPORT_SCHEDULE: {% endraw %}{{ report_schedule }}{% raw %}
+          REPORT_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git checkout "$DEFAULT_BRANCH"
+          gh auth setup-git
+          mise run report
+
+  # From scratch, as the README tells a new contributor.
+  fresh-install:
+    needs: report
+    if: ${{ needs.report.outputs.monthly_due == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          install: false
+          cache: false
+      - run: mise install && mise run check
+      - name: External links
+        run: mise exec -- lychee --config lychee.toml --no-progress .
+{% endraw %}

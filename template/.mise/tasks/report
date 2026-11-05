@@ -1,0 +1,288 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Collect the scheduled report findings and open or update the `report` pull request"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: report [--dry-run | --print-monthly-due]
+
+Environment: GITHUB_REPOSITORY, REPORT_SCHEDULE (monthly|weekly|twice-weekly),
+REPORT_MANUAL=true for a manual run, GH_TOKEN for `gh`.
+
+Order: token expiry and vulnerability alerts always; red merges, Skip-Check
+trailers, protected files and stack drift only when the repository had activity
+since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
+is the only place that runs `gh`.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+from typing import Any, Callable
+
+import yaml
+
+# Period of the schedule plus one day for a delayed run: a repeated finding is
+# cheaper than a missed red merge.
+SINCE_DAYS = {"monthly": 32, "weekly": 8, "twice-weekly": 5}
+MANUAL_DAYS = 8
+BRANCH = "report"
+RED = {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE"}
+SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
+ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
+
+
+def fetch(cmd: list[str]) -> Any:
+    """Run a command and return its parsed JSON output (None when empty).
+
+    Raises CalledProcessError on failure. Paged `gh api` results (--slurp) are flattened.
+    """
+    out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
+    if not out:
+        return None
+    data = json.loads(out)
+    if isinstance(data, list) and data and all(isinstance(p, list) for p in data):
+        data = [item for page in data for item in page]
+    return data
+
+
+def run(cmd: list[str]) -> None:
+    subprocess.run(cmd, check=True)
+
+
+def since_from_schedule(now: datetime, schedule: str, manual: bool = False) -> datetime:
+    """`now` minus the schedule period with a day of slack; no stored state."""
+    if manual:
+        return now - timedelta(days=MANUAL_DAYS)
+    return now - timedelta(days=SINCE_DAYS[schedule])
+
+
+def monthly_due(today: date, schedule: str, manual: bool = False) -> bool:
+    """True on the first run of the report in the current month."""
+    if manual or schedule == "monthly":
+        return True
+    if schedule == "weekly":
+        return today.day <= 7
+    if schedule == "twice-weekly":
+        if today.weekday() == 0:
+            return today.day <= 4
+        if today.weekday() == 3:
+            return today.day <= 3
+    return False
+
+
+def _parse_time(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def has_activity(commits: list, prs: list, since: datetime) -> bool:
+    """True if a commit or PR is dated at or after `since`; an undated item counts."""
+    for item in commits:
+        when = _parse_time(((item.get("commit") or {}).get("committer") or {}).get("date", ""))
+        if when is None or when >= since:
+            return True
+    for item in prs:
+        when = _parse_time(item.get("mergedAt") or item.get("updatedAt") or "")
+        if when is None or when >= since:
+            return True
+    return False
+
+
+def expiring_tokens(access_md: str, today: date, days: int = 30) -> list[str]:
+    """Access names whose `Expires` date is within `days` of `today` or already past.
+
+    `never`, empty cells, the `YYYY-MM-DD` placeholder and any other non-date value are unset.
+    """
+    columns: dict[str, int] | None = None
+    found = []
+    for line in access_md.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if columns is None:
+            if "Access" in cells and "Expires" in cells:
+                columns = {name: cells.index(name) for name in ("Access", "Expires")}
+            continue
+        if set("".join(cells)) <= set("-: "):
+            continue
+        if len(cells) <= max(columns.values()):
+            continue
+        try:
+            expires = datetime.strptime(cells[columns["Expires"]], "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if expires <= today + timedelta(days=days):
+            found.append(cells[columns["Access"]])
+    return found
+
+
+def red_merges(prs: list[dict]) -> list[int]:
+    """Numbers of merged PRs with a failed check in their rollup."""
+    red = []
+    for pr in prs:
+        for check in pr.get("statusCheckRollup") or []:
+            if (check.get("conclusion") or check.get("state") or "").upper() in RED:
+                red.append(pr["number"])
+                break
+    return red
+
+
+def skip_check_trailers(commits: list[dict]) -> list[str]:
+    """`<sha7> <subject>` of commits carrying a `Skip-Check:` trailer."""
+    found = []
+    for item in commits:
+        message = (item.get("commit") or {}).get("message", "")
+        if SKIP_TRAILER.search(message):
+            found.append(f"{item['sha'][:7]} {message.splitlines()[0]}")
+    return found
+
+
+def _glob(pattern: str) -> re.Pattern:
+    parts = re.split(r"(\*\*|\*)", pattern)
+    body = "".join(".*" if p == "**" else "[^/]*" if p == "*" else re.escape(p) for p in parts)
+    return re.compile(body + r"\Z")
+
+
+def protected_changes(files_by_pr: dict[int, list[str]], protected: list[str]) -> dict[int, list[str]]:
+    """Files of each PR that match a protected pattern (`**` crosses directories)."""
+    patterns = [_glob(p) for p in protected]
+    result = {}
+    for number, files in files_by_pr.items():
+        hit = [f for f in files if any(p.match(f) for p in patterns)]
+        if hit:
+            result[number] = hit
+    return result
+
+
+def load_protected(root: Path) -> list[str]:
+    """Protected paths: the `Edit(/<path>)` rules of `permissions.ask` in .claude/settings.json."""
+    settings = json.loads((root / ".claude" / "settings.json").read_text())
+    rules = (settings.get("permissions") or {}).get("ask") or []
+    return [m.group(1) for rule in rules if (m := ASK_EDIT.match(rule))]
+
+
+def stack_drift(detected: list[str], declared: list[str]) -> list[str]:
+    drift = [f"`{s}` is in the code but not in `stack` of .repo.yaml" for s in sorted(set(detected) - set(declared))]
+    drift += [f"`{s}` is in `stack` of .repo.yaml but not found in the code" for s in sorted(set(declared) - set(detected))]
+    return drift
+
+
+def render_report(sections: dict[str, list[str]]) -> str | None:
+    """Markdown with the non-empty sections; None when there is nothing to report."""
+    filled = {name: items for name, items in sections.items() if items}
+    if not filled:
+        return None
+    blocks = [f"## {name}\n\n" + "\n".join(f"- {item}" for item in items) for name, items in filled.items()]
+    return "\n\n".join(blocks) + "\n"
+
+
+def contract_lag() -> list[str]:
+    # TODO(docs/tasks.md): lag between the code and the contract; the contract is outside the plan.
+    return []
+
+
+def closed_cross_repo_tasks() -> list[str]:
+    # TODO(docs/tasks.md): closed cross-repository tasks; multi-repo is outside the plan.
+    return []
+
+
+def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = False,
+            protected: list[str] | None = None) -> dict[str, list[str]]:
+    """Gather findings: always tokens and alerts, the rest only after activity."""
+    sections: dict[str, list[str]] = {}
+    access = root / "docs" / "access.md"
+    today = now.date()
+    sections["Tokens"] = [
+        f"{name} expires soon or has expired"
+        for name in expiring_tokens(access.read_text() if access.exists() else "", today)
+    ]
+    try:
+        fetch(["gh", "api", f"repos/{repo}/vulnerability-alerts"])
+        sections["Vulnerability alerts"] = []
+    except subprocess.CalledProcessError:
+        sections["Vulnerability alerts"] = ["Vulnerability alerts are not enabled or not readable"]
+
+    since = since_from_schedule(now, schedule, manual)
+    stamp = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+    commits = fetch(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/commits?since={stamp}&per_page=100"]) or []
+    prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "merged", "--limit", "200",
+                 "--search", f"merged:>={since:%Y-%m-%d}",
+                 "--json", "number,mergedAt,statusCheckRollup"]) or []
+    prs = [p for p in prs if (_parse_time(p.get("mergedAt", "")) or since) >= since]
+    if has_activity(commits, prs, since):
+        sections["Red merges"] = [f"#{n}" for n in red_merges(prs)]
+        sections["Skip-Check"] = skip_check_trailers(commits)
+        files = {p["number"]: [f["filename"] for f in fetch(
+            ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or []] for p in prs}
+        if protected is None:
+            protected = load_protected(root)
+        sections["Protected files"] = [f"#{n}: {', '.join(fs)}" for n, fs in protected_changes(files, protected).items()]
+        detected = (fetch(["mise", "run", "detect-stack"]) or {}).get("stack", [])
+        declared_file = root / ".repo.yaml"
+        declared = ((yaml.safe_load(declared_file.read_text()) if declared_file.exists() else None) or {}).get("stack") or []
+        sections["Stack"] = stack_drift(detected, declared)
+    sections["Contract"] = contract_lag()
+    sections["Cross-repository tasks"] = closed_cross_repo_tasks()
+    return sections
+
+
+def backlog_lines(sections: dict[str, list[str]], stamp: str) -> list[str]:
+    """Backlog entries in the docs/tasks.md format; parentheses would read as repository names."""
+    lines = []
+    for name, items in sections.items():
+        for item in items:
+            text = " ".join(item.replace("(", "[").replace(")", "]").split())
+            lines.append(f"- Investigate {name}: {text} — report {stamp}")
+    return lines
+
+
+def publish(sections: dict[str, list[str]], root: Path, stamp: str,
+            runner: Callable[[list[str]], Any] = run) -> str | None:
+    """Open or update the `report` PR with the findings; nothing happens without findings."""
+    body = render_report(sections)
+    if body is None:
+        return None
+    tasks = root / "docs" / "tasks.md"
+    text = tasks.read_text()
+    new = [line for line in backlog_lines(sections, stamp) if line not in text]
+    tasks.write_text(text.rstrip("\n") + "\n" + "".join(f"{line}\n" for line in new))
+    runner(["git", "config", "user.name", "report"])
+    runner(["git", "config", "user.email", "report@users.noreply.github.com"])
+    runner(["git", "checkout", "-B", BRANCH])
+    runner(["git", "add", "docs/tasks.md"])
+    runner(["git", "commit", "-m", "chore: update report", "--allow-empty"])
+    runner(["git", "push", "--force", "origin", BRANCH])
+    existing = fetch(["gh", "pr", "list", "--head", BRANCH, "--state", "open", "--json", "number"]) or []
+    if existing:
+        runner(["gh", "pr", "edit", str(existing[0]["number"]), "--body", body])
+    else:
+        runner(["gh", "pr", "create", "--title", "report", "--body", body, "--head", BRANCH])
+    return body
+
+
+def main(argv: list[str]) -> int:
+    schedule = os.environ.get("REPORT_SCHEDULE", "weekly")
+    manual = os.environ.get("REPORT_MANUAL") == "true"
+    now = datetime.now(UTC)
+    if argv == ["--print-monthly-due"]:
+        print(f"monthly_due={str(monthly_due(now.date(), schedule, manual)).lower()}")
+        return 0
+    root = Path(".")
+    sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual)
+    if argv == ["--dry-run"]:
+        print(render_report(sections) or "No findings.")
+        return 0
+    publish(sections, root, now.strftime("%Y-%m-%d"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
