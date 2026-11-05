@@ -1,6 +1,6 @@
 """Integration test: a project detached from docustand works without it.
 
-The detach procedure below (steps 1-5; step 6, the scheduled Claude task, does
+The detach procedure below (steps 1-6; step 7, the scheduled Claude task, does
 not exist at the base level) is the one the `repo-init` skill carries.
 """
 
@@ -21,6 +21,8 @@ pytestmark = pytest.mark.integration
 REPO_YAML_HEADER = "# Project properties checked by .github/repo.schema.json.\n"
 RENOVATE_IGNORED = {".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"}
 AGENTS_LINE = "If docustand is installed: /docustand:pr-ready."
+ANSWERS_RULE = "- Change answers in `.repo.yaml` only with `copier update"
+HAND_EDIT_RULE = "- Edit `.repo.yaml` by hand; the change needs the owner's approval.\n"
 
 
 def detach_1_repo_yaml(root: Path) -> None:
@@ -72,9 +74,19 @@ def detach_5_renovate(root: Path) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
+def detach_6_answers_rule(root: Path) -> None:
+    """Replace the AGENTS.md rule that changes answers through `copier update`."""
+    path = root / "AGENTS.md"
+    lines = path.read_text().splitlines(keepends=True)
+    hits = [i for i, ln in enumerate(lines) if ln.startswith(ANSWERS_RULE)]
+    assert len(hits) == 1, "answers rule not found in AGENTS.md"
+    lines[hits[0]] = HAND_EDIT_RULE
+    path.write_text("".join(lines))
+
+
 def detach(root: Path) -> None:
     for step in (detach_1_repo_yaml, detach_2_mise_copier, detach_3_claude_settings,
-                 detach_4_agents_md, detach_5_renovate):
+                 detach_4_agents_md, detach_5_renovate, detach_6_answers_rule):
         step(root)
 
 
@@ -106,6 +118,11 @@ def test_detached_project_passes_without_docustand(detached):
     grep = subprocess.run(["grep", "-rIil", "docustand", "--exclude-dir=decisions",
                            "--exclude-dir=.git", "."], cwd=root, capture_output=True, text=True)
     assert grep.stdout == "", f"docustand is still mentioned in:\n{grep.stdout}"
+
+    update = subprocess.run(["grep", "-rn", "copier update", "--exclude-dir=decisions",
+                             "--exclude-dir=.git", "."], cwd=root, capture_output=True, text=True)
+    assert update.stdout == "", f"`copier update` is still mentioned in:\n{update.stdout}"
+    assert HAND_EDIT_RULE in (root / "AGENTS.md").read_text()
 
     renovate = json.loads((root / "renovate.json").read_text())
     assert "copier" not in renovate

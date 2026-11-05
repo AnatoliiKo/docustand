@@ -44,12 +44,13 @@ Edit the files textually and minimally: remove the lines named below and keep th
 3. `.claude/settings.json`: delete the `"docustand@docustand": true` entry from `enabledPlugins` and the `"docustand"` entry from `extraKnownMarketplaces`. Fix the commas so the JSON stays valid.
 4. `AGENTS.md`: delete the line `If docustand is installed: /docustand:pr-ready.` and the blank line before it; two blank lines in a row fail the Markdown lint.
 5. `renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty. Fix the commas so the JSON stays valid.
-6. Full level only: delete the scheduled Claude task of the reports and its row in `docs/access.md`. At the base level the task does not exist.
+6. `AGENTS.md`: replace the rule that starts with ``- Change answers in `.repo.yaml` only with `copier update` `` with ``- Edit `.repo.yaml` by hand; the change needs the owner's approval.``
+7. Full level only: delete the scheduled Claude task of the reports and its row in `docs/access.md`. At the base level the task does not exist.
 
 Then:
 
-- `grep -rIil docustand --exclude-dir=decisions --exclude-dir=.git .` prints nothing;
+- `grep -rIil docustand --exclude-dir=decisions --exclude-dir=.git .` and `grep -rn "copier update" --exclude-dir=decisions --exclude-dir=.git .` print nothing;
 - `mise run check-repo-yaml` and `mise run check` exit 0;
 - commit `chore: detach from docustand` and open a PR.
 
-After detaching, `copier update` no longer works, Renovate no longer raises template updates, and answers in `.repo.yaml` are edited by hand under the `ask` rule.
+After detaching, `copier update` no longer works, Renovate no longer raises template updates, and answers in `.repo.yaml` are edited by hand with the owner's approval, under the `ask` rule.

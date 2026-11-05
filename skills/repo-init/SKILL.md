@@ -23,7 +23,7 @@ References, read when the step needs them:
 - Mandatory steps run without a question; everything optional is asked first, with options (questions.md).
 - Answers live in `.repo.yaml` and, when a decision has a reason and alternatives, in an ADR. A repeated run reads them and does not ask again.
 - Temporary files go to `docs/temp/` of the target project, never to `/tmp`.
-- Never edit `.repo.yaml` by hand. An answer changes only with `copier update -a .repo.yaml --defaults --data <key>=<value>`.
+- While the repository follows the template, never edit `.repo.yaml` by hand. An answer changes only with `copier update -a .repo.yaml --defaults --data <key>=<value>`.
 - Before any `copier update`, `git status --porcelain` must print nothing. Otherwise stop and tell the owner to commit first.
 - Every manual `copier update` passes `-a .repo.yaml`: Copier 9.19.1 does not find a custom answers file by itself. Renovate passes `--answers-file` on its own.
 - Single-quote every `--data` whose value is a list or a mapping (`--data 'stack=[terraform]'`): unquoted brackets and braces are globs in zsh and fail with «no matches found».
@@ -42,6 +42,7 @@ References, read when the step needs them:
 | No files besides `README.md`, `LICENSE`, `.gitignore`, or no repository at all | New |
 | Code or documents, no `.repo.yaml` | Migration (migration.md) |
 | `.repo.yaml` with `_src_path` | Audit and update (maintenance.md) |
+| `.repo.yaml` without `_src_path` (detached) | Ask the owner what to do; re-attaching is out of scope |
 | The owner asks to detach | Detach (maintenance.md) |
 
 ## 3. Reconnaissance and questions
@@ -51,7 +52,7 @@ Level `full` is offered with its description, and it is not available yet: the t
 
 ## 4. Template source
 
-- Source: `gh:AnatoliiKo/docustand` at the latest tag, the first line of `git ls-remote --tags --refs --sort=-v:refname https://github.com/AnatoliiKo/docustand 'v*'` (or `gh api repos/AnatoliiKo/docustand/tags -q '.[0].name'`). `_src_path` and `_commit` in `.repo.yaml` then let Renovate update the template.
+- Source: `gh:AnatoliiKo/docustand` at the latest tag, the tag name (`vX.Y.Z`) from the first line of `git ls-remote --tags --refs --sort=-v:refname https://github.com/AnatoliiKo/docustand 'v*' | head -1 | sed 's#.*refs/tags/##'`; the line itself is `<sha>`, a tab and `refs/tags/vX.Y.Z`. `_src_path` and `_commit` in `.repo.yaml` then let Renovate update the template.
 - No tag yet: `--vcs-ref main`. `_commit` then records a commit, and Renovate follows tags only after a one-time `copier update -a .repo.yaml --defaults --vcs-ref <first tag>`.
 - Repository unreachable (`git ls-remote` fails): use `${CLAUDE_PLUGIN_ROOT}` only if it is a git checkout (`git -C ${CLAUDE_PLUGIN_ROOT} rev-parse --show-toplevel` prints it); otherwise stop. Warn the owner: `_src_path` records a local path and Renovate cannot update the template. The remedy after publication is a one-time edit of `_src_path` to `gh:AnatoliiKo/docustand`, approved by the owner, then `copier update -a .repo.yaml --defaults --vcs-ref <first tag>`.
 
