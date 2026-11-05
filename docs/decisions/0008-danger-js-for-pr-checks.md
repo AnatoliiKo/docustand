@@ -16,10 +16,9 @@ Status: accepted
 
 ## Rejected
 
-- Separate scripts: no common structure for reporting in the pull request.
+- Separate scripts.
 
 ## Consequences
 
 - The base level has no Danger. Protected files rely on `ask` rules, hooks against bypass, baseline growth checks in CI and report lines.
 - A Renovate pull request that changes `_commit` may change template files without an `overrides` line.
-- This build does not deliver Danger.

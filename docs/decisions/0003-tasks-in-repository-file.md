@@ -16,7 +16,7 @@ Status: accepted
 
 ## Rejected
 
-- GitHub Issues: state lives outside the repository and is not visible to an agent that reads one checkout.
+- GitHub Issues.
 
 ## Consequences
 

@@ -16,11 +16,10 @@ Status: accepted
 
 ## Rejected
 
-- A new entry repository: adds a repository with no code of its own.
+- A new entry repository.
 - OpenSpec Stores and Worksets: in beta, deferred.
 
 ## Consequences
 
 - The multi-repository questions in `repo-init` are asked only when sibling repositories are found.
 - The center is the only place to update when a repository joins or leaves the system.
-- This build does not deliver multi-repository support.

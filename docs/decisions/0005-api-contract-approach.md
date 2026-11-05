@@ -24,6 +24,5 @@ Status: accepted
 
 ## Consequences
 
-- A generated client fails the build when a field differs.
+- Consumer CI checks that the pinned copy matches the source at the recorded commit and that regeneration produces no diff.
 - Contract lag at the consumer appears in the report.
-- The API contract skill is not delivered in the first release.

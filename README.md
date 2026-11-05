@@ -56,7 +56,7 @@ The level is the `level` field in `.repo.yaml`.
 | Level | Content | Status in this release |
 |---|---|---|
 | Base | README, `AGENTS.md`, ADRs, `docs/tasks.md`, hk, CI, bypass protection, comment rules, deterministic report | Supported |
-| Full | Base plus OpenSpec, Danger, Vale, LLM reports | Answers "not supported yet" |
+| Full | Base plus OpenSpec, Danger, Vale, LLM reports | `repo-init` answers that the full level is not supported yet |
 
 Stack profiles in this release:
 

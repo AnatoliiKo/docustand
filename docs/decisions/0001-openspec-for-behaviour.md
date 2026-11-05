@@ -27,4 +27,3 @@ Status: accepted
 - Only OpenSpec keeps a living specification.
 - The merged pull request already contains the updated `openspec/specs/`.
 - The repository holds no archive of finished changes. History lives in git.
-- The full level of this standard is not delivered in the first release.

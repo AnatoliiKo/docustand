@@ -22,5 +22,6 @@ Status: accepted
 ## Consequences
 
 - The repository holds no secrets, no owner-specific data and no project-specific names.
-- Tokens used by workflows are workflow tokens, not template-read tokens.
+- Workflow-opened pull requests and `repository_dispatch` use a GitHub App token, because events from `GITHUB_TOKEN` do not trigger workflows.
+- Reading the template needs no token.
 - Cloud Claude sessions do not load the plugin. Protective hooks live in the project `.claude/settings.json`.
