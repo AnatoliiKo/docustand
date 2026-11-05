@@ -1,0 +1,85 @@
+_min_copier_version: "9.19.1"
+_subdirectory: template
+_answers_file: .repo.yaml
+# Files written once; template updates never overwrite them.
+_skip_if_exists:
+  - README.md
+  - docs/architecture.md
+  - docs/tasks.md
+  - docs/access.md
+  - .gitignore
+  - CLAUDE.md
+
+project_name:
+  type: str
+  help: Project name
+
+level:
+  type: str
+  help: Standard level
+  choices:
+    base: base
+    full: full
+  default: base
+  validator: >-
+    {% if level == 'full' %}Level "full" is not supported yet; use "base".{% endif %}
+
+team:
+  type: str
+  help: Team size
+  choices:
+    solo: solo
+  default: solo
+
+stack:
+  type: yaml
+  multiselect: true
+  help: Technology stack
+  choices:
+    terraform: terraform
+  default: []
+
+architecture:
+  type: yaml
+  help: Architecture description (mapping)
+  default: {}
+
+system:
+  type: yaml
+  help: System description (mapping or null)
+  default: null
+
+contract:
+  type: yaml
+  help: Contract description (mapping or null)
+  default: null
+
+required_ci_branches:
+  type: yaml
+  help: Branches that require CI
+  default: [main]
+
+md_exceptions:
+  type: yaml
+  help: Markdown files exempt from checks
+  default: []
+
+report_schedule:
+  type: str
+  help: Report schedule
+  choices:
+    off: off
+    monthly: monthly
+    weekly: weekly
+    twice-weekly: twice-weekly
+  default: weekly
+
+deployed:
+  type: bool
+  help: Is the system deployed (adds docs/operations.md)
+  default: false
+
+overrides:
+  type: yaml
+  help: "Per-file overrides: list of {file, reason}"
+  default: []

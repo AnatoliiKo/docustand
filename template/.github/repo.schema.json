@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "docustand .repo.yaml",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_src_path": {"type": "string"},
+    "_commit": {"type": "string"},
+    "project_name": {"type": "string"},
+    "level": {"enum": ["base", "full"]},
+    "team": {"enum": ["solo"]},
+    "stack": {"type": "array", "items": {"enum": ["terraform"]}, "uniqueItems": true},
+    "architecture": {"type": "object"},
+    "system": {"type": ["object", "null"]},
+    "contract": {"type": ["object", "null"]},
+    "required_ci_branches": {"type": "array", "items": {"type": "string"}},
+    "md_exceptions": {"type": "array", "items": {"type": "string"}},
+    "report_schedule": {"enum": ["off", "monthly", "weekly", "twice-weekly"]},
+    "deployed": {"type": "boolean"},
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "reason"],
+        "properties": {"file": {"type": "string"}, "reason": {"type": "string"}}
+      }
+    }
+  }
+}

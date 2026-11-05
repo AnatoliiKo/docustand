@@ -4,6 +4,7 @@ uv = "0.13.7"
 "pipx:copier" = "9.19.1"
 hk = "2.11.1"
 pkl = "0.32.2"
+"pipx:check-jsonschema" = "0.39.0"
 
 [tasks.test]
 description = "Run the pytest suite"
