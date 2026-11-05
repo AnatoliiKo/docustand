@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: `gh pr create` only after `mise run pr-ready` on the current HEAD."""
+"""PreToolUse hook: `gh pr create` (and its alias `gh pr new`) only after `mise run pr-ready` on HEAD.
+
+The check uses the hook's cwd; a `cd` earlier in the same command is not followed
+(CI is the backstop).
+"""
 
 import os
 import subprocess
@@ -8,7 +12,7 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _shell import block, read_bash_input, split_commands, strip_prefix  # noqa: E402
+from _shell import block, read_bash_input, all_commands, strip_prefix  # noqa: E402
 
 MESSAGE = 'Run the "Before a PR" steps from AGENTS.md and mise run pr-ready first.'
 
@@ -19,7 +23,7 @@ def git(cwd, *args):
 
 
 def is_pr_create(words):
-    return words[:3] == ["gh", "pr", "create"]
+    return words[:3] in (["gh", "pr", "create"], ["gh", "pr", "new"])  # `new` is gh's alias
 
 
 def main():
@@ -29,7 +33,7 @@ def main():
     command, cwd = parsed
     cwd = cwd or os.getcwd()
     try:
-        commands = split_commands(command)
+        commands = all_commands(command)
     except ValueError:
         commands = [command.split()]
     if not any(is_pr_create(strip_prefix(words)[1]) for words in commands):

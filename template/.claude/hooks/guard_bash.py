@@ -4,6 +4,8 @@
 Blocked: `--no-verify` / `-n` on git commit, `--no-verify` on push and friends,
 core.hooksPath and hook.* git config (via `git -c` and `git config`), and
 HK=0 / HK_SKIP_* variables (plain, via `env` or `export`).
+Also looks into `eval`, `sh -c` strings and env-based git config
+(GIT_CONFIG_KEY_<n>, GIT_CONFIG_PARAMETERS).
 Message values (-m, -F, --message, --file) and heredoc bodies are not analysed.
 
 If the command cannot be parsed (for example an unterminated quote) the hook
@@ -17,7 +19,7 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _shell import block, read_bash_input, split_commands, strip_prefix  # noqa: E402
+from _shell import all_commands, block, read_bash_input, strip_prefix  # noqa: E402
 
 SKIP_VARS = {"HK_SKIP_STEPS", "HK_SKIP_STEP", "HK_SKIP_HOOK", "HK_SKIP_HOOKS"}
 NO_VERIFY_CMDS = {"commit", "push", "merge", "rebase", "am"}
@@ -31,6 +33,10 @@ CONFIG_READ = ("--get", "--get-all", "--get-regexp", "--get-urlmatch", "-l", "--
 
 
 def bad_env(name, value):
+    if name == "GIT_CONFIG_PARAMETERS":
+        return "hookspath" in value.lower() or "hook." in value.lower()
+    if name.startswith("GIT_CONFIG_KEY_"):
+        return bad_config_key(value)
     return name in SKIP_VARS or name.startswith("HK_SKIP_") or (name == "HK" and value.strip() in ("0", "false"))
 
 
@@ -62,9 +68,9 @@ def check_git(words):
         return None
     sub, args = words[i], words[i + 1:]
     if sub == "config":
-        if any(a in CONFIG_READ for a in args):
-            return None
         keys = [a for a in args if not a.startswith("-")]
+        if any(a in CONFIG_READ for a in args) or (keys and keys[0] in ("get", "list")):
+            return None
         if any(bad_config_key(k) for k in keys):
             return "changing core.hooksPath or hook.* git config disables git hooks"
         return None
@@ -91,7 +97,7 @@ def check_git(words):
     return None
 
 
-def check_command(words, depth=0):
+def check_command(words):
     assigns, rest = strip_prefix(words)
     for name, value in assigns:
         if bad_env(name, value):
@@ -106,10 +112,6 @@ def check_command(words, depth=0):
                 return f"export {name} disables hk checks"
     elif head == "git":
         return check_git(rest)
-    elif head in ("sh", "bash", "zsh", "dash") and depth < 3:
-        for k, w in enumerate(rest[1:-1], 1):
-            if w.startswith("-") and not w.startswith("--") and "c" in w:
-                return check_text(rest[k + 1], depth + 1)
     return None
 
 
@@ -118,14 +120,15 @@ FALLBACK = [
     (re.compile(r"core\.hookspath", re.I), "core.hooksPath disables git hooks"),
     (re.compile(r"\bhook\.[\w-]+\.", re.I), "hook.* git config disables git hooks"),
     (re.compile(r"\bHK_SKIP_\w*="), "HK_SKIP_* disables hk checks"),
+    (re.compile(r"\bGIT_CONFIG_(KEY_\d+|PARAMETERS)=\S*hook", re.I), "GIT_CONFIG_* hook override disables git hooks"),
     (re.compile(r"\bHK=(0|false)\b"), "HK=0 disables hk checks"),
     (re.compile(r"\bgit\b[^;&|\n]*\bcommit\b[^;&|\n]*\s-[A-Za-z]*n"), "git commit -n skips the hooks"),
 ]
 
 
-def check_text(text, depth=0):
+def check_text(text):
     try:
-        commands = split_commands(text)
+        commands = all_commands(text)
     except ValueError:
         # Unparsable: scan the raw text conservatively instead of allowing silently.
         for pattern, reason in FALLBACK:
@@ -133,7 +136,7 @@ def check_text(text, depth=0):
                 return reason + " (command could not be parsed; fix its quoting)"
         return None
     for words in commands:
-        reason = check_command(words, depth)
+        reason = check_command(words)
         if reason:
             return reason
     return None

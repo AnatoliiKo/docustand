@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: `gh pr merge` only when every CI check is SUCCESS or SKIPPED."""
+"""PreToolUse hook: `gh pr merge` only when every CI check is SUCCESS or SKIPPED.
+
+The check runs in the hook's cwd; a `cd` earlier in the same command is not followed
+(CI is the backstop). `gh pr merge --auto` is blocked while checks are pending: intended,
+because on the Free plan there is no branch protection to make auto-merge wait safely.
+"""
 
 import json
 import os
@@ -9,7 +14,7 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _shell import block, read_bash_input, split_commands, strip_prefix  # noqa: E402
+from _shell import block, read_bash_input, all_commands, strip_prefix  # noqa: E402
 
 NO_CHECKS = "no checks reported; CI did not run"
 OK_STATES = {"SUCCESS", "SKIPPED"}
@@ -50,12 +55,12 @@ def check(arg, repo, cwd):
         cmd += ["-R", repo]
     cmd += ["--json", "state,name"]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=30)
         checks = json.loads(result.stdout)
         if not isinstance(checks, list):
             raise ValueError("not a list")
         bad = [f'{c["name"]} ({c["state"]})' for c in checks if c.get("state") not in OK_STATES]
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError, AttributeError):
         block(NO_CHECKS)
     if bad:
         block("CI checks are not green: " + ", ".join(bad))
@@ -70,7 +75,7 @@ def main():
     command, cwd = parsed
     cwd = cwd if cwd and os.path.isdir(cwd) else None
     try:
-        commands = split_commands(command)
+        commands = all_commands(command)
     except ValueError:
         commands = [command.split()]
     for words in commands:

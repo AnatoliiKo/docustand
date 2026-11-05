@@ -174,6 +174,51 @@ def test_ignores_non_bash_tool_and_bad_json():
     assert run_hook("guard_bash", "", raw="not json").returncode == 0
 
 
+@pytest.mark.parametrize("command", [
+    "{ git commit -n -m x; }",
+    "if true; then git commit -n -m x; fi",
+    "while true; do git commit -n -m x; done",
+    "! git commit -n -m x",
+    "(git commit -n -m x)",
+    "$((1<<2))\ngit commit -n -m x",
+    "x=$((a<<b))\ngit commit --no-verify -m x",
+    "echo $((1<<2)) && HK=0 git commit -m x",
+    "eval 'git commit -n -m x'",
+    "eval git commit --no-verify -m x",
+    "nice -n 5 git commit -n -m x",
+    "timeout 10 git commit -n -m x",
+    "timeout -s KILL 10 git commit -n -m x",
+    "echo x | xargs git commit -n -m",
+    "xargs -n 1 git commit --no-verify -m",
+    "GIT_CONFIG_KEY_0=core.hooksPath git commit -m x",
+    "GIT_CONFIG_KEY_1=HOOK.hk.command git commit -m x",
+    "env GIT_CONFIG_KEY_0=core.hookspath git commit -m x",
+    "export GIT_CONFIG_KEY_0=hook.hk.command",
+    "GIT_CONFIG_PARAMETERS=\"'core.hookspath=/dev/null'\" git commit -m x",
+    "env GIT_CONFIG_PARAMETERS=\"'hook.hk.command=true'\" git commit -m x",
+])
+def test_blocks_compound_and_wrapped_forms(command):
+    assert bash(command).returncode == 2, command
+
+
+@pytest.mark.parametrize("command", [
+    "git config get core.hooksPath",
+    "git config get --all hook.hk.command",
+    "git config list",
+    "GIT_CONFIG_KEY_0=user.name git commit -m x",
+    "echo $((1<<2))\ngit commit -m x",
+    "if true; then git commit -m x; fi",
+    "timeout 10 git status",
+])
+def test_allows_safe_wrapped_and_read_forms(command):
+    assert bash(command).returncode == 0, command
+
+
+def test_blocks_git_config_new_syntax_writes():
+    assert bash("git config set core.hooksPath /dev/null").returncode == 2
+    assert bash("git config unset hook.hk.command").returncode == 2
+
+
 # --- guard_pr_create ----------------------------------------------------------
 
 def _mark(repo: Path, content=None):
@@ -224,6 +269,18 @@ def test_pr_create_in_worktree(tmp_path):
     assert run_hook("guard_pr_create", "gh pr create", cwd=wt).returncode == 2
     _mark(wt)
     assert run_hook("guard_pr_create", "gh pr create", cwd=wt).returncode == 0
+
+
+@pytest.mark.parametrize("command", [
+    "gh pr new -t x",
+    "{ gh pr create --fill; }",
+    "if true; then gh pr create; fi",
+    "timeout 30 gh pr create",
+    "eval 'gh pr create --fill'",
+])
+def test_pr_create_alias_and_wrapped_forms_blocked(tmp_path, command):
+    repo = init_git_repo(tmp_path / "r")
+    assert run_hook("guard_pr_create", command, cwd=repo).returncode == 2
 
 
 def test_pr_create_ignores_other_commands(tmp_path):
@@ -287,6 +344,29 @@ def test_pr_merge_blocked_when_gh_missing(tmp_path):
     env = {**os.environ, "PATH": str(tmp_path / "empty")}
     r = run_hook("guard_pr_merge", "gh pr merge 5", cwd=tmp_path, env=env)
     assert r.returncode == 2 and "no checks reported" in r.stderr
+
+
+def test_pr_merge_blocked_on_timeout(tmp_path, monkeypatch):
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    gh = bindir / "gh"
+    gh.write_text("#!/bin/sh\nsleep 5\n")
+    gh.chmod(0o755)
+    src = (HOOKS / "guard_pr_merge.py").read_text().replace("timeout=30", "timeout=0.5")
+    patched = tmp_path / "guard_pr_merge.py"
+    patched.write_text(src)
+    (tmp_path / "_shell.py").write_text((HOOKS / "_shell.py").read_text())
+    env = {**os.environ, "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
+    r = subprocess.run(
+        [sys.executable, str(patched)], capture_output=True, text=True, env=env,
+        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "gh pr merge 5"}, "cwd": str(tmp_path)}),
+    )
+    assert r.returncode == 2 and "no checks reported" in r.stderr
+
+
+def test_pr_merge_wrapped_form_blocked(tmp_path):
+    env = fake_gh(tmp_path, "[]")
+    assert run_hook("guard_pr_merge", "{ gh pr merge 5; }", cwd=tmp_path, env=env).returncode == 2
 
 
 def test_pr_merge_ignores_other_commands(tmp_path):
