@@ -140,7 +140,9 @@ def test_update_command_is_consistent(render, tmp_path):
     command = "copier update -a .repo.yaml --defaults --data <key>=<value>"
 
     assert command in (dest / "AGENTS.md").read_text()
-    assert "copier update -a .repo.yaml --defaults --data report_schedule=" in (dest / "README.md").read_text()
+    readme = (dest / "README.md").read_text()
+    assert "copier update" not in readme
+    assert "changing the `report_schedule` answer in `.repo.yaml` as `AGENTS.md` describes" in readme
 
 
 def test_no_blank_line_defects(render, tmp_path):
@@ -164,6 +166,7 @@ def test_access_lists_report_app_at_base_level(render, tmp_path):
 
     assert REPORT_APP_ROW in text
     assert "`REPORT_APP_ID`, `REPORT_APP_PRIVATE_KEY`" in text
+    assert "| Renovate GitHub App on the repository | | GitHub App settings | never |" in text
     # The scheduled Claude task writes LLM reports, a full-level feature.
     assert CLAUDE_TASK_ROW not in text
 

@@ -39,15 +39,15 @@ copier copy gh:AnatoliiKo/docustand .
 - Answers are stored in `.repo.yaml` (`_answers_file: .repo.yaml`).
 - A repeated run reads `.repo.yaml` and does not ask again.
 
-Files owned by the standard:
+Files owned by the standard are the paths with an `ask` rule in `.claude/settings.json`:
 
-- `.mise/conf.d/standard.toml`
-- `hk.pkl`
-- `.mise/tasks/*`
-- `.claude/hooks/*`
-- `.github/workflows/standard-*.yml`
+- `.mise/conf.d/standard.toml`, `hk.pkl`, `.mise/tasks/*`, `.mise/data/*`
+- `.claude/settings.json`, `.claude/hooks/*`
+- `.github/workflows/standard-*.yml`, `.github/repo.schema.json`
+- `.repo.yaml`, `renovate.json`
+- `commitlint.config.mjs`, `typos.toml`, `.rumdl.toml`, `lychee.toml`, and `.tflint.hcl` with the Terraform stack
 
-The template never creates or changes the project's `mise.toml` or the project's own workflows.
+The `ask` list also guards the project's `mise.toml` and its own workflows, but the template never creates or changes them.
 
 ## Levels
 
@@ -96,9 +96,10 @@ Detach is a `repo-init` step, not a separate command.
 3. Remove the plugin and its marketplace from `.claude/settings.json`.
 4. Remove the docustand line from `AGENTS.md`.
 5. Remove the `copier` manager and the standard-file `ignorePaths` from `renovate.json`.
-6. Full level only: delete the scheduled Claude task and its line in `docs/access.md`.
+6. Replace the `AGENTS.md` rule about changing answers with `copier update` by "Edit `.repo.yaml` by hand; the change needs the owner's approval."
+7. Full level only: delete the scheduled Claude task and its line in `docs/access.md`.
 
-The exact edits are in [`skills/repo-init/references/maintenance.md`](skills/repo-init/references/maintenance.md); `tests/integration/test_detach.py` tests steps 1-5.
+The exact edits are in [`skills/repo-init/references/maintenance.md`](skills/repo-init/references/maintenance.md); `tests/integration/test_detach.py` tests steps 1-6.
 
 The repository keeps standard tools only: mise, hk, GitHub Actions, linters, README, ADRs.
 
@@ -108,7 +109,7 @@ The repository keeps standard tools only: mise, hk, GitHub Actions, linters, REA
 |---|---|
 | mise | Installs Copier, hk and stack tools. `repo-init` stops and prints the install command if mise is missing |
 | Trusted folder | Claude Code loads the plugin from the repository only after the folder is trusted |
-| superpowers | External Claude Code plugin. `AGENTS.md` redirects its output: plans to `docs/temp/`, specifications to `openspec/changes/` |
+| superpowers | External Claude Code plugin. `AGENTS.md` redirects its output (plans, specifications) to `docs/temp/` |
 | Git and GitHub | Copier reads the template from `gh:AnatoliiKo/docustand` without a token |
 
 Run all checks with:

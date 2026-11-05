@@ -7,6 +7,7 @@ Expiry is a date in `YYYY-MM-DD` format or `never`.
 |---|---|---|---|
 | Code hosting (GitHub repository) | | | never |
 | CI token | | | YYYY-MM-DD |
+| Renovate GitHub App on the repository | | GitHub App settings | never |
 {%- if report_schedule != 'off' %}
 | Report GitHub App: Contents read and write, Pull requests read and write, Administration read | | GitHub Actions secrets `REPORT_APP_ID`, `REPORT_APP_PRIVATE_KEY` | never |
 {%- endif %}
