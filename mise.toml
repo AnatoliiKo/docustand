@@ -1,11 +1,5 @@
-[tools]
-python = "3.13"
-uv = "0.13.7"
-"pipx:copier" = "9.19.1"
-hk = "2.11.1"
-pkl = "0.32.2"
-"pipx:check-jsonschema" = "0.39.0"
+# Tools come from `.mise/conf.d/standard.toml`; only docustand's own tasks live here.
 
 [tasks.test]
 description = "Run the pytest suite"
-run = "uv run --with pytest --with pyyaml --with copier pytest -q"
+run = "uv run --with pytest==9.2.0 --with pyyaml==6.0.3 --with copier==9.19.1 pytest -q"

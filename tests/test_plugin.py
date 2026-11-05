@@ -193,3 +193,40 @@ def test_repo_init_carries_build_facts():
         "profile first",
     ):
         assert fact in text, fact
+
+
+STANDARD_TOML = REPO_ROOT / "template/.mise/conf.d/standard.toml.jinja"
+
+
+def pinned(tool: str) -> str:
+    return re.search(rf'^"?{re.escape(tool)}"? = "([\d.]+)"$', STANDARD_TOML.read_text(), re.M).group(1)
+
+
+def test_skill_tool_versions_match_standard_toml():
+    uv, copier = pinned("uv"), pinned("pipx:copier")
+    found = 0
+    for path, text in skill_texts():
+        for name, version in re.findall(r"\b(uv|pipx:copier)@(\d[\d.]*)", text):
+            found += 1
+            assert version == (uv if name == "uv" else copier), f"{path}: {name}@{version}"
+        for version in re.findall(r"Copier (\d+\.\d+\.\d+)", text):
+            found += 1
+            assert version == copier, f"{path}: Copier {version}"
+    assert found
+
+
+def test_min_copier_version_matches_standard_toml():
+    config = yaml.safe_load((REPO_ROOT / "copier.yml").read_text())
+    assert config["_min_copier_version"] == pinned("pipx:copier")
+
+
+def test_root_mise_test_task_pins_dependencies():
+    import tomllib
+
+    config = tomllib.loads((REPO_ROOT / "mise.toml").read_text())
+    run = config["tasks"]["test"]["run"]
+
+    assert not config.get("tools"), "tools belong to .mise/conf.d/standard.toml"
+    assert f"--with copier=={pinned('pipx:copier')}" in run
+    assert re.search(r"--with pytest==\d+(\.\d+)+ ", run)
+    assert "--with pyyaml==6.0.3" in run
