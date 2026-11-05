@@ -1,0 +1,42 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when .gitignore lacks a line of the standard block"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-gitignore-block [PATH ...]  (checks .gitignore; with paths, only if listed)
+
+The block text lives only here. New lines arrive with a template update.
+"""
+import subprocess
+import sys
+from pathlib import Path
+
+BLOCK = """\
+docs/temp/
+CLAUDE.local.md
+.claude/*
+!.claude/settings.json
+!.claude/skills/
+!.claude/commands/
+!.claude/hooks/
+"""
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
+                               capture_output=True, text=True).stdout.strip())
+    if argv and ".gitignore" not in [Path(a).resolve().relative_to(root.resolve()).as_posix() for a in argv]:
+        return 0
+    path = root / ".gitignore"
+    if not path.exists():
+        print(".gitignore:1: file is missing")
+        return 1
+    present = {line.strip() for line in path.read_text().splitlines()}
+    missing = [line for line in BLOCK.splitlines() if line not in present]
+    for line in missing:
+        print(f".gitignore:1: missing line `{line}` of the standard block")
+    return 1 if missing else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,82 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Validate .repo.yaml against .github/repo.schema.json"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3", "jsonschema==4.26.0"]
+# ///
+"""Usage: check-repo-yaml [PATH ...]  (checks .repo.yaml; with paths, only if listed)"""
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+from jsonschema import Draft202012Validator
+
+
+def locate(node, path) -> int:
+    """1-based line of the YAML node at `path`, or of the deepest node that exists."""
+    for part in path:
+        if isinstance(node, yaml.MappingNode):
+            found = next((v for k, v in node.value if k.value == part), None)
+        elif isinstance(node, yaml.SequenceNode) and isinstance(part, int) and part < len(node.value):
+            found = node.value[part]
+        else:
+            found = None
+        if found is None:
+            break
+        node = found
+    return node.start_mark.line + 1
+
+
+def key_line(node, key) -> int:
+    for k, _ in node.value:
+        if k.value == key:
+            return k.start_mark.line + 1
+    return node.start_mark.line + 1
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
+                               capture_output=True, text=True).stdout.strip())
+    if argv and ".repo.yaml" not in [Path(a).resolve().relative_to(root.resolve()).as_posix() for a in argv]:
+        return 0
+    target, schema_path = root / ".repo.yaml", root / ".github" / "repo.schema.json"
+    for path in (target, schema_path):
+        if not path.exists():
+            print(f"{path.relative_to(root).as_posix()}:1: file is missing")
+            return 1
+    try:
+        tree = yaml.compose(target.read_text())
+        data = yaml.safe_load(target.read_text())
+    except yaml.YAMLError as err:
+        mark = getattr(err, "problem_mark", None)
+        print(f".repo.yaml:{mark.line + 1 if mark else 1}: invalid YAML: {err}".replace("\n", " "))
+        return 1
+    if tree is None or not isinstance(data, dict):
+        print(".repo.yaml:1: the file must be a mapping")
+        return 1
+
+    schema = json.loads(schema_path.read_text())
+    problems = []
+    for err in Draft202012Validator(schema).iter_errors(data):
+        path = list(err.absolute_path)
+        if err.validator == "additionalProperties":
+            parent = tree
+            for part in path:
+                parent = next(v for k, v in parent.value if k.value == part) if isinstance(
+                    parent, yaml.MappingNode) else parent.value[part]
+            allowed = err.schema.get("properties", {})
+            for key in err.instance:
+                if key not in allowed:
+                    problems.append((key_line(parent, key), f"unknown key `{key}`"))
+            continue
+        where = ".".join(str(p) for p in path) or "(root)"
+        problems.append((locate(tree, path), f"{where}: {err.message}"))
+    for line, message in sorted(problems):
+        print(f".repo.yaml:{line}: {message}")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

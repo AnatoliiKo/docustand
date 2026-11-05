@@ -1,0 +1,85 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when code reads an environment variable missing from .env.example"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: check-env-example [--stack NAME]... [PATH ...]
+
+Profiles come from `stack` in .repo.yaml; `--stack` (repeatable) replaces them.
+Without paths every git-listed source file is scanned; with paths only those
+(listing `.env.example` itself scans the whole repository).
+"""
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+JS = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
+PROFILES = {
+    "laravel": (re.compile(r"""env\(['"]([A-Z0-9_]+)"""), (".php",)),
+    "nextjs": (re.compile(r"process\.env\.([A-Z0-9_]+)"), JS),
+    "expo": (re.compile(r"\b(EXPO_PUBLIC_[A-Z0-9_]+)"), JS),
+}
+DECLARED = re.compile(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True).stdout
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stack", action="append")
+    parser.add_argument("paths", nargs="*")
+    args = parser.parse_args(argv)
+
+    root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    config = yaml.safe_load((root / ".repo.yaml").read_text()) if (root / ".repo.yaml").exists() else None
+    stacks = args.stack if args.stack is not None else ((config or {}).get("stack") or [])
+    profiles = [PROFILES[s] for s in stacks if s in PROFILES]
+    if not profiles:
+        print("no env pattern for stack, skipped")
+        return 0
+
+    rel = [Path(p).resolve().relative_to(root.resolve()).as_posix() for p in args.paths]
+    if rel and ".env.example" not in rel:
+        files = rel
+    else:
+        raw = git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+        files = [p for p in raw.split("\0") if p]
+
+    found: list[tuple[str, int, str]] = []
+    for path in files:
+        full = root / path
+        for pattern, extensions in profiles:
+            if not path.endswith(extensions) or not full.is_file():
+                continue
+            try:
+                text = full.read_text()
+            except (UnicodeDecodeError, OSError):
+                break
+            for number, line in enumerate(text.splitlines(), 1):
+                for match in pattern.finditer(line):
+                    found.append((path, number, match.group(1)))
+    found = sorted(set(found))
+
+    example = root / ".env.example"
+    if not example.exists():
+        if not found:
+            return 0
+        names = ", ".join(sorted({name for _, _, name in found}))
+        print(f".env.example:1: file is missing; code reads {names}")
+        return 1
+    declared = {m.group(1) for line in example.read_text().splitlines() if (m := DECLARED.match(line))}
+    missing = [(p, n, v) for p, n, v in found if v not in declared]
+    for path, number, name in missing:
+        print(f"{path}:{number}: {name} is read here but missing from .env.example")
+    return 1 if missing else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

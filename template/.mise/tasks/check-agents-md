@@ -1,0 +1,31 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when AGENTS.md is longer than 150 lines"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-agents-md [PATH ...]  (checks AGENTS.md; with paths, only if listed)"""
+import subprocess
+import sys
+from pathlib import Path
+
+LIMIT = 150
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
+                               capture_output=True, text=True).stdout.strip())
+    if argv and "AGENTS.md" not in [Path(a).resolve().relative_to(root.resolve()).as_posix() for a in argv]:
+        return 0
+    path = root / "AGENTS.md"
+    if not path.exists():
+        print("AGENTS.md:1: file is missing")
+        return 1
+    count = len(path.read_text().splitlines())
+    if count > LIMIT:
+        print(f"AGENTS.md:{LIMIT + 1}: {count} lines, the limit is {LIMIT}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
