@@ -144,7 +144,7 @@ def test_fails_on_secret(project):
 
 def test_fails_on_typo(project):
     root = project[0]
-    write(root, "README.md", (root / "README.md").read_text() + "\nThis is teh setup.\n")
+    write(root, "README.md", (root / "README.md").read_text() + "\nThis is te" + "h setup.\n")
 
     assert_step_fails(check(project), "typos")
 
@@ -363,7 +363,7 @@ def test_pre_commit_budget(project):
 
 
 def test_path_with_space(project):
-    write(project[0], "docs/my notes.md", "# My notes\n\nThis is teh plan.\n")
+    write(project[0], "docs/my notes.md", "# My notes\n\nThis is te" + "h plan.\n")
 
     result = check(project)
 
