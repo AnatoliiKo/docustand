@@ -10,6 +10,7 @@ Usage: check-md-placement [PATH ...]  (no paths: every file known to git)
 Glob syntax of the allowed list and of `md_exceptions`: `*` and `?` match
 within one path segment, `**` matches any number of segments (also zero).
 """
+import os
 import re
 import subprocess
 import sys
@@ -59,8 +60,10 @@ def repo_files(root: Path) -> list[str]:
     return [p for p in raw.split("\0") if p and (root / p).exists()]
 
 
-def relative(root: Path, arg: str) -> str:
-    return Path(arg).resolve().relative_to(root.resolve()).as_posix()
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
 
 
 def main(argv: list[str]) -> int:
@@ -68,11 +71,11 @@ def main(argv: list[str]) -> int:
     config = yaml.safe_load((root / ".repo.yaml").read_text()) if (root / ".repo.yaml").exists() else None
     exceptions = (config or {}).get("md_exceptions") or []
     allowed = [glob_to_regex(p) for p in [*ALLOWED, *exceptions]]
-    files = [relative(root, a) for a in argv] if argv else repo_files(root)
+    files = [r for a in argv if (r := relative(root, a))] if argv else repo_files(root)
 
     failed = False
     for path in files:
-        if not path.endswith(".md"):
+        if not path.lower().endswith(".md"):
             continue
         if ADR.fullmatch(path) or any(rx.fullmatch(path) for rx in allowed):
             continue

@@ -9,8 +9,10 @@
 Profiles come from `stack` in .repo.yaml; `--stack` (repeatable) replaces them.
 Without paths every git-listed source file is scanned; with paths only those
 (listing `.env.example` itself scans the whole repository).
+Variables in BUILTIN (`NODE_ENV`, `NEXT_RUNTIME`) are ignored for all profiles.
 """
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -24,11 +26,20 @@ PROFILES = {
     "nextjs": (re.compile(r"process\.env\.([A-Z0-9_]+)"), JS),
     "expo": (re.compile(r"\b(EXPO_PUBLIC_[A-Z0-9_]+)"), JS),
 }
+# Set by the runtime or framework, not by `.env`; never required in `.env.example`.
+BUILTIN = {"NODE_ENV", "NEXT_RUNTIME"}
 DECLARED = re.compile(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
 
 
 def git(root: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True).stdout
+
+
+
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
 
 
 def main(argv: list[str]) -> int:
@@ -45,8 +56,8 @@ def main(argv: list[str]) -> int:
         print("no env pattern for stack, skipped")
         return 0
 
-    rel = [Path(p).resolve().relative_to(root.resolve()).as_posix() for p in args.paths]
-    if rel and ".env.example" not in rel:
+    rel = [r for p in args.paths if (r := relative(root, p))]
+    if args.paths and ".env.example" not in rel:
         files = rel
     else:
         raw = git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
@@ -64,7 +75,8 @@ def main(argv: list[str]) -> int:
                 break
             for number, line in enumerate(text.splitlines(), 1):
                 for match in pattern.finditer(line):
-                    found.append((path, number, match.group(1)))
+                    if match.group(1) not in BUILTIN:
+                        found.append((path, number, match.group(1)))
     found = sorted(set(found))
 
     example = root / ".env.example"

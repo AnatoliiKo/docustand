@@ -6,6 +6,7 @@
 # ///
 """Usage: check-repo-yaml [PATH ...]  (checks .repo.yaml; with paths, only if listed)"""
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,10 +37,16 @@ def key_line(node, key) -> int:
     return node.start_mark.line + 1
 
 
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
 def main(argv: list[str]) -> int:
     root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
                                capture_output=True, text=True).stdout.strip())
-    if argv and ".repo.yaml" not in [Path(a).resolve().relative_to(root.resolve()).as_posix() for a in argv]:
+    if argv and ".repo.yaml" not in [r for a in argv if (r := relative(root, a))]:
         return 0
     target, schema_path = root / ".repo.yaml", root / ".github" / "repo.schema.json"
     for path in (target, schema_path):

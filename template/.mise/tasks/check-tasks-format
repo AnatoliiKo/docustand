@@ -10,6 +10,7 @@ Verbs come from .mise/data/task-verbs.txt. Repositories in parentheses are
 allowed only when .repo.yaml has a non-null `system`.
 """
 import re
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -100,10 +101,16 @@ class Checker:
             self.add(sections["In progress"], "`In progress` must come before `Backlog`")
 
 
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
 def main(argv: list[str]) -> int:
     root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
                                capture_output=True, text=True).stdout.strip())
-    if argv and "docs/tasks.md" not in [Path(a).resolve().relative_to(root.resolve()).as_posix() for a in argv]:
+    if argv and "docs/tasks.md" not in [r for a in argv if (r := relative(root, a))]:
         return 0
     path, verbs_path = root / "docs" / "tasks.md", root / ".mise" / "data" / "task-verbs.txt"
     for needed in (path, verbs_path):

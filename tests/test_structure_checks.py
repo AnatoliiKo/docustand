@@ -353,3 +353,65 @@ def test_env_example_no_pattern_skips(project):
 
     assert code == 0
     assert "no env pattern for stack, skipped" in out
+
+
+def test_env_example_builtin_vars_ignored(project):
+    dest = project()
+    write(dest, "src/app.ts", "x(process.env.NODE_ENV, process.env.NEXT_RUNTIME)\n")
+
+    code, out = run(dest, "check-env-example", "--stack", "nextjs")
+
+    assert code == 0, out
+
+
+def test_md_extension_case_insensitive(project):
+    dest = project()
+    write(dest, "notes/NOTES.MD", "x\n")
+
+    code, out = run(dest, "check-md-placement")
+
+    assert code == 1
+    assert "notes/NOTES.MD" in out
+
+
+def test_path_outside_repo_is_skipped(project, tmp_path):
+    dest = project()
+    outside = tmp_path / "outside.md"
+    outside.write_text("x\n")
+
+    for script in ["check-md-placement", "check-agents-md", "check-tasks-format",
+                   "check-repo-yaml", "check-gitignore-block", "check-env-example"]:
+        code, out = run(dest, script, "--stack", "nextjs", str(outside)) \
+            if script == "check-env-example" else run(dest, script, str(outside))
+        assert code == 0, (script, out)
+
+
+def test_gitignore_negation_before_block_fails(project):
+    dest = project()
+    write(dest, ".gitignore", "!.claude/hooks/\n" + (dest / ".gitignore").read_text())
+
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 1
+    assert ".gitignore:1:" in out and "after `.claude/*`" in out
+
+
+def test_tasks_backlog_repos_with_system_passes(project):
+    dest = project(system={"center": "x"})
+    write(dest, "docs/tasks.md",
+          "## In progress\n\n## Backlog\n- Move media transcoding off the API host (api) — it starves requests.\n")
+
+    code, out = run(dest, "check-tasks-format")
+
+    assert code == 0, out
+
+
+def test_tasks_backlog_repos_without_system_fails(project):
+    dest = project()
+    write(dest, "docs/tasks.md",
+          "## In progress\n\n## Backlog\n- Move media transcoding off the API host (api) — it starves requests.\n")
+
+    code, out = run(dest, "check-tasks-format")
+
+    assert code == 1
+    assert "docs/tasks.md:4:" in out

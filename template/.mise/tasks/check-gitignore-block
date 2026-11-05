@@ -7,6 +7,7 @@
 
 The block text lives only here. New lines arrive with a template update.
 """
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,10 +23,16 @@ CLAUDE.local.md
 """
 
 
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
 def main(argv: list[str]) -> int:
     root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
                                capture_output=True, text=True).stdout.strip())
-    if argv and ".gitignore" not in [Path(a).resolve().relative_to(root.resolve()).as_posix() for a in argv]:
+    if argv and ".gitignore" not in [r for a in argv if (r := relative(root, a))]:
         return 0
     path = root / ".gitignore"
     if not path.exists():
@@ -35,7 +42,15 @@ def main(argv: list[str]) -> int:
     missing = [line for line in BLOCK.splitlines() if line not in present]
     for line in missing:
         print(f".gitignore:1: missing line `{line}` of the standard block")
-    return 1 if missing else 0
+    lines = [line.strip() for line in path.read_text().splitlines()]
+    misplaced = []
+    if ".claude/*" in lines:
+        anchor = lines.index(".claude/*")
+        for number, line in enumerate(lines, 1):
+            if line.startswith("!.claude/") and number - 1 < anchor:
+                print(f".gitignore:{number}: `{line}` must come after `.claude/*`")
+                misplaced.append(line)
+    return 1 if missing or misplaced else 0
 
 
 if __name__ == "__main__":
