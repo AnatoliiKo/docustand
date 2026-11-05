@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run every check and record the verified HEAD for the PR hook"
+set -euo pipefail
+
+mise run check
+git rev-parse HEAD > "$(git rev-parse --git-path pr-ready)"

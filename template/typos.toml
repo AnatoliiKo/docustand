@@ -1,0 +1,3 @@
+# Spelling check of the repository standard.
+[files]
+extend-exclude = ["docs/temp/", "*.lock", ".terraform.lock.hcl"]

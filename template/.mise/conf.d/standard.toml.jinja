@@ -1,0 +1,31 @@
+# Tools and tasks of the repository standard.
+# Project tools and tasks go to `mise.toml`.
+
+[tools]
+hk = "2.11.1"
+pkl = "0.32.2"
+uv = "0.13.7"
+# The check scripts are tested on 3.13; PyYAML 6.0.3 ships no wheels for 3.15.
+python = "3.13.18"
+"pipx:copier" = "9.19.1"
+betterleaks = "1.9.0"
+typos = "1.52.0"
+rumdl = "0.3.2"
+lychee = "0.24.2"
+# The npm backend installs packages without Node.js, but commitlint needs it to run.
+node = "26.13.0"
+"npm:@commitlint/cli" = "21.2.4"
+"pipx:check-jsonschema" = "0.39.0"
+{%- if 'terraform' in stack %}
+terraform = "1.17.1"
+tflint = "0.65.0"
+{%- endif %}
+
+[hooks]
+# `mise install` also installs the git hooks of `hk.pkl`.
+postinstall = "hk install --mise"
+
+[tasks.check]
+description = "Run every check on the whole repository"
+# hk exits with the code of the failed tool (tflint 2, terraform fmt 3); any failure is 1.
+run = "hk check --all || exit 1"

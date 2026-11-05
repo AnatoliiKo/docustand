@@ -1,0 +1,13 @@
+# Markdown lint of the repository standard.
+[global]
+# Documents use one sentence per line; line length is not limited.
+disable = ["MD013"]
+exclude = ["docs/temp/**"]
+force-exclude = true
+
+# These files start without a top-level heading by format: `CLAUDE.md` is one
+# import line, `docs/tasks.md` starts with `## In progress`.
+[per-file-ignores]
+"CLAUDE.md" = ["MD041"]
+"docs/tasks.md" = ["MD041"]
+".github/pull_request_template.md" = ["MD041"]

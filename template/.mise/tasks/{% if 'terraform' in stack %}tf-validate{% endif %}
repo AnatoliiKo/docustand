@@ -1,0 +1,74 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Run terraform init -backend=false and validate in every root module"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: tf-validate [PATH ...]
+
+Paths are accepted for hk and ignored: a change in a child module can break
+any root module that uses it, so every root module is validated.
+
+A root module is a directory with `*.tf` files outside `.terraform/` that no
+other module references as a local child module (`source = "./..."` or
+`source = "../..."`). `init -backend=false` needs no state or credentials;
+`plan` is never run.
+"""
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+LOCAL_SOURCE = re.compile(r'^\s*source\s*=\s*"(\.\.?/[^"]*)"', re.M)
+
+
+def git(*args: str, cwd=None) -> str:
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
+
+
+def tf_files(root: Path) -> list[str]:
+    raw = git("ls-files", "-z", "--cached", "--others", "--exclude-standard", cwd=root)
+    return [
+        p for p in raw.split("\0")
+        if p.endswith(".tf") and ".terraform" not in Path(p).parts and (root / p).is_file()
+    ]
+
+
+def root_modules(root: Path) -> list[str]:
+    dirs = {Path(p).parent.as_posix() for p in tf_files(root)}
+    children = set()
+    for path in tf_files(root):
+        parent = Path(path).parent
+        for source in LOCAL_SOURCE.findall((root / path).read_text(errors="replace")):
+            child = Path(os.path.normpath(parent / source)).as_posix()
+            if child != parent.as_posix():
+                children.add(child)
+    return sorted(dirs - children)
+
+
+def terraform(module: str, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["terraform", f"-chdir={module}", *args, "-no-color"], capture_output=True, text=True,
+    )
+
+
+def main() -> int:
+    root = Path(git("rev-parse", "--show-toplevel").strip())
+    os.chdir(root)
+    failed = False
+    for module in root_modules(root):
+        if terraform(module, "validate").returncode == 0:
+            continue
+        # Validate fails on a module that is not initialised yet: init once, then retry.
+        for step in (("init", "-backend=false", "-input=false"), ("validate",)):
+            result = terraform(module, *step)
+            if result.returncode != 0:
+                print(f"{module}/:1: terraform {step[0]} failed")
+                print(result.stdout + result.stderr, end="")
+                failed = True
+                break
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

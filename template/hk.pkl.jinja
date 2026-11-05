@@ -1,0 +1,88 @@
+{% raw -%}
+// Git hooks and checks of the repository standard.
+// The hk package version matches `hk` in `.mise/conf.d/standard.toml`.
+amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
+
+// Every step runs and reports, also after the first failure.
+fail_fast = false
+
+// A check script from `.mise/tasks/`; hk passes the files as separate arguments.
+local function script(name: String, files: String | List<String>) = new Step {
+  glob = files
+  check = new Command { argv = List(".mise/tasks/\(name)", "{{files}}") }
+}
+
+// Fast checks on changed files.
+local commitSteps = new Mapping<String, Step> {
+{%- endraw %}
+{%- if 'terraform' in stack %}
+  ["terraform-fmt"] = Builtins.terraform
+{%- endif %}
+{%- raw %}
+  ["betterleaks"] = Builtins.betterleaks
+  ["typos"] = Builtins.typos
+  ["rumdl"] = Builtins.rumdl
+  ["check-md-placement"] = script("check-md-placement", List("**/*.md", "**/*.MD"))
+  ["check-agents-md"] = script("check-agents-md", "AGENTS.md")
+  ["check-tasks-format"] = script("check-tasks-format", "docs/tasks.md")
+  // The schema is an input too, so any change validates the whole `.repo.yaml`.
+  ["check-repo-yaml"] {
+    glob = List(".repo.yaml", ".github/repo.schema.json")
+    check = ".mise/tasks/check-repo-yaml"
+  }
+  ["check-env-example"] = script("check-env-example", "**/*")
+  ["check-gitignore-block"] = script("check-gitignore-block", ".gitignore")
+  ["check-comments"] = script(
+    "check-comments",
+    List("**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.php", "**/*.tf", "**/*.py", "**/*.sh")
+  )
+}
+
+// Slower checks before a push.
+local pushSteps = new Mapping<String, Step> {
+{%- endraw %}
+{%- if 'terraform' in stack %}
+  // The repository config applies to every module; without `--config` tflint
+  // reads `.tflint.hcl` only from the directory it lints.
+  ["tflint"] = (Builtins.tf_lint) {
+    check = #"tflint --recursive --config="$PWD/.tflint.hcl""#
+    fix = #"tflint --recursive --config="$PWD/.tflint.hcl" --fix"#
+  }
+  ["tf-validate"] {
+    glob = List("**/*.tf", "**/*.tfvars", "**/.terraform.lock.hcl")
+    exclude = "**/.terraform/**"
+    check = ".mise/tasks/tf-validate"
+  }
+{%- endif %}
+{%- raw %}
+  // Internal links only; external links are checked on a schedule.
+  ["lychee"] = (Builtins.lychee) {
+    types = null
+    glob = List("**/*.md")
+    check = new Command { argv = List("lychee", "--offline", "--no-progress", "{{files}}") }
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    steps = commitSteps
+  }
+  ["commit-msg"] {
+    steps {
+      ["commitlint"] {
+        check = new Command { argv = List("commitlint", "--edit", "{{commit_msg_file}}") }
+      }
+    }
+  }
+  ["pre-push"] {
+    steps = pushSteps
+  }
+  ["check"] {
+    steps {
+      ...commitSteps
+      ...pushSteps
+    }
+  }
+}
+{%- endraw %}

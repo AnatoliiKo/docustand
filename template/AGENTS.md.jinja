@@ -26,7 +26,7 @@ Profiles: {% for item in stack %}`{{ item }}`{% if not loop.last %}, {% endif %}
 {%- else -%}
 No stack profile is set.
 {%- endif %}
-Tools: `mise.toml`. Commands: `mise tasks`. Environment variables: `.env.example`.
+Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Commands: `mise tasks`. Hooks: `hk.pkl`. Environment variables: `.env.example`.
 
 ## Architecture
 
