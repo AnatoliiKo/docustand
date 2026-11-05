@@ -9,9 +9,9 @@
 Last verified: `YYYY-MM-DD`.
 
 ## Alerts
-{% if report_schedule != 'off' %}
+{%- if report_schedule != 'off' %}
 
 ## Scheduled workflows
 
 GitHub disables scheduled workflows after 60 days without activity in public repositories. Re-enable the report workflow with `gh workflow enable standard-report.yml`.
-{% endif %}
+{%- endif %}

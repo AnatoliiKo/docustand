@@ -107,3 +107,49 @@ def test_scheduled_workflow_note(render, tmp_path):
     for text in (maintenance, ops):
         assert SCHEDULE_NOTE in text
         assert ENABLE_CMD in text
+
+
+def test_operations_survives_recopy(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", deployed=True)
+    ops = dest / "docs" / "operations.md"
+    ops.write_text("custom\n")
+
+    result = run_copier(dest, project_name="demo", deployed=True, overwrite=True)
+
+    assert result.returncode == 0, result.stderr
+    assert ops.read_text() == "custom\n"
+
+
+def test_no_operations_when_not_deployed(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+
+    assert not (dest / "docs" / "operations.md").exists()
+
+
+def test_no_schedule_note_when_reports_off(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", report_schedule="off", deployed=True)
+
+    for path in (dest / "README.md", dest / "docs" / "operations.md"):
+        text = path.read_text()
+        assert SCHEDULE_NOTE not in text
+        assert ENABLE_CMD not in text
+
+
+def test_update_command_is_consistent(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", report_schedule="off")
+    command = "copier update --defaults --data <key>=<value>"
+
+    assert command in (dest / "AGENTS.md").read_text()
+    assert "copier update --defaults --data report_schedule=" in (dest / "README.md").read_text()
+
+
+def test_no_blank_line_defects(render, tmp_path):
+    for name, data in (("a", {}), ("b", {"stack": ["terraform"], "deployed": True,
+                                         "architecture": {"backend": "layers"}})):
+        dest = render(tmp_path / name, project_name="demo", **data)
+        for path in dest.rglob("*.md"):
+            text = path.read_text()
+            assert "\n\n\n" not in text, path
+            assert not text.endswith("\n\n"), path
+        gitignore = (dest / ".gitignore").read_text()
+        assert "\n\n" not in gitignore and gitignore.endswith("\n")

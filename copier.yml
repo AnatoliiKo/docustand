@@ -9,6 +9,7 @@ _skip_if_exists:
   - docs/access.md
   - .gitignore
   - CLAUDE.md
+  - docs/operations.md
 
 project_name:
   type: str
@@ -68,7 +69,7 @@ report_schedule:
   type: str
   help: Report schedule
   choices:
-    off: off
+    "off": "off"
     monthly: monthly
     weekly: weekly
     twice-weekly: twice-weekly

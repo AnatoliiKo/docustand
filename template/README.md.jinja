@@ -27,8 +27,9 @@ One sentence on what the project does.
 {%- endif %}
 
 ## Maintenance
-{% if report_schedule != 'off' %}
+
+{% if report_schedule != 'off' -%}
 GitHub disables scheduled workflows after 60 days without activity in public repositories. Re-enable the report workflow with `gh workflow enable standard-report.yml`.
-{% else %}
-Scheduled reports are off. Set `report_schedule` through `copier update --data report_schedule=<value>` to enable them.
-{% endif %}
+{%- else -%}
+Scheduled reports are off. Enable them with `copier update --defaults --data report_schedule=<value>`.
+{%- endif %}
