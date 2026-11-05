@@ -14,7 +14,7 @@ Status: accepted
 - Base: README, `AGENTS.md`, ADRs, `docs/tasks.md`, hk, CI, bypass protection, comment rules, deterministic report.
 - Full: base plus OpenSpec, Danger, Vale, LLM reports.
 - The API contract check depends on the `contract` field, not on the level.
-- Changing the level is `copier update --data level=<value>`.
+- Changing the level is `copier update -a .repo.yaml --defaults --data level=<value>`.
 
 ## Rejected
 

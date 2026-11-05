@@ -9,7 +9,7 @@ The repository needs documents and checks that work for a person and for an agen
 - Project rules live in `AGENTS.md`; `CLAUDE.md` imports it.
 - Checks run through `mise run check` locally and in CI.
 - Template files are protected; a deviation is recorded in `overrides` in `.repo.yaml` with a reason.
-- Answers to the template questions change only through `copier update --data <key>=<value>`.
+- Answers to the template questions change only through `copier update -a .repo.yaml --defaults --data <key>=<value>`.
 
 ## Rejected
 

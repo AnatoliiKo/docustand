@@ -78,13 +78,13 @@ Stack profiles in this release:
 Change an answer:
 
 ```sh
-copier update --defaults --data level=base
+copier update -a .repo.yaml --defaults --data level=base
 ```
 
 Change the report schedule:
 
 ```sh
-copier update --defaults --data report_schedule=monthly
+copier update -a .repo.yaml --defaults --data report_schedule=monthly
 ```
 
 ## Detach

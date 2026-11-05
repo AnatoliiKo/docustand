@@ -137,10 +137,10 @@ def test_no_schedule_note_when_reports_off(render, tmp_path):
 
 def test_update_command_is_consistent(render, tmp_path):
     dest = render(tmp_path, project_name="demo", report_schedule="off")
-    command = "copier update --defaults --data <key>=<value>"
+    command = "copier update -a .repo.yaml --defaults --data <key>=<value>"
 
     assert command in (dest / "AGENTS.md").read_text()
-    assert "copier update --defaults --data report_schedule=" in (dest / "README.md").read_text()
+    assert "copier update -a .repo.yaml --defaults --data report_schedule=" in (dest / "README.md").read_text()
 
 
 def test_no_blank_line_defects(render, tmp_path):
