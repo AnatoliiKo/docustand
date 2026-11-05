@@ -1,0 +1,9 @@
+# Offline configuration: only the ruleset bundled with tflint, no plugins to download.
+plugin "terraform" {
+  enabled = true
+  preset  = "recommended"
+}
+
+rule "terraform_unused_declarations" {
+  enabled = true
+}
