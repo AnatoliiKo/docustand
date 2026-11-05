@@ -153,3 +153,23 @@ def test_no_blank_line_defects(render, tmp_path):
             assert not text.endswith("\n\n"), path
         gitignore = (dest / ".gitignore").read_text()
         assert "\n\n" not in gitignore and gitignore.endswith("\n")
+
+
+REPORT_APP_ROW = "| Report GitHub App: Contents read and write, Pull requests read and write, Administration read |"
+CLAUDE_TASK_ROW = "| Scheduled Claude task for reports |"
+
+
+def test_access_lists_report_app_at_base_level(render, tmp_path):
+    text = (render(tmp_path, project_name="demo") / "docs" / "access.md").read_text()
+
+    assert REPORT_APP_ROW in text
+    assert "`REPORT_APP_ID`, `REPORT_APP_PRIVATE_KEY`" in text
+    # The scheduled Claude task writes LLM reports, a full-level feature.
+    assert CLAUDE_TASK_ROW not in text
+
+
+def test_access_has_no_report_rows_when_reports_off(render, tmp_path):
+    text = (render(tmp_path, project_name="demo", report_schedule="off") / "docs" / "access.md").read_text()
+
+    assert REPORT_APP_ROW not in text
+    assert CLAUDE_TASK_ROW not in text

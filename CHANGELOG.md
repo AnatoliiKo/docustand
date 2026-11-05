@@ -13,3 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Skill `repo-init`: new repository, migration, audit and update, answer changes, detach.
 - Skills `project-docs` and `quality-gates`, ported to the repository standard.
 - Agent `inventory`: read-only documentation inventory for the migration.
+
+### Fixed
+
+- Template `docs/access.md`: the report GitHub App row with its secrets and permissions renders whenever reports are on; the scheduled Claude task row renders only at the full level.
