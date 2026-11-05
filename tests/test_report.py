@@ -42,9 +42,10 @@ def report():
 class Fake:
     """Replacement for report.fetch: answers by command text, records every call."""
 
-    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=()):
+    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=()):
         self.vuln_enabled, self.commits, self.prs = vuln_enabled, list(commits), list(prs)
         self.files, self.detected = files or {}, list(detected)
+        self.open_prs = list(open_prs)
         self.calls: list[str] = []
 
     def __call__(self, cmd):
@@ -57,7 +58,7 @@ class Fake:
         if "/commits" in text:
             return self.commits
         if cmd[:3] == ["gh", "pr", "list"]:
-            return self.prs
+            return self.open_prs if "open" in cmd else self.prs
         if "/files" in text:
             number = int(re.search(r"pulls/(\d+)/files", text).group(1))
             return [{"filename": f} for f in self.files.get(number, [])]
@@ -198,8 +199,8 @@ def test_activity_findings_listed(report, tmp_path):
                 files={7: [".github/workflows/standard-ci.yml"]}, detected=["laravel"])
     sections = collect(report, fake, tmp_path, access="")
     assert sections["Red merges"] == ["#7"]
-    assert sections["Skip-Check"] == ["ddddddd fix: z"]
-    assert sections["Protected files"] == ["#7: .github/workflows/standard-ci.yml"]
+    assert sections["Skip-Check"] == ["`ddddddd fix: z`"]
+    assert sections["Protected files"] == ["#7: `.github/workflows/standard-ci.yml`"]
     assert sections["Stack"]
 
 
@@ -244,3 +245,40 @@ def test_findings_open_pr(report, tmp_path):
     assert "- Investigate Tokens: CI token [expires 2026-11-20] — report 2026-11-05\n" in tasks
     flat = [" ".join(c) for c in ran]
     assert any(c.startswith("gh pr create") and "--title report" in c for c in flat)
+
+
+def test_cancelled_is_red_merge(report):
+    assert report.red_merges([{"number": 9, "statusCheckRollup": [{"conclusion": "CANCELLED"}]}]) == [9]
+
+
+def test_activity_scoped_to_default_branch(report, tmp_path):
+    fake = Fake()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / ".repo.yaml").write_text("stack: []\n")
+    report.fetch = fake
+    report.collect("o/r", tmp_path, NOW, "weekly", protected=[], base="trunk")
+    listed = [c for c in fake.calls if c.startswith("gh pr list")]
+    assert len(listed) == 2 and all("--base trunk" in c for c in listed)
+    assert any("/commits" in c and "sha=trunk" in c for c in fake.calls)
+
+
+def test_open_pr_counts_as_activity(report, tmp_path):
+    fake = Fake(open_prs=[{"number": 5, "updatedAt": "2026-11-04T10:00:00Z"}], detected=[])
+    collect(report, fake, tmp_path, access="")
+    assert any("detect-stack" in c for c in fake.calls)
+    stale = Fake(open_prs=[{"number": 5, "updatedAt": "2026-09-01T10:00:00Z"}])
+    collect(report, stale, tmp_path, access="")
+    assert not any("detect-stack" in c for c in stale.calls)
+
+
+def test_untrusted_text_cannot_mention(report, tmp_path):
+    sections = {"Skip-Check": [report.code("@octocat fix: `x`")]}
+    body = report.render_report(sections)
+    assert "`@octocat fix: 'x'`" in body
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "tasks.md").write_text("## In progress\n\n## Backlog\n")
+    report.fetch = lambda cmd: []
+    report.publish(sections, tmp_path, "2026-11-05", runner=lambda c: None)
+    line = (tmp_path / "docs" / "tasks.md").read_text().splitlines()[-1]
+    assert "`@octocat" in line
+    assert line.startswith("- Investigate ") and " — " in line

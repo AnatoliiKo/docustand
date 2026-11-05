@@ -7,7 +7,7 @@
 """Usage: report [--dry-run | --print-monthly-due]
 
 Environment: GITHUB_REPOSITORY, REPORT_SCHEDULE (monthly|weekly|twice-weekly),
-REPORT_MANUAL=true for a manual run, GH_TOKEN for `gh`.
+REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), GH_TOKEN for `gh`.
 
 Order: token expiry and vulnerability alerts always; red merges, Skip-Check
 trailers, protected files and stack drift only when the repository had activity
@@ -30,7 +30,7 @@ import yaml
 SINCE_DAYS = {"monthly": 32, "weekly": 8, "twice-weekly": 5}
 MANUAL_DAYS = 8
 BRANCH = "report"
-RED = {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE"}
+RED = {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE", "CANCELLED"}
 SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
 ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 
@@ -47,6 +47,11 @@ def fetch(cmd: list[str]) -> Any:
     if isinstance(data, list) and data and all(isinstance(p, list) for p in data):
         data = [item for page in data for item in page]
     return data
+
+
+def code(text: str) -> str:
+    """Inline code span: untrusted text in a PR body or tasks.md cannot @-mention anyone."""
+    return "`" + " ".join(text.replace("`", "'").split()) + "`"
 
 
 def run(cmd: list[str]) -> None:
@@ -195,7 +200,7 @@ def closed_cross_repo_tasks() -> list[str]:
 
 
 def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = False,
-            protected: list[str] | None = None) -> dict[str, list[str]]:
+            protected: list[str] | None = None, base: str | None = None) -> dict[str, list[str]]:
     """Gather findings: always tokens and alerts, the rest only after activity."""
     sections: dict[str, list[str]] = {}
     access = root / "docs" / "access.md"
@@ -212,19 +217,25 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
 
     since = since_from_schedule(now, schedule, manual)
     stamp = since.strftime("%Y-%m-%dT%H:%M:%SZ")
-    commits = fetch(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/commits?since={stamp}&per_page=100"]) or []
-    prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "merged", "--limit", "200",
+    branch = f"&sha={base}" if base else ""
+    commits = fetch(["gh", "api", "--paginate", "--slurp",
+                     f"repos/{repo}/commits?since={stamp}&per_page=100{branch}"]) or []
+    scope = ["--base", base] if base else []
+    prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "merged", "--limit", "200", *scope,
                  "--search", f"merged:>={since:%Y-%m-%d}",
                  "--json", "number,mergedAt,statusCheckRollup"]) or []
     prs = [p for p in prs if (_parse_time(p.get("mergedAt", "")) or since) >= since]
-    if has_activity(commits, prs, since):
+    open_prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "open", "--limit", "200", *scope,
+                      "--json", "number,updatedAt"]) or []
+    open_prs = [p for p in open_prs if (_parse_time(p.get("updatedAt", "")) or since) >= since]
+    if has_activity(commits, prs + open_prs, since):
         sections["Red merges"] = [f"#{n}" for n in red_merges(prs)]
-        sections["Skip-Check"] = skip_check_trailers(commits)
+        sections["Skip-Check"] = [code(t) for t in skip_check_trailers(commits)]
         files = {p["number"]: [f["filename"] for f in fetch(
             ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or []] for p in prs}
         if protected is None:
             protected = load_protected(root)
-        sections["Protected files"] = [f"#{n}: {', '.join(fs)}" for n, fs in protected_changes(files, protected).items()]
+        sections["Protected files"] = [f"#{n}: {', '.join(code(f) for f in fs)}" for n, fs in protected_changes(files, protected).items()]
         detected = (fetch(["mise", "run", "detect-stack"]) or {}).get("stack", [])
         declared_file = root / ".repo.yaml"
         declared = ((yaml.safe_load(declared_file.read_text()) if declared_file.exists() else None) or {}).get("stack") or []
@@ -276,7 +287,8 @@ def main(argv: list[str]) -> int:
         print(f"monthly_due={str(monthly_due(now.date(), schedule, manual)).lower()}")
         return 0
     root = Path(".")
-    sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual)
+    sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual,
+                       base=os.environ.get("DEFAULT_BRANCH") or None)
     if argv == ["--dry-run"]:
         print(render_report(sections) or "No findings.")
         return 0
