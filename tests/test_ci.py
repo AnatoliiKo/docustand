@@ -13,6 +13,8 @@ from conftest import REPO_ROOT, run_copier
 
 TASKS = REPO_ROOT / "template" / ".mise" / "tasks"
 ZEROS = "0" * 40
+PR_IF = "${{ !cancelled() && github.event_name == 'pull_request' }}"
+PUSH_IF = "${{ !cancelled() && github.event_name == 'push' }}"
 LONG_HEADER = "feat: " + "x" * 74  # 80 characters, over the 72 limit
 
 
@@ -63,7 +65,7 @@ def test_ci_triggers_follow_answers(tmp_path):
 
 
 def test_ci_concurrency_and_permissions(workflow):
-    assert workflow["concurrency"]["cancel-in-progress"] is True
+    assert workflow["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
     assert workflow["permissions"] == {"contents": "read"}
     checkout = next(s for s in steps(workflow) if s.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["fetch-depth"] == 0
@@ -85,8 +87,8 @@ def test_ci_baseline_base_refs(workflow):
     for step in steps(workflow):
         if "check-baseline" in step.get("run", ""):
             by_event[step["if"]] = step
-    pr = by_event["github.event_name == 'pull_request'"]
-    push = by_event["github.event_name == 'push'"]
+    pr = by_event[PR_IF]
+    push = by_event[PUSH_IF]
 
     assert pr["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
     assert push["env"]["BASE_SHA"] == "${{ github.event.before }}"
@@ -98,7 +100,7 @@ def test_ci_baseline_base_refs(workflow):
 
 def test_ci_baseline_push_skips_zero_before(tmp_path, workflow):
     """The shell guard of the push step skips an all-zero `before`."""
-    push = next(s for s in steps(workflow) if s.get("if") == "github.event_name == 'push'"
+    push = next(s for s in steps(workflow) if s.get("if") == PUSH_IF
                 and "check-baseline" in s["run"])
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -120,7 +122,7 @@ def test_ci_baseline_push_skips_zero_before(tmp_path, workflow):
 def test_ci_lints_all_pr_commits(workflow):
     step = next(s for s in steps(workflow) if "check-pr-commits" in s.get("run", ""))
 
-    assert step["if"] == "github.event_name == 'pull_request'"
+    assert step["if"] == PR_IF
     assert step["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
     assert step["env"]["HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
     assert 'check-pr-commits -- "$BASE_SHA" "$HEAD_SHA"' in step["run"]
@@ -129,9 +131,18 @@ def test_ci_lints_all_pr_commits(workflow):
 def test_ci_pr_body_via_env(workflow):
     step = next(s for s in steps(workflow) if "check-pr-body" in s.get("run", ""))
 
-    assert step["if"] == "github.event_name == 'pull_request'"
+    assert step["if"] == PR_IF
     assert step["env"]["PR_BODY"] == "${{ github.event.pull_request.body }}"
     assert "${{" not in step["run"]
+
+
+def test_ci_later_steps_run_after_failure(workflow):
+    later = steps(workflow)[steps(workflow).index(next(s for s in steps(workflow)
+                                                       if s.get("run") == "mise run check")) + 1:]
+
+    assert len(later) == 4
+    for step in later:
+        assert step["if"].startswith("${{ !cancelled() && ")
 
 
 def test_ci_runs_check(workflow):

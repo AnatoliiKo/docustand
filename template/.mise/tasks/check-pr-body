@@ -23,7 +23,8 @@ def main() -> int:
             problems.append(f"PR body:{number}: remove the `Generated with` line")
         if CLAUDE_LINK.search(line):
             problems.append(f"PR body:{number}: remove the link to claude.ai")
-    print("\n".join(problems))
+    if problems:
+        print("\n".join(problems))
     return 1 if problems else 0
 
 

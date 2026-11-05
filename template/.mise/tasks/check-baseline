@@ -9,7 +9,8 @@
 Compares the number of entries of every baseline file with `git show BASE_REF:FILE`;
 growth fails. The files come from the profiles of `stack` in `.repo.yaml`
 (PROFILE_BASELINES below); `--file` replaces that list (used by the tests).
-Entries are the non-empty lines of a text file. JSON baselines
+A baseline file absent at the base counts as growth from 0 entries (owner decision
+pending for adoption PRs). Entries are the non-empty lines of a text file. JSON baselines
 (`.size-baseline.json`, `.jscpd.json`) are future work: they need their own counting.
 """
 import os

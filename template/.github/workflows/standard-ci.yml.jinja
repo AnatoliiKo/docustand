@@ -9,7 +9,7 @@ on:
 {% raw %}
 concurrency:
   group: standard-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -27,12 +27,12 @@ jobs:
       - run: mise run check
       # The base is the pull request base, or the previous tip of the pushed branch.
       - name: Baseline growth (pull request)
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: mise run check-baseline -- "$BASE_SHA"
       - name: Baseline growth (push)
-        if: github.event_name == 'push'
+        if: ${{ !cancelled() && github.event_name == 'push' }}
         env:
           BASE_SHA: ${{ github.event.before }}
         run: |
@@ -44,13 +44,13 @@ jobs:
           fi
       # Cloud sessions commit without hk, so every commit of the pull request is linted here.
       - name: Commit messages
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: mise run check-pr-commits -- "$BASE_SHA" "$HEAD_SHA"
       - name: Pull request description
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: mise run check-pr-body
