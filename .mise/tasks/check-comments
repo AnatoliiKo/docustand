@@ -1,0 +1,111 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail on comment mechanics: bare TODO, added-by/@author, linter disables without a reason"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-comments [PATH ...]
+
+Line-based, not a parser: comment text is cut out of each line (strings are
+skipped, `/* */` state carries across lines) and matched against the rules.
+Without paths every git-listed file with a known extension is checked.
+"""
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+C_LIKE = ("//", "/*")
+STYLES = {
+    ".ts": C_LIKE, ".tsx": C_LIKE, ".js": C_LIKE, ".mjs": C_LIKE,
+    ".php": ("//", "/*", "#"), ".tf": ("//", "/*", "#"),
+    ".py": ("#",), ".sh": ("#",),
+}
+RULES = [
+    (re.compile(r"\bTODO\b(?!\((?:#\d+|docs/tasks\.md)\))"), "TODO needs (#<n>) or (docs/tasks.md)"),
+    (re.compile(r"\badded by\b", re.I), "'added by' attribution in a comment"),
+    (re.compile(r"@author\b"), "@author in a comment"),
+    (re.compile(r"\beslint-disable[\w-]*(?!.*\s--\s+\S)"), "eslint-disable without ' -- <reason>'"),
+    (re.compile(r"@phpstan-ignore(?:-next-line|-line)\b(?!\s+\S)"), "@phpstan-ignore without a reason"),
+    (re.compile(r"@phpstan-ignore(?![\w-])(?!\s+[^\s,]+(?:\s*,\s*[^\s,]+)*\s+\S)"),
+     "@phpstan-ignore needs an identifier and a reason"),
+    (re.compile(r"\btflint-ignore(?:-file)?:(?!\s*[\w-]+(?:\s*,\s*[\w-]+)*\s+\S)"),
+     "tflint-ignore without a reason after the rule"),
+]
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True).stdout
+
+
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def comment_texts(line: str, starts: tuple[str, ...], in_block: bool) -> tuple[list[str], bool]:
+    """Comment fragments of one line and whether a block comment is still open."""
+    texts: list[str] = []
+    i, n, quote = 0, len(line), ""
+    if in_block:
+        end = line.find("*/")
+        texts.append(line if end < 0 else line[:end])
+        if end < 0:
+            return texts, True
+        i = end + 2
+    while i < n:
+        ch = line[i]
+        if quote:
+            i += 2 if ch == "\\" else 1
+            quote = "" if ch == quote else quote
+        elif ch in "'\"`":
+            quote = ch
+            i += 1
+        elif "//" in starts and line.startswith("//", i) and (i == 0 or line[i - 1] != ":"):
+            texts.append(line[i + 2:])
+            break
+        elif "/*" in starts and line.startswith("/*", i):
+            end = line.find("*/", i + 2)
+            texts.append(line[i + 2:] if end < 0 else line[i + 2:end])
+            if end < 0:
+                return texts, True
+            i = end + 2
+        elif ch == "#" and "#" in starts and (i == 0 or line[i - 1].isspace()) and line[i + 1:i + 2] not in ("[", "!"):
+            texts.append(line[i + 1:])
+            break
+        else:
+            i += 1
+    return texts, False
+
+
+def main(argv: list[str]) -> int:
+    root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    if argv:
+        files = [r for a in argv if (r := relative(root, a))]
+    else:
+        files = [p for p in git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0") if p]
+
+    violations = 0
+    for path in files:
+        starts = STYLES.get(Path(path).suffix)
+        full = root / path
+        if starts is None or not full.is_file():
+            continue
+        try:
+            lines = full.read_text().splitlines()
+        except (UnicodeDecodeError, OSError):
+            continue
+        in_block = False
+        for number, line in enumerate(lines, 1):
+            texts, in_block = comment_texts(line, starts, in_block)
+            for text in texts:
+                for pattern, message in RULES:
+                    if pattern.search(text):
+                        print(f"{path}:{number}: {message}")
+                        violations += 1
+    return 1 if violations else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

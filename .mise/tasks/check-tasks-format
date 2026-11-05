@@ -1,0 +1,130 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Validate the docs/tasks.md format"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: check-tasks-format [PATH ...]  (checks docs/tasks.md; with paths, only if listed)
+
+Verbs come from .mise/data/task-verbs.txt. Repositories in parentheses are
+allowed only when .repo.yaml has a non-null `system`.
+"""
+import re
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+FIELDS = ["Goal", "Done when", "Stopped at", "Next", "Refs"]
+BACKLOG = re.compile(r"- (?P<action>.+?) — (?P<reason>\S.*)")
+TRAILING_REPOS = re.compile(r"\s*\(([^()]*)\)\s*$")
+
+
+class Checker:
+    def __init__(self, verbs: set[str], has_system: bool):
+        self.verbs, self.has_system = verbs, has_system
+        self.problems: list[tuple[int, str]] = []
+
+    def add(self, line: int, message: str) -> None:
+        self.problems.append((line, message))
+
+    def check_action(self, line: int, text: str) -> None:
+        match = TRAILING_REPOS.search(text)
+        if match:
+            if not self.has_system:
+                self.add(line, "repositories in parentheses need `system` in .repo.yaml")
+            elif not all(part.strip() for part in match.group(1).split(",")):
+                self.add(line, "empty repository name in parentheses")
+            text = text[: match.start()]
+        first = text.split(maxsplit=1)[0] if text.split() else ""
+        if first not in self.verbs:
+            self.add(line, f"`{first}` is not a verb from .mise/data/task-verbs.txt")
+
+    def check_task(self, start: int, body: list[tuple[int, str]]) -> None:
+        seen: dict[str, str] = {}
+        for number, text in body:
+            if not text.startswith("- "):
+                continue
+            name, sep, value = text[2:].partition(":")
+            if not sep or name not in FIELDS:
+                self.add(number, "unknown field; expected " + ", ".join(FIELDS))
+            elif name in seen:
+                self.add(number, f"duplicate field `{name}`")
+            else:
+                seen[name] = value.strip()
+                if not value.strip():
+                    self.add(number, f"field `{name}` is empty")
+        for name in FIELDS:
+            if name not in seen:
+                self.add(start, f"task lacks field `{name}`")
+
+    def run(self, lines: list[str]) -> None:
+        sections: dict[str, int] = {}
+        current = None
+        tasks: list[tuple[int, list[tuple[int, str]]]] = []
+        for number, raw in enumerate(lines, 1):
+            text = raw.rstrip()
+            if text.startswith("## "):
+                name = text[3:].strip()
+                if name not in ("In progress", "Backlog"):
+                    self.add(number, f"unknown section `{name}`; expected `In progress` and `Backlog`")
+                elif name in sections:
+                    self.add(number, f"duplicate section `{name}`")
+                current = name
+                sections.setdefault(name, number)
+            elif not text:
+                continue
+            elif current is None:
+                self.add(number, "text before the first section")
+            elif current == "In progress":
+                if text.startswith("### "):
+                    self.check_action(number, text[4:].strip())
+                    tasks.append((number, []))
+                elif tasks:
+                    tasks[-1][1].append((number, text))
+                else:
+                    self.add(number, "expected a `### <verb> ...` task heading")
+            elif current == "Backlog":
+                match = BACKLOG.fullmatch(text)
+                if not match:
+                    self.add(number, "backlog line must be `- <action> — <reason>`")
+                else:
+                    self.check_action(number, match.group("action"))
+        for start, body in tasks:
+            self.check_task(start, body)
+        for name in ("In progress", "Backlog"):
+            if name not in sections:
+                self.add(1, f"missing section `## {name}`")
+        if len(sections) == 2 and sections["In progress"] > sections["Backlog"]:
+            self.add(sections["In progress"], "`In progress` must come before `Backlog`")
+
+
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
+                               capture_output=True, text=True).stdout.strip())
+    if argv and "docs/tasks.md" not in [r for a in argv if (r := relative(root, a))]:
+        return 0
+    path, verbs_path = root / "docs" / "tasks.md", root / ".mise" / "data" / "task-verbs.txt"
+    for needed in (path, verbs_path):
+        if not needed.exists():
+            print(f"{needed.relative_to(root).as_posix()}:1: file is missing")
+            return 1
+    verbs = {v.strip() for v in verbs_path.read_text().splitlines() if v.strip()}
+    config = yaml.safe_load((root / ".repo.yaml").read_text()) if (root / ".repo.yaml").exists() else None
+    checker = Checker(verbs, bool((config or {}).get("system")))
+    checker.run(path.read_text().splitlines())
+    for line, message in sorted(checker.problems):
+        print(f"docs/tasks.md:{line}: {message}")
+    return 1 if checker.problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

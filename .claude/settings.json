@@ -1,0 +1,60 @@
+{
+  "autoMemoryEnabled": false,
+  "includeGitInstructions": false,
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "ask": [
+      "Edit(/.repo.yaml)",
+      "Edit(/renovate.json)",
+      "Edit(/mise.toml)",
+      "Edit(/.mise/conf.d/**)",
+      "Edit(/hk.pkl)",
+      "Edit(/.github/workflows/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/hooks/**)",
+      "Edit(/.mise/tasks/**)",
+      "Edit(/.mise/data/**)",
+      "Edit(/.github/repo.schema.json)",
+      "Edit(/commitlint.config.mjs)",
+      "Edit(/typos.toml)",
+      "Edit(/.rumdl.toml)",
+      "Edit(/lychee.toml)"
+    ],
+    "deny": [
+      "mcp__github__merge_pull_request",
+      "mcp__github__push_files",
+      "mcp__github__create_or_update_file",
+      "mcp__plugin_github_github__merge_pull_request",
+      "mcp__plugin_github_github__push_files",
+      "mcp__plugin_github_github__create_or_update_file"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py\""},
+          {"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_pr_create.py\""},
+          {"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_pr_merge.py\""}
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "docustand@docustand": true,
+    "superpowers@superpowers-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "docustand": {
+      "source": {"source": "github", "repo": "AnatoliiKo/docustand"}
+    },
+    "superpowers-marketplace": {
+      "source": {"source": "github", "repo": "obra/superpowers-marketplace"}
+    }
+  }
+}

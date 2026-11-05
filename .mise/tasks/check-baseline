@@ -1,0 +1,101 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when a baseline file has more entries than at the base ref"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: check-baseline [--file PATH ...] [BASE_REF]
+
+Compares the number of entries of every baseline file with `git show BASE_REF:FILE`;
+growth fails. The files come from the profiles of `stack` in `.repo.yaml`
+(PROFILE_BASELINES below); `--file` replaces that list (used by the tests).
+A baseline file absent at the base counts as growth from 0 entries (owner decision
+pending for adoption PRs). Entries are the non-empty lines of a text file. JSON baselines
+(`.size-baseline.json`, `.jscpd.json`) are future work: they need their own counting.
+"""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+# Baseline files per profile. Terraform has none; code profiles add theirs.
+PROFILE_BASELINES: dict[str, list[str]] = {"terraform": []}
+
+
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def git(root: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+
+
+def profile_files(root: Path) -> list[str]:
+    path = root / ".repo.yaml"
+    data = yaml.safe_load(path.read_text()) if path.exists() else None
+    stack = data.get("stack") if isinstance(data, dict) else None
+    files: list[str] = []
+    for profile in stack if isinstance(stack, list) else []:
+        files += PROFILE_BASELINES.get(profile, [])
+    return files
+
+
+def count(text: str) -> int:
+    return sum(1 for line in text.splitlines() if line.strip())
+
+
+def parse(argv: list[str]) -> tuple[list[str], list[str]]:
+    files, refs = [], []
+    it = iter(argv)
+    for arg in it:
+        if arg == "--file":
+            files.append(next(it, ""))
+        elif arg.startswith("--file="):
+            files.append(arg.removeprefix("--file="))
+        else:
+            refs.append(arg)
+    return files, refs
+
+
+def main(argv: list[str]) -> int:
+    top = git(Path.cwd(), "rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        print("not a git repository")
+        return 1
+    root = Path(top.stdout.strip())
+    files, refs = parse(argv)
+    if not refs or git(root, "rev-parse", "--verify", "-q", "HEAD").returncode != 0:
+        print("no base ref, skipped")
+        return 0
+    ref = refs[0]
+    if ref.startswith("-") or git(root, "cat-file", "-e", f"{ref}^{{commit}}").returncode != 0:
+        print(f"base ref {ref} not found")
+        return 1
+
+    names = []
+    for arg in files:
+        rel = relative(root, arg)
+        if rel is None:
+            print(f"{arg}:1: file is outside the repository")
+            return 1
+        names.append(rel)
+    names = names or profile_files(root)
+
+    failed = False
+    for name in names:
+        shown = git(root, "show", f"{ref}:{name}")
+        before = count(shown.stdout) if shown.returncode == 0 else 0
+        path = root / name
+        after = count(path.read_text()) if path.is_file() else 0
+        if after > before:
+            print(f"{name}:1: baseline grew from {before} to {after} entries")
+            failed = True
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

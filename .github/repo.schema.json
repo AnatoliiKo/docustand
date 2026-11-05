@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Repository standard .repo.yaml",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_src_path": {"type": "string"},
+    "_commit": {"type": ["string", "number"], "description": "Copier writes the file with PyYAML (YAML 1.1), which leaves a hash such as 2239e11 unquoted; check-jsonschema parses YAML 1.2 and reads it as a number."},
+    "project_name": {"type": "string"},
+    "level": {"enum": ["base", "full"]},
+    "team": {"enum": ["solo"]},
+    "stack": {"type": "array", "items": {"enum": ["terraform"]}, "uniqueItems": true},
+    "architecture": {"type": "object"},
+    "system": {"type": ["object", "null"]},
+    "contract": {"type": ["object", "null"]},
+    "required_ci_branches": {"type": "array", "items": {"type": "string"}},
+    "md_exceptions": {"type": "array", "items": {"type": "string"}},
+    "report_schedule": {"enum": ["off", "monthly", "weekly", "twice-weekly"]},
+    "deployed": {"type": "boolean"},
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "reason"],
+        "properties": {"file": {"type": "string"}, "reason": {"type": "string"}}
+      }
+    }
+  }
+}

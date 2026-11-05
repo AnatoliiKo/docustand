@@ -1,0 +1,3 @@
+# Link check of the repository standard.
+# Hooks add `--offline` (internal links only); the scheduled report checks external links.
+exclude_path = ["docs/temp"]

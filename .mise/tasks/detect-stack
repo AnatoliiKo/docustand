@@ -1,0 +1,90 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Print the detected technology stack as JSON"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+"""Detect stack profiles from files in a directory.
+
+Usage: detect-stack [PATH]  (default: current directory)
+Prints {"stack": [...], "evidence": {profile: [paths]}} and always exits 0.
+Inside a git repo it uses `git ls-files` (tracked and untracked, not ignored);
+otherwise it walks the filesystem, skipping .git, .terraform, node_modules, vendor.
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+SKIP_DIRS = {".git", ".terraform", "node_modules", "vendor"}
+EVIDENCE_LIMIT = 10
+
+
+def git_files(root: Path) -> list[str] | None:
+    """Files known to git when `root` is itself a repo top level, else None."""
+    try:
+        top = subprocess.run(["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+                             check=True, capture_output=True, text=True).stdout.strip()
+        if Path(top).resolve() != root.resolve():
+            return None
+        raw = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            cwd=root, check=True, capture_output=True, text=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [p for p in raw.split("\0") if p and (root / p).exists()]
+
+
+def walk_files(root: Path) -> list[str]:
+    found = []
+    for base, dirs, names in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        rel = Path(base).relative_to(root)
+        found += [(rel / n).as_posix() for n in names]
+    return found
+
+
+def package_deps(root: Path) -> set[str]:
+    try:
+        data = json.loads((root / "package.json").read_text())
+        deps = set()
+        for key in ("dependencies", "devDependencies"):
+            section = data.get(key)
+            if isinstance(section, dict):
+                deps |= set(section)
+        return deps
+    except (OSError, ValueError, AttributeError):
+        return set()
+
+
+def detect(root: Path) -> dict:
+    files = git_files(root)
+    if files is None:
+        files = walk_files(root)
+    files = sorted(files)
+    evidence: dict[str, list[str]] = {}
+
+    tf = [f for f in files if f.endswith(".tf") and ".terraform" not in f.split("/")[:-1]]
+    if tf:
+        evidence["terraform"] = tf[:EVIDENCE_LIMIT]
+    if "artisan" in files:
+        evidence["laravel"] = ["artisan"]
+    if "package.json" in files:
+        deps = package_deps(root)
+        if "next" in deps:
+            evidence["nextjs"] = ["package.json"]
+        if "expo" in deps:
+            evidence["expo"] = ["package.json"]
+
+    return {"stack": sorted(evidence), "evidence": dict(sorted(evidence.items()))}
+
+
+def main(argv: list[str]) -> int:
+    root = Path(argv[0] if argv else ".")
+    print(json.dumps(detect(root) if root.is_dir() else {"stack": [], "evidence": {}}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

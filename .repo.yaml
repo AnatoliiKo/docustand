@@ -1,0 +1,25 @@
+# Managed by Copier while the project follows the template; change answers with copier update -a .repo.yaml --defaults --data.
+_commit: 9a1d59e
+_src_path: .
+architecture: {}
+contract: null
+deployed: false
+level: base
+md_exceptions:
+- skills/**/SKILL.md
+- skills/**/references/*.md
+- agents/*.md
+- profiles/*.md
+- template/**/*.md*
+overrides:
+-   file: .rumdl.toml
+    reason: Template copies template/CLAUDE.md, template/docs/tasks.md and template/.github/pull_request_template.md
+        start without a heading by format; per-file-ignores did not apply to them
+        in rumdl 0.3.2.
+project_name: docustand
+report_schedule: weekly
+required_ci_branches:
+- main
+stack: []
+system: null
+team: solo

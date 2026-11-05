@@ -1,0 +1,32 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when the pull request description has a generated-by line or a claude.ai link"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: PR_BODY=... check-pr-body
+
+The body comes from the environment, never from a substituted command line.
+An empty or unset body passes.
+"""
+import os
+import re
+import sys
+
+GENERATED_WITH = re.compile(r"^\W*generated with\b", re.IGNORECASE)
+CLAUDE_LINK = re.compile(r"claude\.ai\b", re.IGNORECASE)
+
+
+def main() -> int:
+    problems = []
+    for number, line in enumerate(os.environ.get("PR_BODY", "").splitlines(), start=1):
+        if GENERATED_WITH.search(line):
+            problems.append(f"PR body:{number}: remove the `Generated with` line")
+        if CLAUDE_LINK.search(line):
+            problems.append(f"PR body:{number}: remove the link to claude.ai")
+    if problems:
+        print("\n".join(problems))
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

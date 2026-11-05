@@ -1,0 +1,89 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail on .md files outside the allowed structure"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Check that every .md file is in a path allowed by the repository standard.
+
+Usage: check-md-placement [PATH ...]  (no paths: every file known to git)
+Glob syntax of the allowed list and of `md_exceptions`: `*` and `?` match
+within one path segment, `**` matches any number of segments (also zero).
+"""
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+ALLOWED = [
+    "README.md", "AGENTS.md", "CLAUDE.md", "CLAUDE.local.md", "CHANGELOG.md",
+    "docs/*.md", "docs/runbooks/**", "docs/temp/**", "openspec/**",
+    ".github/pull_request_template.md", ".claude/commands/**", ".claude/skills/**",
+]
+ADR = re.compile(r"docs/decisions/\d{4}-[a-z0-9]+(-[a-z0-9]+)*\.md")
+
+
+def glob_to_regex(pattern: str) -> re.Pattern:
+    out, i = [], 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out))
+
+
+def git(*args: str, cwd=None) -> str:
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
+
+
+def repo_root() -> Path:
+    return Path(git("rev-parse", "--show-toplevel").strip())
+
+
+def repo_files(root: Path) -> list[str]:
+    raw = git("ls-files", "-z", "--cached", "--others", "--exclude-standard", cwd=root)
+    return [p for p in raw.split("\0") if p and (root / p).exists()]
+
+
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def main(argv: list[str]) -> int:
+    root = repo_root()
+    config = yaml.safe_load((root / ".repo.yaml").read_text()) if (root / ".repo.yaml").exists() else None
+    exceptions = (config or {}).get("md_exceptions") or []
+    allowed = [glob_to_regex(p) for p in [*ALLOWED, *exceptions]]
+    files = [r for a in argv if (r := relative(root, a))] if argv else repo_files(root)
+
+    failed = False
+    for path in files:
+        if not path.lower().endswith(".md"):
+            continue
+        if ADR.fullmatch(path) or any(rx.fullmatch(path) for rx in allowed):
+            continue
+        print(f"{path}:1: markdown file is outside the allowed structure; "
+              "move it or add the path to md_exceptions in .repo.yaml")
+        failed = True
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

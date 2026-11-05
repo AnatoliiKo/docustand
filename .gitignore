@@ -2,3 +2,11 @@ docs/temp/
 CLAUDE.local.md
 .venv/
 __pycache__/
+
+# >>> repository standard
+.claude/*
+!.claude/settings.json
+!.claude/skills/
+!.claude/commands/
+!.claude/hooks/
+# <<< repository standard

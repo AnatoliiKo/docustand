@@ -1,0 +1,38 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when AGENTS.md is longer than 150 lines"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-agents-md [PATH ...]  (checks AGENTS.md; with paths, only if listed)"""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+LIMIT = 150
+
+
+def relative(root: Path, arg: str) -> str | None:
+    """Repo-relative POSIX path without following symlinks; None when outside the root."""
+    rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True,
+                               capture_output=True, text=True).stdout.strip())
+    if argv and "AGENTS.md" not in [r for a in argv if (r := relative(root, a))]:
+        return 0
+    path = root / "AGENTS.md"
+    if not path.exists():
+        print("AGENTS.md:1: file is missing")
+        return 1
+    count = len(path.read_text().splitlines())
+    if count > LIMIT:
+        print(f"AGENTS.md:{LIMIT + 1}: {count} lines, the limit is {LIMIT}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
