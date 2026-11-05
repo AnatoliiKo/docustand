@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "_src_path": {"type": "string"},
-    "_commit": {"type": "string"},
+    "_commit": {"type": ["string", "number"], "description": "Copier writes the file with PyYAML (YAML 1.1), which leaves a hash such as 2239e11 unquoted; check-jsonschema parses YAML 1.2 and reads it as a number."},
     "project_name": {"type": "string"},
     "level": {"enum": ["base", "full"]},
     "team": {"enum": ["solo"]},

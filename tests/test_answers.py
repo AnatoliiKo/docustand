@@ -55,3 +55,18 @@ def test_schema_rejects_unknown_key(render, tmp_path):
     bad = subprocess.run(["check-jsonschema", "--schemafile", str(schema), str(answers)],
                          capture_output=True, text=True)
     assert bad.returncode == 1
+
+
+def test_schema_accepts_float_like_commit(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+    schema = dest / ".github" / "repo.schema.json"
+    answers = dest / ".repo.yaml"
+    lines = [
+        "_commit: 2239e11" if line.startswith("_commit:") else line
+        for line in answers.read_text().splitlines()
+    ]
+    answers.write_text("\n".join(lines) + "\n")
+
+    result = subprocess.run(["check-jsonschema", "--schemafile", str(schema), str(answers)],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
