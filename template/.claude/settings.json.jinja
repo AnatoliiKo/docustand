@@ -1,0 +1,68 @@
+{%- set protected = [
+  ".repo.yaml",
+  "renovate.json",
+  "mise.toml",
+  ".mise/conf.d/**",
+  "hk.pkl",
+  ".github/workflows/**",
+  ".claude/settings.json",
+  ".claude/hooks/**",
+  ".mise/tasks/**",
+  ".mise/data/**",
+  ".github/repo.schema.json",
+  "commitlint.config.mjs",
+  "typos.toml",
+  ".rumdl.toml",
+  "lychee.toml",
+] -%}
+{%- if 'terraform' in stack -%}
+{%- set protected = protected + [".tflint.hcl"] -%}
+{%- endif -%}
+{
+  "autoMemoryEnabled": false,
+  "includeGitInstructions": false,
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "ask": [
+{%- for path in protected %}
+      "Edit(/{{ path }})"{{ "," if not loop.last }}
+{%- endfor %}
+    ],
+    "deny": [
+      "mcp__github__merge_pull_request",
+      "mcp__github__push_files",
+      "mcp__github__create_or_update_file",
+      "mcp__plugin_github_github__merge_pull_request",
+      "mcp__plugin_github_github__push_files",
+      "mcp__plugin_github_github__create_or_update_file"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py\""},
+          {"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_pr_create.py\""},
+          {"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_pr_merge.py\""}
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "docustand@docustand": true,
+    "superpowers@superpowers-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "docustand": {
+      "source": {"source": "github", "repo": "AnatoliiKo/docustand"}
+    },
+    "superpowers-marketplace": {
+      "source": {"source": "github", "repo": "obra/superpowers-marketplace"}
+    }
+  }
+}
