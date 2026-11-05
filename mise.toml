@@ -1,0 +1,10 @@
+[tools]
+python = "3.13"
+uv = "0.13.7"
+"pipx:copier" = "9.19.1"
+hk = "2.11.1"
+pkl = "0.32.2"
+
+[tasks.test]
+description = "Run the pytest suite"
+run = "uv run --with pytest --with pyyaml --with copier pytest -q"
