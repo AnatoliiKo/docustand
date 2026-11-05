@@ -1,5 +1,5 @@
 # Managed by Copier while the project follows the template; change answers with copier update -a .repo.yaml --defaults --data.
-_commit: 9a1d59e
+_commit: 0d949f6
 _src_path: .
 architecture: {}
 contract: null
@@ -13,9 +13,11 @@ md_exceptions:
 - template/**/*.md*
 overrides:
 -   file: .rumdl.toml
-    reason: Template copies template/CLAUDE.md, template/docs/tasks.md and template/.github/pull_request_template.md
-        start without a heading by format; per-file-ignores did not apply to them
-        in rumdl 0.3.2.
+    reason: template/CLAUDE.md, template/docs/tasks.md and template/.github/pull_request_template.md
+        have no top-level heading by design. rumdl uses the nested template/.rumdl.toml
+        for template/**, so per-file-ignores of the root config do not reach them;
+        the three files are excluded instead. Their rendered copies are linted by
+        the integration test test_clean_project_passes.
 project_name: docustand
 report_schedule: weekly
 required_ci_branches:

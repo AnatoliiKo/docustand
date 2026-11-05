@@ -2,7 +2,10 @@
 [global]
 # Documents use one sentence per line; line length is not limited.
 disable = ["MD013"]
-# docustand only: the template copies of the three files below start without a heading too.
+# docustand only: rumdl uses the nested `template/.rumdl.toml` for `template/**`, so
+# per-file-ignores below do not reach the template copies of CLAUDE.md, docs/tasks.md
+# and the pull request template. They have no top-level heading by design; their
+# rendered copies are linted by the integration tests.
 exclude = ["docs/temp/**", "template/CLAUDE.md", "template/docs/tasks.md", "template/.github/pull_request_template.md"]
 force-exclude = true
 
