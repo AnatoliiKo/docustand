@@ -194,7 +194,6 @@ def test_renovate_ignores_standard_files(renovate):
 
 def test_docustand_renovate_matches_template_files():
     root = json.loads((REPO_ROOT / "renovate.json").read_text())
-    template = json.loads((REPO_ROOT / "template/renovate.json.jinja").read_text())
     workflow = "template/.github/workflows/standard-ci.yml.jinja"
     mise = "template/.mise/conf.d/standard.toml.jinja"
 
@@ -205,8 +204,46 @@ def test_docustand_renovate_matches_template_files():
     assert any(re.search(p[1:-1], workflow) for p in gha)
     assert any(re.search(p[1:-1], mise) for p in mise_patterns)
     assert (REPO_ROOT / workflow).exists() and (REPO_ROOT / mise).exists()
+
+
+def test_docustand_renovate_is_template_plus_documented_extras():
+    root_text = (REPO_ROOT / "renovate.json").read_text()
+    template_text = (REPO_ROOT / "template/renovate.json.jinja").read_text()
+    root = json.loads(root_text)
+    template = json.loads(template_text)
+
+    # Same keys and values as the template, plus the keys that point Renovate at the template sources.
+    assert set(root) - set(template) == {"github-actions", "mise", "customManagers"}
     for key, value in template.items():
-        assert root[key] == value
+        if key != "packageRules":
+            assert root[key] == value, key
+    rules, extra = root["packageRules"], root["packageRules"][len(template["packageRules"]):]
+    assert rules[:len(template["packageRules"])] == template["packageRules"]
+    assert {"matchManagers": ["custom.regex"], "groupName": "mise tools"} in extra
+    assert {"matchFileNames": ["template/**"], "automerge": False} in extra
+
+    # Template formatting is kept: every template line appears in order (trailing commas aside).
+    root_lines = [ln.rstrip(",") for ln in root_text.splitlines()]
+    position = 0
+    for line in (ln.rstrip(",") for ln in template_text.splitlines()):
+        position = root_lines.index(line, position) + 1
+
+    # The deviation is recorded.
+    answers = yaml.safe_load((REPO_ROOT / ".repo.yaml").read_text())
+    assert "renovate.json" in [o["file"] for o in answers["overrides"]]
+
+
+def test_docustand_renovate_bumps_hk_in_template_pkl():
+    root = json.loads((REPO_ROOT / "renovate.json").read_text())
+    manager = root["customManagers"][0]
+    pkl = (REPO_ROOT / "template/hk.pkl.jinja").read_text()
+    pattern = manager["managerFilePatterns"][0]
+
+    assert re.search(pattern[1:-1], "template/hk.pkl.jinja")
+    for expression in manager["matchStrings"]:
+        assert re.findall(expression.replace("(?<", "(?P<"), pkl), expression
+    assert manager["depNameTemplate"] == "jdx/hk"
+    assert {"matchManagers": ["custom.regex"], "groupName": "mise tools"} in root["packageRules"]
 
 
 def test_template_version_lines_have_no_jinja():

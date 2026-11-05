@@ -1,52 +1,32 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "minimumReleaseAge": "3 days",
-  "vulnerabilityAlerts": {
-    "enabled": true,
-    "minimumReleaseAge": null
-  },
-  "copier": {
-    "managerFilePatterns": [
-      "/(^|/)\\.repo\\.yaml$/"
-    ]
-  },
+  "vulnerabilityAlerts": {"enabled": true, "minimumReleaseAge": null},
+  "copier": {"managerFilePatterns": ["/(^|/)\\.repo\\.yaml$/"]},
   "semanticCommits": "enabled",
-  "ignorePaths": [
-    ".mise/conf.d/standard.toml",
-    ".github/workflows/standard-*.yml"
-  ],
+  "ignorePaths": [".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"],
   "platformAutomerge": false,
   "packageRules": [
-    {
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": true
-    },
-    {
-      "matchManagers": [
-        "github-actions"
-      ],
-      "groupName": "github actions"
-    },
-    {
-      "matchManagers": [
-        "mise"
-      ],
-      "groupName": "mise tools"
-    }
+    {"matchUpdateTypes": ["patch"], "automerge": true},
+    {"matchManagers": ["github-actions"], "groupName": "github actions"},
+    {"matchManagers": ["mise"], "groupName": "mise tools"},
+    {"matchManagers": ["custom.regex"], "groupName": "mise tools"},
+    {"matchFileNames": ["template/**"], "automerge": false}
   ],
-  "github-actions": {
-    "managerFilePatterns": [
-      "/^template/\\.github/workflows/.+\\.ya?ml\\.jinja$/"
-    ]
-  },
-  "mise": {
-    "managerFilePatterns": [
-      "/^template/\\.mise/conf\\.d/.+\\.toml\\.jinja$/"
-    ]
-  }
+  "github-actions": {"managerFilePatterns": ["/^template/\\.github/workflows/.+\\.ya?ml\\.jinja$/"]},
+  "mise": {"managerFilePatterns": ["/^template/\\.mise/conf\\.d/.+\\.toml\\.jinja$/"]},
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^template/hk\\.pkl\\.jinja$/"],
+      "matchStrings": [
+        "releases/download/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/hk@",
+        "/hk@(?<currentValue>\\d+\\.\\d+\\.\\d+)#"
+      ],
+      "depNameTemplate": "jdx/hk",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    }
+  ]
 }

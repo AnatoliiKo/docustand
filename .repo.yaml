@@ -18,6 +18,13 @@ overrides:
         for template/**, so per-file-ignores of the root config do not reach them;
         the three files are excluded instead. Their rendered copies are linted by
         the integration test test_clean_project_passes.
+-   file: renovate.json
+    reason: 'Renovate must also bump the pinned versions in the template sources:
+        the template/**/*.jinja files (GitHub Actions, mise tools, the hk package
+        URLs in template/hk.pkl.jinja). The root file is the template''s renovate.json
+        plus the github-actions, mise and customManagers keys that point Renovate
+        at those sources, and a rule that keeps template/** updates from automerging
+        because they reach every project.'
 project_name: docustand
 report_schedule: weekly
 required_ci_branches:
