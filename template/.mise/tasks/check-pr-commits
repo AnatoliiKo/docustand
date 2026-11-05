@@ -1,0 +1,64 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Lint the message of every commit in BASE..HEAD with commitlint"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-pr-commits BASE HEAD
+
+Cloud sessions commit without hk, so CI lints each commit message of the range.
+Commits by `renovate[bot]` are skipped: Renovate sets their format.
+`COMMITLINT` overrides the command (default `commitlint`, config from the repo root).
+"""
+import os
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+SKIPPED_AUTHORS = {"renovate[bot]"}
+
+
+def git(root: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print("usage: check-pr-commits BASE HEAD")
+        return 1
+    base, head = argv
+    top = git(Path.cwd(), "rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        print("not a git repository")
+        return 1
+    root = Path(top.stdout.strip())
+    for ref in (base, head):
+        if ref.startswith("-") or git(root, "cat-file", "-e", f"{ref}^{{commit}}").returncode != 0:
+            print(f"ref {ref} not found")
+            return 1
+    log = git(root, "log", "--format=%H %an", f"{base}..{head}")
+    if log.returncode != 0:
+        print(log.stderr.strip())
+        return 1
+
+    command = shlex.split(os.environ.get("COMMITLINT", "commitlint"))
+    failed = False
+    for entry in log.stdout.splitlines():
+        sha, _, author = entry.partition(" ")
+        if author in SKIPPED_AUTHORS:
+            continue
+        message = git(root, "log", "-1", "--format=%B", sha).stdout
+        try:
+            result = subprocess.run(command, cwd=root, input=message, capture_output=True, text=True)
+        except OSError as err:
+            print(f"cannot run {command[0]}: {err}")
+            return 1
+        if result.returncode != 0:
+            failed = True
+            print(f"{sha[:7]}: commit message rejected")
+            print((result.stdout + result.stderr).rstrip())
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "minimumReleaseAge": "3 days",
+  "vulnerabilityAlerts": {"enabled": true, "minimumReleaseAge": null},
+  "copier": {"managerFilePatterns": ["/(^|/)\\.repo\\.yaml$/"]},
+  "semanticCommits": "enabled",
+  "ignorePaths": [".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"],
+  "platformAutomerge": false,
+  "packageRules": [
+    {"matchUpdateTypes": ["patch"], "automerge": true},
+    {"matchManagers": ["github-actions"], "groupName": "github actions"},
+    {"matchManagers": ["mise"], "groupName": "mise tools"}
+  ]
+}
