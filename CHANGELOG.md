@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.1.3 — 2026-11-06
+
+### Fixed
+
+- Template `renovate.json`: rules with `overridePackageName` expand the Copier source shorthands `gh:` and `gl:` to `https://github.com/` and `https://gitlab.com/`. Renovate passed `gh:owner/repo` to the `git-tags` lookup unchanged, the lookup returned no result, and no `copier update` pull request opened.
+- Template `renovate.json` has no `.jinja` suffix: Copier copies it unrendered, so the Handlebars templates of Renovate stay intact.
+
 ## 0.1.2 — 2026-11-06
 
 ### Added
