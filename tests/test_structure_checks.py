@@ -426,6 +426,28 @@ def test_gitignore_negation_before_block_fails(project):
     assert ".gitignore:1:" in out and "after `.claude/*`" in out
 
 
+def test_gitignore_whole_claude_dir_before_block_fails(project):
+    # Git does not look inside an excluded directory, so the negations of the block have no effect.
+    dest = project()
+    write(dest, ".gitignore", ".claude/\n" + (dest / ".gitignore").read_text())
+
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 1
+    assert "`.claude/settings.json` is ignored" in out
+    assert "`.claude/hooks/guard_bash.py` is ignored" in out
+
+
+def test_gitignore_local_notes_not_ignored_fails(project):
+    dest = project()
+    write(dest, ".gitignore", (dest / ".gitignore").read_text() + "!CLAUDE.local.md\n")
+
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 1
+    assert "`CLAUDE.local.md` is not ignored" in out
+
+
 def test_tasks_backlog_repos_with_system_passes(project):
     dest = project(system={"center": "x"})
     write(dest, "docs/tasks.md",

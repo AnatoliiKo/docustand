@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Fixed
+
+- Template `check-gitignore-block`: `git check-ignore` confirms that `.claude/settings.json` and `.claude/hooks/guard_bash.py` are not ignored and `CLAUDE.local.md` is ignored. A rule `.claude/` before the block disabled the negations of the block, and the check passed.
+
 ## 0.1.3 — 2026-11-06
 
 ### Fixed
