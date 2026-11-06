@@ -161,6 +161,13 @@ def test_fails_on_md_placement(project):
     assert_step_fails(check(project), "check-md-placement")
 
 
+def test_fails_on_conflict_markers(project):
+    # Markers a conflicting `copier update` leaves in a Markdown file.
+    write(project[0], "docs/notes.md", "# Notes\n\n<<<<<<< before updating\nold\n=======\nnew\n>>>>>>> after updating\n")
+
+    assert_step_fails(check(project), "check-merge-conflict")
+
+
 def test_fails_on_tf_fmt(project):
     root = project[0]
     write(root, "main.tf", MAIN_TF.replace("input = var.name", "input    =    var.name"))
