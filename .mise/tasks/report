@@ -39,10 +39,7 @@ SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
 ADDED = {"added", "renamed", "copied"}
 ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 NO_APP = "report app is not configured, see docs/access.md"
-<<<<<<< before updating
-=======
 VULN_NOT_CHECKED = "Not checked, needs the report app"
->>>>>>> after updating
 
 
 def fetch(cmd: list[str]) -> Any:
@@ -334,12 +331,7 @@ def main(argv: list[str]) -> int:
     root = Path(".")
     no_app = os.environ.get("REPORT_APP_CONFIGURED") == "false"
     sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual,
-<<<<<<< before updating
-                       base=os.environ.get("DEFAULT_BRANCH") or None)
-    no_app = os.environ.get("REPORT_APP_CONFIGURED") == "false"
-=======
                        base=os.environ.get("DEFAULT_BRANCH") or None, app=not no_app)
->>>>>>> after updating
     if no_app:
         sections["Report app"] = [NO_APP]
     text = render_report(sections) or "No findings."
