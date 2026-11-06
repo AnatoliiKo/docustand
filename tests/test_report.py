@@ -91,10 +91,59 @@ def test_cron_mapping(render, tmp_path, schedule):
     on = workflow.get("on", workflow.get(True))
     assert on["schedule"] == [{"cron": CRONS[schedule]}]
     assert "workflow_dispatch" in on
-    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["permissions"] == {"contents": "read", "pull-requests": "read"}
     text = path.read_text()
     assert "REPORT_APP_ID" in text and "REPORT_APP_PRIVATE_KEY" in text
     assert "docustand" not in text.lower()
+
+
+def test_workflow_runs_without_app(render, tmp_path):
+    project = render(tmp_path, project_name="demo", report_schedule="weekly")
+    jobs = yaml.safe_load((project / ".github/workflows/standard-report.yml").read_text())["jobs"]
+    report_job = jobs["report"]
+    steps = {s.get("id") or s.get("name"): s for s in report_job["steps"]}
+
+    assert report_job["env"]["HAS_APP"] == "${{ secrets.REPORT_APP_ID != '' }}"
+    assert steps["app"]["if"] == "${{ env.HAS_APP == 'true' }}"
+    assert steps["Report"]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token || github.token }}"
+    assert steps["Report"]["env"]["REPORT_APP_CONFIGURED"] == "${{ env.HAS_APP }}"
+    assert jobs["fresh-install"]["if"].startswith("${{ !cancelled() && ")
+
+
+def run_main(report, tmp_path, monkeypatch, app: str | None):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "access.md").write_text(ACCESS)
+    summary = tmp_path / "summary.md"
+    monkeypatch.chdir(tmp_path)
+    for name, value in {"GITHUB_REPOSITORY": "o/r", "GITHUB_STEP_SUMMARY": str(summary),
+                        "REPORT_APP_CONFIGURED": app}.items():
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    published = []
+    monkeypatch.setattr(report, "fetch", Fake())
+    monkeypatch.setattr(report, "publish", lambda sections, *_: published.append(sections))
+    return report.main([]), summary, published
+
+
+def test_main_without_app_fails_with_summary(report, tmp_path, monkeypatch, capsys):
+    code, summary, published = run_main(report, tmp_path, monkeypatch, "false")
+
+    assert code == 1
+    assert not published
+    assert report.NO_APP in capsys.readouterr().err
+    text = summary.read_text()
+    assert "## Report app" in text and report.NO_APP in text
+    assert "Deploy key" in text
+
+
+def test_main_with_app_publishes(report, tmp_path, monkeypatch):
+    code, summary, published = run_main(report, tmp_path, monkeypatch, "true")
+
+    assert code == 0
+    assert len(published) == 1 and "Report app" not in published[0]
+    assert "Deploy key" in summary.read_text()
 
 
 def test_report_script_has_no_template_name():

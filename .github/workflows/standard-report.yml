@@ -12,11 +12,15 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   report:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Without the app the default token collects what it can and the job fails with the reason.
+      HAS_APP: ${{ secrets.REPORT_APP_ID != '' }}
     outputs:
       monthly_due: ${{ steps.due.outputs.monthly_due }}
     steps:
@@ -26,6 +30,7 @@ jobs:
           persist-credentials: false
       # The app token opens the pull request and reads alert settings; the default token stays read-only.
       - id: app
+        if: ${{ env.HAS_APP == 'true' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.REPORT_APP_ID }}
@@ -39,7 +44,8 @@ jobs:
         run: mise run report -- --print-monthly-due >> "$GITHUB_OUTPUT"
       - name: Report
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          REPORT_APP_CONFIGURED: ${{ env.HAS_APP }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           REPORT_SCHEDULE: weekly
           REPORT_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
@@ -52,7 +58,7 @@ jobs:
   # From scratch, as the README tells a new contributor.
   fresh-install:
     needs: report
-    if: ${{ needs.report.outputs.monthly_due == 'true' }}
+    if: ${{ !cancelled() && needs.report.outputs.monthly_due == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

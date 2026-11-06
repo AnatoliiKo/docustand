@@ -7,7 +7,8 @@
 """Usage: report [--dry-run | --print-monthly-due]
 
 Environment: GITHUB_REPOSITORY, REPORT_SCHEDULE (monthly|weekly|twice-weekly),
-REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), GH_TOKEN for `gh`.
+REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), GH_TOKEN for `gh`,
+REPORT_APP_CONFIGURED=false when the report GitHub App is missing, GITHUB_STEP_SUMMARY for the job summary.
 
 Order: token expiry and vulnerability alerts always; red merges, Skip-Check
 trailers, protected files, new baseline files and stack drift only when the repository had activity
@@ -37,6 +38,7 @@ RED = {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE", "CANCELLED"}
 SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
 ADDED = {"added", "renamed", "copied"}
 ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
+NO_APP = "report app is not configured, see docs/access.md"
 
 
 def fetch(cmd: list[str]) -> Any:
@@ -323,9 +325,20 @@ def main(argv: list[str]) -> int:
     root = Path(".")
     sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual,
                        base=os.environ.get("DEFAULT_BRANCH") or None)
+    no_app = os.environ.get("REPORT_APP_CONFIGURED") == "false"
+    if no_app:
+        sections["Report app"] = [NO_APP]
+    text = render_report(sections) or "No findings."
     if argv == ["--dry-run"]:
-        print(render_report(sections) or "No findings.")
+        print(text)
         return 0
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(summary, "a") as out:
+            out.write(text + "\n")
+    if no_app:
+        # The default token cannot push or open a pull request; the findings stay in the job summary.
+        print(f"::error::{NO_APP}" if os.environ.get("GITHUB_ACTIONS") == "true" else NO_APP, file=sys.stderr)
+        return 1
     publish(sections, root, now.strftime("%Y-%m-%d"))
     return 0
 

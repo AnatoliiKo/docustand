@@ -13,3 +13,4 @@ Expiry is a date in `YYYY-MM-DD` format or `never`.
 
 - Install the Renovate GitHub App on every repository that uses the standard.
 - Create the report GitHub App with the permissions above; `repo-init` stores its ID and private key as the repository secrets above.
+- Without these secrets the scheduled report collects the findings into the job summary and fails with `report app is not configured, see docs/access.md`.
