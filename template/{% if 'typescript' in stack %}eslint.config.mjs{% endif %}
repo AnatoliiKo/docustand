@@ -1,6 +1,6 @@
 // Managed by the repository standard; change it only with the owner's approval.
 // Project rules come first and the standard rules last, so the project cannot weaken them.
-// A stricter threshold is an edit of this file with an entry in `overrides` of `.repo.yaml`.
+// A stricter threshold or a global ignore is an edit of this file with an entry in `overrides`.
 import { defineConfig } from 'eslint/config';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
@@ -10,9 +10,24 @@ import project from './eslint.project.mjs';
 const typed = process.env.ESLINT_NO_TYPES !== '1';
 const functionLength = { skipBlankLines: true, skipComments: true };
 
+// An object with only `ignores` applies to every config object, the standard rules included.
+// Global ignores of the project therefore go into this file, with an entry in `overrides`.
+const isGlobalIgnore = (item) =>
+  item !== null &&
+  typeof item === 'object' &&
+  'ignores' in item &&
+  Object.keys(item).every((key) => key === 'ignores' || key === 'name');
+const projectConfig = [project].flat(Infinity);
+const dropped = projectConfig.filter(isGlobalIgnore);
+if (dropped.length > 0) {
+  console.warn(
+    `global ignores of eslint.project.mjs are dropped (${dropped.length}); add them to eslint.config.mjs`,
+  );
+}
+
 export default defineConfig(
   { ignores: ['**/node_modules/', '**/dist/', '**/build/', '**/coverage/'] },
-  ...project,
+  ...projectConfig.filter((item) => !isGlobalIgnore(item)),
   {
     files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
     languageOptions: { parser: tseslint.parser },

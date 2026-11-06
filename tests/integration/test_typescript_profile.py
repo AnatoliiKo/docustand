@@ -180,6 +180,36 @@ def test_project_rule_cannot_weaken_complexity(ts):
     assert "Maximum allowed is 10" in result.stdout
 
 
+@pytest.mark.parametrize("ignore", [
+    '{ ignores: ["src/**"] }',
+    '{ name: "skip", ignores: ["src/**"] }',
+    '[[{ ignores: ["src/**"] }]]',
+])
+def test_project_global_ignores_are_dropped(ts, ignore):
+    root = ts[0]
+    write(root, "eslint.project.mjs", f"export default [{ignore}];\n")
+    write(root, "src/pick.ts", branches(12))
+
+    result = eslint(ts, "src/pick.ts")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Maximum allowed is 10" in result.stdout
+    assert "global ignores of eslint.project.mjs are dropped" in result.stderr
+
+
+def test_project_ignores_with_files_still_apply(ts):
+    root = ts[0]
+    write(root, "eslint.project.mjs", 'export default [{ files: ["src/**"], ignores: ["src/pick.ts"], '
+          'rules: { "no-var": "error" } }];\n')
+    write(root, "src/pick.ts", "export var x = 1;\n")
+    write(root, "src/other.ts", "export var y = 1;\n")
+
+    result = eslint(ts, "src/pick.ts", "src/other.ts")
+
+    assert result.returncode == 1
+    assert "other.ts" in result.stdout and "pick.ts" not in result.stdout
+
+
 def test_stricter_threshold_through_protected_file(ts):
     root = ts[0]
     write(root, "src/pick.ts", branches(6))
