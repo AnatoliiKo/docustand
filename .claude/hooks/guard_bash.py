@@ -14,7 +14,8 @@ falls back to a conservative regular-expression scan of the raw text.
 Asked: a command that writes to a protected path, that is a path of an
 `Edit(/<path>)` rule in `permissions.ask` of .claude/settings.json. Writes are
 output redirections, `tee`, `sed -i`, `perl -i`, and the destination of `cp`
-and `mv` (and the source of `mv`). A block wins over an ask.
+and `mv` (and the source of `mv`). A block wins over an ask. An unparsable
+command asks when its raw text names a protected path next to a write marker.
 """
 
 import json
@@ -162,11 +163,26 @@ def load_protected(root):
     return [m.group(1) for rule in rules if isinstance(rule, str) and (m := ASK_EDIT.match(rule))]
 
 
-def glob(pattern):
-    """Compile a protected pattern; `**` crosses directories, `*` does not."""
+def _glob_body(pattern):
     parts = re.split(r"(\*\*|\*)", pattern)
-    body = "".join(".*" if p == "**" else "[^/]*" if p == "*" else re.escape(p) for p in parts)
-    return re.compile(body + r"\Z")
+    return "".join(".*" if p == "**" else "[^/]*" if p == "*" else re.escape(p) for p in parts)
+
+
+def glob(pattern):
+    """Compile a protected pattern; `**` crosses directories, `*` does not.
+
+    A `dir/**` pattern also matches `dir` itself. Matching ignores case, as the
+    file systems of macOS and Windows do.
+    """
+    body = _glob_body(pattern)
+    if pattern.endswith("/**"):
+        body = f"(?:{body}|{_glob_body(pattern[:-3])})"
+    return re.compile(body + r"\Z", re.IGNORECASE)
+
+
+def literal_prefix(pattern):
+    """The part of a pattern before its first wildcard, without a trailing slash."""
+    return pattern.split("*", 1)[0].rstrip("/")
 
 
 def parse_args(args, short_values="", long_values=()):
@@ -216,11 +232,11 @@ def in_place(args, value_letters, long_name=None):
 
 
 def write_targets(words):
-    """Paths that this simple command writes to, as written in the command."""
-    targets = redirects(words)
+    """Paths that this simple command writes to and paths that it removes, as written."""
+    targets, removed = redirects(words), []
     rest = strip_prefix(words)[1]
     if not rest:
-        return targets
+        return targets, removed
     head, args = os.path.basename(rest[0]), rest[1:]
     if head == "tee":
         targets += parse_args(args)[0]
@@ -237,30 +253,53 @@ def write_targets(words):
             targets.append(d)
             targets += [os.path.join(d, os.path.basename(src.rstrip("/"))) for src in operands]
         if head == "mv":
-            targets += operands
-    return targets
+            removed += operands
+    return targets, removed
+
+
+WRITE_MARKER = re.compile(r">|\btee\b|(^|\s)-[A-Za-z]*i|--in-place|\bcp\b|\bmv\b")
+
+
+def fallback_writes(text, protected):
+    """Protected patterns named in an unparsable command that also has a write marker."""
+    if not WRITE_MARKER.search(text):
+        return []
+    low = text.lower()
+    return [p for p in protected if literal_prefix(p).lower() in low]
 
 
 def protected_writes(text, cwd, root):
-    """Project-relative protected paths that the command writes to."""
-    patterns = [glob(p) for p in load_protected(root)]
-    if not patterns:
+    """Project-relative protected paths that the command writes to or removes."""
+    protected = load_protected(root)
+    if not protected:
         return []
     try:
         commands = all_commands(text)
     except ValueError:
-        return []
+        return fallback_writes(text, protected)
+    patterns = [glob(p) for p in protected]
+    prefixes = [literal_prefix(p).lower() for p in protected]
     root = os.path.realpath(root)
     hits = []
+
+    def relative(target):
+        if not target or target == "-" or target.startswith("/dev/"):
+            return None
+        path = os.path.realpath(os.path.join(cwd, os.path.expandvars(os.path.expanduser(target))))
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        return None if rel == ".." or rel.startswith("../") else rel
+
     for words in commands:
-        for target in write_targets(words):
-            if not target or target == "-" or target.startswith("/dev/"):
+        targets, removed = write_targets(words)
+        for target in targets + removed:
+            rel = relative(target)
+            if rel is None:
                 continue
-            path = os.path.realpath(os.path.join(cwd, os.path.expandvars(os.path.expanduser(target))))
-            rel = os.path.relpath(path, root).replace(os.sep, "/")
-            if rel == ".." or rel.startswith("../"):
-                continue
-            if any(p.match(rel) for p in patterns) and rel not in hits:
+            hit = any(p.match(rel) for p in patterns)
+            if not hit and target in removed:
+                # Moving a parent directory moves the protected files inside it.
+                hit = rel == "." or any(pre.startswith(rel.lower() + "/") for pre in prefixes)
+            if hit and rel not in hits:
                 hits.append(rel)
     return hits
 

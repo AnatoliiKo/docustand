@@ -13,7 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Skill `repo-init`: new repository, migration, audit and update, answer changes, detach.
 - Skills `project-docs` and `quality-gates`, ported to the repository standard.
 - Agent `inventory`: read-only documentation inventory for the migration.
-- Template `guard_bash.py`: a Bash command that writes to a path of an `Edit(/<path>)` rule in `permissions.ask` returns the PreToolUse decision `ask`; writes are redirections, `tee`, `sed -i`, `perl -i`, `cp` and `mv`; a block wins over an ask.
+- Template `guard_bash.py`: a Bash command that writes to a path of an `Edit(/<path>)` rule in `permissions.ask` returns the PreToolUse decision `ask`; writes are redirections, `tee`, `sed -i`, `perl -i`, `cp` and `mv`; a block wins over an ask; a `dir/**` rule covers `dir` itself; matching ignores case; an unparsable command asks when its text names a protected path next to a write marker.
+- Template `_shell.py`: the guard hooks unwrap `doas`, `setsid`, `stdbuf` and `find -exec`, and follow nested `eval` and `sh -c` up to 8 levels.
 
 ### Changed
 
@@ -22,5 +23,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- Template `guard_bash.py`: options of `sudo`, `time`, `exec` and `command` are skipped, so `sudo -u bob git commit -n` is blocked; a redirection before the command no longer hides it.
+- Template `guard_bash.py`: options of `sudo` (including `-R`), `time`, `exec`, `command` and BSD `xargs` are skipped, so `sudo -u bob git commit -n` is blocked; a redirection before the command and `--` after `sh -c` no longer hide it.
 - Template `docs/access.md`: the report GitHub App row with its secrets and permissions renders whenever reports are on; the scheduled Claude task row renders only at the full level.

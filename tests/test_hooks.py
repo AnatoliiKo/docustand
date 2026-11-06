@@ -240,6 +240,24 @@ def test_blocks_git_config_new_syntax_writes():
     "exec -a name git commit -n -m x",
     ">out.log git commit -n -m x",
     "2>&1 git commit --no-verify -m x",
+    'bash -c -- "git commit -n -m x"',
+    "sh -c -- 'git commit --no-verify -m x'",
+    "bash -o pipefail -c 'git commit -n -m x'",
+    "bash -c -e 'git commit -n -m x'",
+    "sudo -R / git commit -n -m x",
+    "sudo --chroot / git commit -n -m x",
+    "sudo -C 3 -D /tmp -p pw -r role -t type -T 5 -U bob -h host git commit -n -m x",
+    "doas -u bob git commit -n -m x",
+    "setsid git commit --no-verify -m x",
+    "stdbuf -o L git commit -n -m x",
+    "stdbuf --output=L -e 0 git commit -n -m x",
+    "find . -name x -exec git commit -n -m x \\;",
+    "find . -execdir git commit --no-verify -m x {} +",
+    "find . -exec sudo -u bob git commit -n -m x \\;",
+    "echo x | xargs -J % git commit -n -m %",
+    "echo x | xargs -R 2 -I % git commit -n -m %",
+    "echo x | xargs -S 512 -I % git commit --no-verify -m %",
+    "echo x | xargs -L 1 git commit -n -m",
 ])
 def test_blocks_wrapper_forms(command):
     assert bash(command).returncode == 2, command
@@ -251,6 +269,8 @@ def test_blocks_wrapper_forms(command):
     "sudo -u bob git commit -m x",
     "nohup git push origin main > push.log 2>&1",
     "time -p git status",
+    "find . -name '*.py' -exec grep -n x {} \\;",
+    "bash script.sh -c 'git commit -n -m x'",
 ])
 def test_allows_safe_wrapper_forms(command):
     assert bash(command).returncode == 0, command
@@ -314,6 +334,43 @@ def decision(result):
 ])
 def test_asks_on_protected_write(project, command):
     assert decision(bash_in(project, command)) == "ask", command
+
+
+def test_nesting_depth_eight():
+    command = "git commit -n -m x"
+    for _ in range(8):
+        command = "eval " + command
+    assert bash(command).returncode == 2
+
+
+@pytest.mark.parametrize("command", [
+    "mv .mise/tasks /tmp/x",
+    "mv .mise /tmp/x",
+    "cp -r tasks .mise/",
+    "echo x > .REPO.yaml",
+    "cp x .Mise/Tasks/check",
+    "sed -i 's/a/b/' ./sub/../HK.pkl",
+])
+def test_asks_on_protected_directory_and_case(project, command):
+    assert decision(bash_in(project, command)) == "ask", command
+
+
+@pytest.mark.parametrize("command", [
+    "echo x > .repo.yaml; echo $'it\\'s'",
+    "cp x .mise/tasks/check; echo \"unterminated",
+    "sed -i s/a/b/ hk.pkl 'unterminated",
+])
+def test_asks_on_unparsable_protected_write(project, command):
+    assert decision(bash_in(project, command)) == "ask", command
+
+
+@pytest.mark.parametrize("command", [
+    "cat .repo.yaml; echo \"unterminated",
+    "echo x > notes.txt; echo \"unterminated",
+    "mv a b; echo 'unterminated",
+])
+def test_allows_unparsable_without_protected_write(project, command):
+    assert decision(bash_in(project, command)) is None, command
 
 
 def test_asks_on_absolute_and_relative_paths(project):

@@ -223,17 +223,21 @@ def split_commands(text):
 # Commands that run their arguments as a command, with their options that take a value
 # (short letters, long names).
 _WRAPPERS = {
-    "sudo": ("ugCDhprtTU", {"--user", "--group", "--close-from", "--chdir", "--host", "--prompt",
-                            "--role", "--type", "--command-timeout", "--other-user"}),
+    "sudo": ("ugCDhprRtTU", {"--user", "--group", "--close-from", "--chdir", "--chroot", "--host",
+                             "--prompt", "--role", "--type", "--command-timeout", "--other-user"}),
+    "doas": ("uC", set()),
     "command": ("", set()),
     "exec": ("a", set()),
     "nohup": ("", set()),
+    "setsid": ("", set()),
     "builtin": ("", set()),
     "time": ("of", {"--output", "--format"}),
     "nice": ("n", {"--adjustment"}),
+    "stdbuf": ("ioe", {"--input", "--output", "--error"}),
     "env": ("uCS", {"--unset", "--chdir", "--split-string"}),
     "timeout": ("sk", {"--signal", "--kill-after"}),
-    "xargs": ("nILPsdEa", {"--arg-file", "--delimiter", "--max-args", "--max-procs", "--max-chars"}),
+    # GNU and BSD (macOS) xargs options.
+    "xargs": ("nILPsdEaJRS", {"--arg-file", "--delimiter", "--max-args", "--max-procs", "--max-chars"}),
 }
 # Shell reserved words that may precede a command: `if`, `then`, `{`, `!` ...
 _RESERVED = {"{", "}", "!", "if", "then", "elif", "else", "do", "while", "until"}
@@ -285,20 +289,58 @@ def strip_prefix(words):
     return assigns, words[i:]
 
 
+_MAX_DEPTH = 8
+_SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
+_SHELL_VALUE = {"-o", "+o", "-O", "+O", "--rcfile", "--init-file"}
+_FIND_EXEC = {"-exec", "-execdir", "-ok", "-okdir"}
+
+
+def shell_script(args):
+    """Return the script string of `sh [options] -c [options] [--] script`, or None."""
+    i, has_c = 0, False
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            i += 1
+            break
+        if a in _SHELL_VALUE:
+            i += 2
+        elif len(a) > 1 and a[0] in "-+":
+            has_c = has_c or (a[0] == "-" and not a.startswith("--") and "c" in a)
+            i += 1
+        else:
+            break
+    return args[i] if has_c and i < len(args) else None
+
+
+def _collect(words, depth, result):
+    result.append(words)
+    rest = strip_prefix(words)[1]
+    if not rest or depth >= _MAX_DEPTH:
+        return
+    head = rest[0].rsplit("/", 1)[-1]
+    if head == "eval":
+        result.extend(all_commands(" ".join(rest[1:]), depth + 1))
+    elif head in _SHELLS:
+        script = shell_script(rest[1:])
+        if script is not None:
+            result.extend(all_commands(script, depth + 1))
+    elif head == "find":
+        i = 1
+        while i < len(rest):
+            if rest[i] in _FIND_EXEC:
+                j = i + 1
+                while j < len(rest) and rest[j] not in (";", "+"):
+                    j += 1
+                if j > i + 1:
+                    _collect(rest[i + 1:j], depth + 1, result)
+                i = j
+            i += 1
+
+
 def all_commands(text, depth=0):
-    """Like split_commands, plus the commands inside `eval ...` and `sh -c "..."` strings."""
+    """Like split_commands, plus the commands inside `eval ...`, `sh -c "..."` and `find -exec`."""
     result = []
     for words in split_commands(text):
-        result.append(words)
-        rest = strip_prefix(words)[1]
-        if not rest or depth >= 3:
-            continue
-        head = rest[0].rsplit("/", 1)[-1]
-        if head == "eval":
-            result.extend(all_commands(" ".join(rest[1:]), depth + 1))
-        elif head in ("sh", "bash", "zsh", "dash", "ksh"):
-            for k, w in enumerate(rest[1:-1], 1):
-                if w.startswith("-") and not w.startswith("--") and "c" in w:
-                    result.extend(all_commands(rest[k + 1], depth + 1))
-                    break
+        _collect(words, depth, result)
     return result

@@ -53,8 +53,9 @@ A deviation every project needs belongs in the docustand template instead.
 ## Bypasses
 
 - `--no-verify`, `git commit -n`, `git -c core.hooksPath=…`, `HK=0`, `HK_SKIP_*` and `hook.*` keys in `git -c` or `git config` are blocked by the guard hook.
-- The guard hook also analyses commands behind `sudo`, `env`, `nohup`, `nice`, `time`, `timeout`, `command`, `exec`, `xargs`, `eval` and `sh -c` / `bash -c`.
-- A Bash write to a path of an `Edit(/<path>)` rule in `permissions.ask` asks for confirmation: output redirections, `tee`, `sed -i`, `perl -i`, the destination of `cp` and `mv`, and the source of `mv`. Writes through other programs, such as `python -c` or `dd`, are not detected.
+- The guard hook also analyses commands behind `sudo`, `doas`, `env`, `nohup`, `setsid`, `nice`, `stdbuf`, `time`, `timeout`, `command`, `exec`, `xargs`, `eval`, `sh -c` / `bash -c` and `find -exec`, nested up to 8 levels.
+- A Bash write to a path of an `Edit(/<path>)` rule in `permissions.ask` asks for confirmation: output redirections, `tee`, `sed -i`, `perl -i`, the destination of `cp` and `mv`, and the source of `mv`. A `dir/**` rule also covers `dir` itself; matching ignores case. An unparsable command asks when its text names a protected path next to a write marker.
+- The write check does not detect writes through other programs (`python -c`, `dd`, `truncate`, `rm`, `git checkout -- <file>`), paths built from shell variables or command substitution, glob patterns such as `.repo.*`, and directory changes inside the command (`cd dir && echo x > file`, `$PWD` after `cd`). A shell variable other than an environment variable of the hook stays unexpanded.
 - An emergency bypass of a local hook carries a `Skip-Check: <check> — <reason>` trailer; CI ignores the trailer and runs everything, and the report lists every such commit.
 
 ## AGENTS.md
