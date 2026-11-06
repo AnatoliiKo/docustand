@@ -200,7 +200,7 @@ def test_two_new_files_are_each_printed(tmp_path, git_repo):
     assert "second.txt: new baseline file allowed" in out
 
 
-def test_stack_change_allows_only_added_profile_baselines(tmp_path, git_repo, monkeypatch):
+def test_stack_change_allows_only_added_profile_baselines(tmp_path, git_repo, monkeypatch, capsys):
     loader = importlib.machinery.SourceFileLoader("check_baseline_script", str(SCRIPT))
     module = importlib.util.module_from_spec(importlib.util.spec_from_loader("check_baseline_script", loader))
     loader.exec_module(module)
@@ -217,3 +217,6 @@ def test_stack_change_allows_only_added_profile_baselines(tmp_path, git_repo, mo
     monkeypatch.chdir(repo)
 
     assert module.main([base]) == 1
+    out = capsys.readouterr().out
+    assert "a.baseline: new baseline file allowed" in out
+    assert "b.baseline:1:" in out
