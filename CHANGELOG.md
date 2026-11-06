@@ -3,7 +3,19 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 0.1.1 — 2026-11-06
+
+### Added
+
+- `LICENSE`: MIT. The template does not render a license into projects.
+- `README.md` section `Install`: the marketplace and plugin install commands for a repository without `.claude/settings.json`.
+- Template `hk.pkl`: step `check-merge-conflict` (hk builtin, `--assume-in-merge`) in `pre-commit` and `check`, so conflict markers of a `copier update` fail CI.
+
+### Changed
+
+- Template `renovate.json`: the `copier` manager has no `minimumReleaseAge` and no automerge. Git tags carry no release date, so Renovate 42+ held template updates as pending forever; a patch update of the template automerged, also with unresolved conflicts.
+- Template `standard-report.yml`: without the secret `REPORT_APP_ID` the job skips the app token, collects the findings with the default token (`contents: read`, `pull-requests: read`), writes them to the job summary and fails with `report app is not configured, see docs/access.md`; `fresh-install` still runs when due.
+- Template `report`: the findings go to `GITHUB_STEP_SUMMARY` on every run.
 
 ### Fixed
 
