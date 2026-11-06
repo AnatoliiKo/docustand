@@ -368,3 +368,14 @@ def test_untrusted_text_cannot_mention(report, tmp_path):
     line = (tmp_path / "docs" / "tasks.md").read_text().splitlines()[-1]
     assert "`@octocat" in line
     assert line.startswith("- Investigate ") and " — " in line
+
+
+def test_typescript_report_lists_project_check_configs(render, tmp_path, report):
+    project = render(tmp_path, project_name="demo", stack=["typescript"])
+    protected = report.load_protected(project)
+    configs = ["eslint.project.mjs", "knip.json", ".dependency-cruiser.cjs", "steiger.config.ts",
+               ".size-baseline.json", "eslint-suppressions.json", ".jscpd.json"]
+
+    changes = report.protected_changes({5: [*configs, "src/a.ts"]}, protected)
+
+    assert changes == {5: configs}

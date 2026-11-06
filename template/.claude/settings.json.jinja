@@ -20,8 +20,10 @@
 {%- set protected = protected + [".tflint.hcl"] -%}
 {%- endif -%}
 {%- if 'typescript' in stack -%}
-{%- set protected = protected + ["eslint.config.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",
-  ".dependency-cruiser.cjs", ".jscpd.json", "tsconfig.json", "steiger.config.*"] -%}
+{#- Project-owned check configs are protected too: section 9 of the specification. -#}
+{%- set protected = protected + ["eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json",
+  ".dependency-cruiser.standard.cjs", ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "tsconfig.json",
+  "steiger.config.*"] -%}
 {%- endif -%}
 {
   "autoMemoryEnabled": false,

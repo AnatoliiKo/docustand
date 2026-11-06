@@ -21,8 +21,8 @@ PROTECTED = [
     "commitlint.config.mjs", "typos.toml", ".rumdl.toml", "lychee.toml", ".size-baseline.json",
 ]
 TYPESCRIPT_PROTECTED = [
-    "eslint.config.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",
-    ".dependency-cruiser.cjs", ".jscpd.json", "tsconfig.json", "steiger.config.*",
+    "eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",
+    ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "tsconfig.json", "steiger.config.*",
 ]
 
 
@@ -598,7 +598,6 @@ def test_settings_typescript_protects_profile_files(render, tmp_path):
     ask = _settings(render(tmp_path, project_name="demo", stack=["typescript"]))["permissions"]["ask"]
 
     assert sorted(ask) == sorted(f"Edit(/{p})" for p in PROTECTED + TYPESCRIPT_PROTECTED)
-    assert "Edit(/eslint.project.mjs)" not in ask and "Edit(/knip.json)" not in ask
 
 
 def test_settings_terraform_protects_tflint(render, tmp_path):
