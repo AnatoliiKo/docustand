@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Fixed
+
+- Skill `repo-init`: sibling repositories alone no longer trigger the multi-repository question; an empty GitHub plan field counts as `free`; questions over the question tool limit go in consecutive calls.
+
 ## 0.1.0 — 2026-11-06
 
 ### Added

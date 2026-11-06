@@ -33,6 +33,8 @@ For a migration, `merge_existing.py conflicts` later lists the exact files that 
 
 - Repository: `gh repo view --json nameWithOwner,visibility,defaultBranchRef,isInOrganization`, or `gh api repos/{owner}/{repo}` (`visibility`, `default_branch`, `owner.type`).
 - Plan: for a user account `gh api user -q .plan.name`; for an organization `gh api orgs/{org} -q .plan.name`.
+  The field is empty when the token cannot read the plan (for a user account, without the `user` scope); an empty plan counts as `free`.
+  Do not ask the owner to widen the token scopes for this.
 - Plan allows branch protection: the repository is public, or the plan is not `free`.
 - Branches: `gh api repos/{owner}/{repo}/branches -q '.[].name'`; long-lived branches are the default branch and branches such as `develop`, `staging`, `release/*`.
 - Current protection: `gh api repos/{owner}/{repo}/branches/<branch>/protection` (404: none).
@@ -42,6 +44,8 @@ For a migration, `merge_existing.py conflicts` later lists the exact files that 
 ## Neighbours and files outside git
 
 - Sibling directories of the repository root that are git repositories: `ls ..` and `git -C ../<dir> remote get-url origin`.
+  A sibling alone is not a sign of a system: a folder such as `~/Dev` holds unrelated projects.
+  A sibling counts only when this repository references it (next item) or it references this repository.
 - References to other repositories: URLs of the owner's repositories in docs, CI, `package.json` dependencies, `composer.json` repositories, API base URLs, an OpenAPI client.
 - Files outside git next to the repository: untracked and ignored files with `git status --ignored --porcelain`, and files in the parent folder that belong to the project (notes, exports, `.env` copies). Never read the content of secret files; list them by name.
 
