@@ -9,10 +9,13 @@
 Compares the number of entries of every baseline file with `git show BASE_REF:FILE`;
 growth fails. The files come from the profiles of `stack` in `.repo.yaml`
 (PROFILE_BASELINES below); `--file` replaces that list (used by the tests).
-A baseline file absent at the base is allowed only when `.repo.yaml` did not exist at
-the base (migration) or `stack` or `_commit` in `.repo.yaml` changed (profile adoption
-or a template update that brought the tool); otherwise it counts as growth from 0
-entries. Every new baseline file is printed with the reason. Entries are the non-empty lines of a text file. JSON baselines
+A baseline file absent at the base is allowed only when `.repo.yaml` did not exist
+at the base (migration), `_commit` changed (template update), or `stack` changed and
+the file belongs to a profile added to `stack`. `stack` compares as a set, `_commit`
+as raw text. A missing, non-mapping or invalid current `.repo.yaml` allows nothing.
+With `--file` the files are not tied to profiles, so any `stack` change allows them.
+Otherwise a new file counts as growth. Every new baseline file is printed with the
+reason. Entries are the non-empty lines of a text file. JSON baselines
 (`.size-baseline.json`, `.jscpd.json`) are future work: they need their own counting.
 """
 import os
@@ -46,23 +49,46 @@ def profile_files(root: Path) -> list[str]:
     return files
 
 
-def repo_yaml(text: str | None) -> dict:
-    data = yaml.safe_load(text) if text is not None else None
-    return data if isinstance(data, dict) else {}
+def read_answers(text: str) -> tuple[dict | None, str | None]:
+    """Mapping of `.repo.yaml` and `_commit` as raw text; raises yaml.YAMLError."""
+    data = yaml.safe_load(text)
+    if not isinstance(data, dict):
+        return None, None
+    return data, (yaml.load(text, Loader=yaml.BaseLoader) or {}).get("_commit")
 
 
-def new_file_reason(root: Path, ref: str) -> str | None:
-    """Why a new baseline file is allowed; None when `.repo.yaml` gives no reason."""
-    shown = git(root, "show", f"{ref}:.repo.yaml")
-    if shown.returncode != 0:
-        return ".repo.yaml absent at base"
-    before = repo_yaml(shown.stdout)
+def stack_set(data: dict) -> set[str]:
+    stack = data.get("stack")
+    return {str(item) for item in stack} if isinstance(stack, list) else set()
+
+
+def show_list(value: object) -> str:
+    return "[" + ", ".join(str(item) for item in value) + "]" if isinstance(value, list) else "[]"
+
+
+def classify(root: Path, ref: str) -> tuple[str, str, set[str]]:
+    """Change of `.repo.yaml` between `ref` and the tree: (kind, text, added profiles).
+
+    Kinds: invalid, missing, migration, commit, stack, none.
+    """
     path = root / ".repo.yaml"
-    after = repo_yaml(path.read_text() if path.is_file() else None)
-    for key in ("stack", "_commit"):
-        if before.get(key) != after.get(key):
-            return f"{key} changed"
-    return None
+    try:
+        now, commit_now = read_answers(path.read_text()) if path.is_file() else (None, None)
+        shown = git(root, "show", f"{ref}:.repo.yaml")
+        was, commit_was = read_answers(shown.stdout) if shown.returncode == 0 else (None, None)
+    except yaml.YAMLError:
+        return "invalid", "invalid YAML", set()
+    if now is None:
+        return "missing", "missing or not a mapping", set()
+    if shown.returncode != 0:
+        return "migration", ".repo.yaml absent at base", set()
+    was = was or {}
+    if commit_was != commit_now:
+        return "commit", f"_commit changed: {commit_was} -> {commit_now}", set()
+    if stack_set(was) != stack_set(now):
+        text = f"stack changed: {show_list(was.get('stack'))} -> {show_list(now.get('stack'))}"
+        return "stack", text, stack_set(now) - stack_set(was)
+    return "none", "", set()
 
 
 def count(text: str) -> int:
@@ -107,13 +133,22 @@ def main(argv: list[str]) -> int:
     names = names or profile_files(root)
 
     failed = False
-    reason = new_file_reason(root, ref)
+    change: tuple[str, str, set[str]] | None = None
     for name in names:
         shown = git(root, "show", f"{ref}:{name}")
         path = root / name
         if shown.returncode != 0 and path.is_file():
-            if reason:
-                print(f"{name}: new baseline file allowed: {reason}")
+            if change is None:
+                change = classify(root, ref)
+                if change[0] in ("invalid", "missing"):
+                    print(f".repo.yaml:1: {change[1]}")
+            kind, text, added = change
+            owned = {f for profile in added for f in PROFILE_BASELINES.get(profile, [])}
+            if kind in ("migration", "commit") or (kind == "stack" and (files or name in owned)):
+                print(f"{name}: new baseline file allowed: {text}")
+            elif kind == "stack":
+                print(f"{name}:1: new baseline file of a profile not added to stack ({text})")
+                failed = True
             else:
                 print(f"{name}:1: new baseline file without .repo.yaml change")
                 failed = True

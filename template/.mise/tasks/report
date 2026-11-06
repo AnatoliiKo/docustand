@@ -14,6 +14,7 @@ trailers, protected files, new baseline files and stack drift only when the repo
 since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
 is the only place that runs `gh`.
 """
+import functools
 import importlib.machinery
 import importlib.util
 import json
@@ -34,6 +35,7 @@ MANUAL_DAYS = 8
 BRANCH = "report"
 RED = {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE", "CANCELLED"}
 SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
+ADDED = {"added", "renamed", "copied"}
 ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 
 
@@ -51,16 +53,23 @@ def fetch(cmd: list[str]) -> Any:
     return data
 
 
-def baseline_files(root: Path) -> list[str]:
-    """Baseline file names of `stack`, read from `check-baseline` so the list exists once.
+@functools.cache
+def check_baseline():
+    """Module of the `check-baseline` task, loaded by path.
 
-    The task has no `.py` extension and is a standalone script, so it is loaded by path.
+    The task has no `.py` extension and is a standalone script. Loading it keeps
+    the baseline list in one place (`PROFILE_BASELINES`).
     """
     path = Path(__file__).resolve().parent / "check-baseline"
     loader = importlib.machinery.SourceFileLoader("check_baseline", str(path))
     module = importlib.util.module_from_spec(importlib.util.spec_from_loader("check_baseline", loader))
     loader.exec_module(module)
-    return module.profile_files(root)
+    return module
+
+
+def baseline_files(root: Path) -> list[str]:
+    """Baseline file names of `stack` in `root/.repo.yaml`."""
+    return check_baseline().profile_files(root)
 
 
 def new_baseline_files(added_by_pr: dict[int, list[str]], names: list[str]) -> dict[int, list[str]]:
@@ -254,7 +263,7 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
         changed = {p["number"]: fetch(
             ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or [] for p in prs}
         files = {n: [f["filename"] for f in fs] for n, fs in changed.items()}
-        added = {n: [f["filename"] for f in fs if f.get("status") == "added"] for n, fs in changed.items()}
+        added = {n: [f["filename"] for f in fs if f.get("status") in ADDED] for n, fs in changed.items()}
         if protected is None:
             protected = load_protected(root)
         sections["Protected files"] = [f"#{n}: {', '.join(code(f) for f in fs)}" for n, fs in protected_changes(files, protected).items()]

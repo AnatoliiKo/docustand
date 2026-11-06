@@ -42,10 +42,10 @@ def report():
 class Fake:
     """Replacement for report.fetch: answers by command text, records every call."""
 
-    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=(), added=()):
+    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=(), added=(), renamed=()):
         self.vuln_enabled, self.commits, self.prs = vuln_enabled, list(commits), list(prs)
         self.files, self.detected = files or {}, list(detected)
-        self.open_prs, self.added = list(open_prs), set(added)
+        self.open_prs, self.added, self.renamed = list(open_prs), set(added), set(renamed)
         self.calls: list[str] = []
 
     def __call__(self, cmd):
@@ -61,7 +61,7 @@ class Fake:
             return self.open_prs if "open" in cmd else self.prs
         if "/files" in text:
             number = int(re.search(r"pulls/(\d+)/files", text).group(1))
-            return [{"filename": f, "status": "added" if f in self.added else "modified"}
+            return [{"filename": f, "status": "added" if f in self.added else "renamed" if f in self.renamed else "modified"}
                     for f in self.files.get(number, [])]
         if "detect-stack" in text:
             return {"stack": self.detected, "evidence": {}}
@@ -204,9 +204,22 @@ def test_new_baseline_files_section(report, tmp_path, monkeypatch):
     assert sections["New baseline files"] == ["#7: `a.baseline`", "#8: `a.baseline`"]
 
 
-def test_baseline_files_come_from_check_baseline(report, tmp_path):
+def test_renamed_baseline_file_listed(report, tmp_path, monkeypatch):
+    prs = [{"number": 9, "mergedAt": "2026-11-03T10:00:00Z", "statusCheckRollup": []}]
+    fake = Fake(commits=[commit("ddddddd4444", "fix: z")], prs=prs, renamed={"new.baseline"},
+                files={9: ["new.baseline"]})
+    monkeypatch.setattr(report, "baseline_files", lambda root: ["new.baseline"])
+    assert collect(report, fake, tmp_path, access="")["New baseline files"] == ["#9: `new.baseline`"]
+
+
+def test_baseline_files_come_from_check_baseline(report, tmp_path, monkeypatch):
     (tmp_path / ".repo.yaml").write_text("stack: [terraform]\n")
-    assert report.baseline_files(tmp_path) == []
+    monkeypatch.setitem(report.check_baseline().PROFILE_BASELINES, "terraform", ["x.baseline"])
+    assert report.baseline_files(tmp_path) == ["x.baseline"]
+
+
+def test_renamed_and_copied_count_as_added(report):
+    assert report.ADDED == {"added", "renamed", "copied"}
 
 
 def test_activity_findings_listed(report, tmp_path):

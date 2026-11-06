@@ -16,8 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- `check-baseline`: a baseline file absent at the base ref passes only when `.repo.yaml` did not exist at the base or `stack` or `_commit` changed; each new baseline file is printed with the reason.
-- Scheduled `report`: section `New baseline files` lists the baseline files each merged pull request added.
+- `check-baseline`: a baseline file absent at the base ref passes only when `.repo.yaml` did not exist at the base, `_commit` changed, or `stack` changed and the file belongs to an added profile; a missing or invalid current `.repo.yaml` allows nothing; each new baseline file is printed with the reason.
+- Scheduled `report`: section `New baseline files` lists the baseline files each merged pull request added, renamed or copied.
 
 ### Fixed
 
