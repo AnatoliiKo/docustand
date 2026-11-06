@@ -10,10 +10,12 @@ Environment: GITHUB_REPOSITORY, REPORT_SCHEDULE (monthly|weekly|twice-weekly),
 REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), GH_TOKEN for `gh`.
 
 Order: token expiry and vulnerability alerts always; red merges, Skip-Check
-trailers, protected files and stack drift only when the repository had activity
+trailers, protected files, new baseline files and stack drift only when the repository had activity
 since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
 is the only place that runs `gh`.
 """
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
@@ -47,6 +49,24 @@ def fetch(cmd: list[str]) -> Any:
     if isinstance(data, list) and data and all(isinstance(p, list) for p in data):
         data = [item for page in data for item in page]
     return data
+
+
+def baseline_files(root: Path) -> list[str]:
+    """Baseline file names of `stack`, read from `check-baseline` so the list exists once.
+
+    The task has no `.py` extension and is a standalone script, so it is loaded by path.
+    """
+    path = Path(__file__).resolve().parent / "check-baseline"
+    loader = importlib.machinery.SourceFileLoader("check_baseline", str(path))
+    module = importlib.util.module_from_spec(importlib.util.spec_from_loader("check_baseline", loader))
+    loader.exec_module(module)
+    return module.profile_files(root)
+
+
+def new_baseline_files(added_by_pr: dict[int, list[str]], names: list[str]) -> dict[int, list[str]]:
+    """Baseline files each PR added."""
+    result = {n: [f for f in files if f in names] for n, files in added_by_pr.items()}
+    return {n: hit for n, hit in result.items() if hit}
 
 
 def code(text: str) -> str:
@@ -231,11 +251,16 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
     if has_activity(commits, prs + open_prs, since):
         sections["Red merges"] = [f"#{n}" for n in red_merges(prs)]
         sections["Skip-Check"] = [code(t) for t in skip_check_trailers(commits)]
-        files = {p["number"]: [f["filename"] for f in fetch(
-            ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or []] for p in prs}
+        changed = {p["number"]: fetch(
+            ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or [] for p in prs}
+        files = {n: [f["filename"] for f in fs] for n, fs in changed.items()}
+        added = {n: [f["filename"] for f in fs if f.get("status") == "added"] for n, fs in changed.items()}
         if protected is None:
             protected = load_protected(root)
         sections["Protected files"] = [f"#{n}: {', '.join(code(f) for f in fs)}" for n, fs in protected_changes(files, protected).items()]
+        sections["New baseline files"] = [
+            f"#{n}: {', '.join(code(f) for f in fs)}"
+            for n, fs in new_baseline_files(added, baseline_files(root)).items()]
         detected = (fetch(["mise", "run", "detect-stack"]) or {}).get("stack", [])
         declared_file = root / ".repo.yaml"
         declared = ((yaml.safe_load(declared_file.read_text()) if declared_file.exists() else None) or {}).get("stack") or []

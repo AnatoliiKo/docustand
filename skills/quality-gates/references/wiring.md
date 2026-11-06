@@ -48,7 +48,7 @@ A deviation every project needs belongs in the docustand template instead.
 2. Safe autofix, one tool per commit; read the diff. Never run a deleting autofix unattended.
 3. The rest goes into the tool's baseline (PHPStan baseline, `eslint-suppressions.json`, dependency-cruiser known violations, `.size-baseline.json`). New violations fail, old ones are listed.
 4. A rule that cannot be met: one path and one rule, with a reason. Never switch the rule off or lower it to a warning.
-5. `check-baseline` in CI fails when a baseline file has more entries than at the base ref.
+5. `check-baseline` in CI fails when a baseline file has more entries than at the base ref. A baseline file absent at the base is allowed only when `.repo.yaml` did not exist at the base or `stack` or `_commit` changed; the scheduled report lists new baseline files.
 
 ## Bypasses
 

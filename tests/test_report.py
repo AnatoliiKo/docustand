@@ -42,10 +42,10 @@ def report():
 class Fake:
     """Replacement for report.fetch: answers by command text, records every call."""
 
-    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=()):
+    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=(), added=()):
         self.vuln_enabled, self.commits, self.prs = vuln_enabled, list(commits), list(prs)
         self.files, self.detected = files or {}, list(detected)
-        self.open_prs = list(open_prs)
+        self.open_prs, self.added = list(open_prs), set(added)
         self.calls: list[str] = []
 
     def __call__(self, cmd):
@@ -61,7 +61,8 @@ class Fake:
             return self.open_prs if "open" in cmd else self.prs
         if "/files" in text:
             number = int(re.search(r"pulls/(\d+)/files", text).group(1))
-            return [{"filename": f} for f in self.files.get(number, [])]
+            return [{"filename": f, "status": "added" if f in self.added else "modified"}
+                    for f in self.files.get(number, [])]
         if "detect-stack" in text:
             return {"stack": self.detected, "evidence": {}}
         raise AssertionError(f"unexpected command: {text}")
@@ -191,6 +192,21 @@ def test_stack_drift(report):
     assert report.stack_drift(["terraform"], ["terraform"]) == []
     drift = report.stack_drift(["laravel", "terraform"], ["terraform", "expo"])
     assert len(drift) == 2 and "laravel" in drift[0] and "expo" in drift[1]
+
+
+def test_new_baseline_files_section(report, tmp_path, monkeypatch):
+    prs = [{"number": 7, "mergedAt": "2026-11-03T10:00:00Z", "statusCheckRollup": []},
+           {"number": 8, "mergedAt": "2026-11-03T11:00:00Z", "statusCheckRollup": []}]
+    fake = Fake(commits=[commit("ddddddd4444", "fix: z")], prs=prs, added={"a.baseline"},
+                files={7: ["a.baseline", "src/x.py"], 8: ["a.baseline", "b.baseline"]})
+    monkeypatch.setattr(report, "baseline_files", lambda root: ["a.baseline", "b.baseline"])
+    sections = collect(report, fake, tmp_path, access="")
+    assert sections["New baseline files"] == ["#7: `a.baseline`", "#8: `a.baseline`"]
+
+
+def test_baseline_files_come_from_check_baseline(report, tmp_path):
+    (tmp_path / ".repo.yaml").write_text("stack: [terraform]\n")
+    assert report.baseline_files(tmp_path) == []
 
 
 def test_activity_findings_listed(report, tmp_path):

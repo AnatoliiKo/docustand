@@ -74,3 +74,48 @@ def test_baseline_unknown_ref_fails(tmp_path, git_repo):
 
     assert code == 1
     assert f"base ref {UNKNOWN} not found" in out
+
+
+def commit_repo_yaml(repo: Path, content: str | None, message: str) -> None:
+    if content is None:
+        return
+    (repo / ".repo.yaml").write_text(content)
+    git(repo, "add", ".repo.yaml")
+    git(repo, "commit", "-m", message)
+
+
+def new_baseline_case(repo: Path, base_yaml: str | None, head_yaml: str | None) -> str:
+    commit_repo_yaml(repo, base_yaml, "chore: add answers")
+    if base_yaml is None:
+        (repo / "other.txt").write_text("x\n")
+        git(repo, "add", "other.txt")
+        git(repo, "commit", "-m", "chore: add file")
+    base = git(repo, "rev-parse", "HEAD")
+    commit_repo_yaml(repo, head_yaml, "chore: change answers")
+    commit_baseline(repo, 2, "chore: add baseline")
+    return base
+
+
+@pytest.mark.parametrize("base_yaml,head_yaml,reason", [
+    ("stack: []\n_commit: v1\n", "stack: [terraform]\n_commit: v1\n", "stack changed"),
+    ("stack: []\n_commit: v1\n", "stack: []\n_commit: v2\n", "_commit changed"),
+    (None, "stack: []\n_commit: v1\n", ".repo.yaml absent at base"),
+])
+def test_new_baseline_file_allowed(tmp_path, git_repo, base_yaml, head_yaml, reason):
+    repo = git_repo(tmp_path / "repo")
+    base = new_baseline_case(repo, base_yaml, head_yaml)
+
+    code, out = run_baseline(repo, "--file", "baseline.txt", base)
+
+    assert code == 0
+    assert f"baseline.txt: new baseline file allowed: {reason}" in out
+
+
+def test_new_baseline_file_without_repo_yaml_change_fails(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "repo")
+    base = new_baseline_case(repo, "stack: []\n_commit: v1\n", "stack: []\n_commit: v1\nname: x\n")
+
+    code, out = run_baseline(repo, "--file", "baseline.txt", base)
+
+    assert code == 1
+    assert "baseline.txt:1: new baseline file without .repo.yaml change" in out
