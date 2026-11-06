@@ -10,6 +10,8 @@
   "packageRules": [
     {"matchUpdateTypes": ["patch"], "automerge": true},
     {"matchManagers": ["copier"], "minimumReleaseAge": null, "automerge": false},
+    {"matchManagers": ["copier"], "matchDepNames": ["/^gh:/"], "overridePackageName": "{{{replace '^gh:' 'https://github.com/' depName}}}"},
+    {"matchManagers": ["copier"], "matchDepNames": ["/^gl:/"], "overridePackageName": "{{{replace '^gl:' 'https://gitlab.com/' depName}}}"},
     {"matchManagers": ["github-actions"], "groupName": "github actions"},
     {"matchManagers": ["mise"], "groupName": "mise tools"},
     {"matchManagers": ["custom.regex"], "groupName": "mise tools"},

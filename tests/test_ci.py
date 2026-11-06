@@ -198,6 +198,25 @@ def test_renovate_copier_updates_wait_for_review(renovate, source):
     assert rules.index(COPIER_RULE) > patch
 
 
+SHORTHAND_RULES = [
+    {"matchManagers": ["copier"], "matchDepNames": ["/^gh:/"],
+     "overridePackageName": "{{{replace '^gh:' 'https://github.com/' depName}}}"},
+    {"matchManagers": ["copier"], "matchDepNames": ["/^gl:/"],
+     "overridePackageName": "{{{replace '^gl:' 'https://gitlab.com/' depName}}}"},
+]
+
+
+@pytest.mark.parametrize("source", ["rendered", "root"])
+def test_renovate_expands_copier_shorthand(renovate, source):
+    # Renovate passes `gh:owner/repo` to git-tags unchanged, and the tag lookup returns no result.
+    config = renovate if source == "rendered" else json.loads((REPO_ROOT / "renovate.json").read_text())
+
+    for rule in SHORTHAND_RULES:
+        assert rule in config["packageRules"]
+    pattern, url = re.search(r"replace '(.+)' '(.+)' depName", SHORTHAND_RULES[0]["overridePackageName"]).groups()
+    assert re.sub(pattern, url, "gh:AnatoliiKo/docustand") == "https://github.com/AnatoliiKo/docustand"
+
+
 def test_renovate_groups_updates(renovate):
     assert any("groupName" in r for r in renovate["packageRules"])
 
@@ -222,7 +241,7 @@ def test_docustand_renovate_matches_template_files():
 
 def test_docustand_renovate_is_template_plus_documented_extras():
     root_text = (REPO_ROOT / "renovate.json").read_text()
-    template_text = (REPO_ROOT / "template/renovate.json.jinja").read_text()
+    template_text = (REPO_ROOT / "template/renovate.json").read_text()
     root = json.loads(root_text)
     template = json.loads(template_text)
 
