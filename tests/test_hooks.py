@@ -254,6 +254,9 @@ def test_blocks_git_config_new_syntax_writes():
     "find . -name x -exec git commit -n -m x \\;",
     "find . -execdir git commit --no-verify -m x {} +",
     "find . -exec sudo -u bob git commit -n -m x \\;",
+    "find . -exec git commit -m + -n \\;",
+    "find . -exec git commit -m x + -n \\;",
+    "find . -exec xargs -E + git commit -n \\;",
     "echo x | xargs -J % git commit -n -m %",
     "echo x | xargs -R 2 -I % git commit -n -m %",
     "echo x | xargs -S 512 -I % git commit --no-verify -m %",
@@ -270,6 +273,8 @@ def test_blocks_wrapper_forms(command):
     "nohup git push origin main > push.log 2>&1",
     "time -p git status",
     "find . -name '*.py' -exec grep -n x {} \\;",
+    "find . -name x -exec cat {} +",
+    "find . -exec cat {} + -name x -exec git status \\;",
     "bash script.sh -c 'git commit -n -m x'",
 ])
 def test_allows_safe_wrapper_forms(command):

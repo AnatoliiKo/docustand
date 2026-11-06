@@ -330,7 +330,8 @@ def _collect(words, depth, result):
         while i < len(rest):
             if rest[i] in _FIND_EXEC:
                 j = i + 1
-                while j < len(rest) and rest[j] not in (";", "+"):
+                # `+` ends the command only right after `{}`; elsewhere it is an argument.
+                while j < len(rest) and not (rest[j] == ";" or (rest[j] == "+" and rest[j - 1] == "{}")):
                     j += 1
                 if j > i + 1:
                     _collect(rest[i + 1:j], depth + 1, result)
