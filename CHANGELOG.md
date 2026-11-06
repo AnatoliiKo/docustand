@@ -7,7 +7,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Profile `typescript` (`profiles/typescript.md`, ADR 0015): Prettier and ESLint without type information before a commit; types, ESLint with type information, tests, dependency-cruiser `no-circular`, knip and Steiger for FSD parts before a push; jscpd on pull requests. `eslint.config.mjs` applies the standard complexity rules after the project rules in `eslint.project.mjs`. CI installs the Node dependencies with pnpm or npm.
+- Profile `typescript` (`profiles/typescript.md`, ADR 0015): Prettier and ESLint without type information before a commit; types, ESLint with type information, tests, dependency-cruiser `no-circular`, knip and Steiger for FSD parts before a push; jscpd on pull requests. `eslint.config.mjs` applies the standard complexity rules after the project rules in `eslint.project.mjs` and drops global ignores of the project. CI installs the Node dependencies with pnpm or npm.
+- ADR 0016: `eslint.project.mjs`, `knip.json` and `.dependency-cruiser.cjs` are written once, belong to the project and are protected; the template brings no Prettier config.
 - `detect-stack` reports `typescript` for a root `package.json` with a `tsconfig.json` at any depth, and reads `next` and `expo` from every `package.json`.
 - Task `check-size` for every stack: limits per extension in `.mise/data/size-limits.json`, old large files in `.size-baseline.json`; outside CI the baseline follows staged renames and shrinking files.
 - `check-baseline` compares `eslint-suppressions.json` by the sum of counts, `.size-baseline.json` by entries, lines and each kept entry, and `.jscpd.json` by the threshold.
@@ -16,7 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - `check-env-example` reads `process.env.X` and `process.env["X"]` for `typescript` and ignores `ESLINT_NO_TYPES`.
-- `.claude/settings.json` asks before edits of `.size-baseline.json` and, for `typescript`, of the profile configs and baselines.
+- `.claude/settings.json` asks before edits of `.size-baseline.json` and, for `typescript`, of the profile configs, the project-owned check configs, the Steiger config and the baselines; the report lists their changes.
 
 ## 0.1.5 — 2026-11-06
 

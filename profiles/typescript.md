@@ -21,10 +21,10 @@ The profile is the base layer of `nextjs` and `expo` ([ADR 0014](../docs/decisio
 | File | Owner | Content |
 |---|---|---|
 | `eslint.config.mjs` | standard | Project rules first, then the parser and the standard rules; with `ESLINT_NO_TYPES=1` rules with type information are off |
-| `eslint.project.mjs` | project, written once | Project ESLint rules |
+| `eslint.project.mjs` | project, written once, protected | Project ESLint rules; global ignores are dropped |
 | `.dependency-cruiser.standard.cjs` | standard | `no-circular` |
 | `.dependency-cruiser.cjs` | project, written once, protected | Architecture rules; `extends` the standard file |
-| `knip.json` | project, written once | Ignores the tools that only the hooks call |
+| `knip.json` | project, written once, protected | Ignores the tools that only the hooks call |
 | `.jscpd.json` | project, written once, protected | Duplication threshold |
 | `.mise/data/size-limits.json` | standard | 300 non-empty lines for `.ts`, `.tsx`, `.mts`, `.cts` |
 | `.size-baseline.json` | project, protected | Files over the limit with their size |
@@ -33,6 +33,8 @@ The profile is the base layer of `nextjs` and `expo` ([ADR 0014](../docs/decisio
 The standard rules: `complexity` 10, `sonarjs/cognitive-complexity` 15, `max-depth` 4, `max-params` 4, `max-lines-per-function` 80 (`.tsx` 120).
 A project rule cannot weaken them: `eslint.config.mjs` applies them after `eslint.project.mjs`.
 A stricter threshold is an edit of `eslint.config.mjs` with an entry in `overrides`.
+An object of `eslint.project.mjs` with only `ignores` would switch off the standard rules too, so `eslint.config.mjs` drops it with a warning; a global ignore of the project is an edit of `eslint.config.mjs` with an entry in `overrides`.
+The template brings no Prettier config: formatting is a project setting ([ADR 0016](../docs/decisions/0016-project-owned-check-configs.md)).
 
 ## Commands
 
@@ -62,7 +64,7 @@ Steps call the tools from `node_modules/.bin/`; the dependencies are installed b
 
 ## Migration notes
 
-- An own ESLint config moves into `eslint.project.mjs`; its thresholds stricter than the standard ones go into `eslint.config.mjs` with an entry in `overrides`.
+- An own ESLint config moves into `eslint.project.mjs`; its global ignores go into `eslint.config.mjs` with an entry in `overrides`; its thresholds stricter than the standard ones go into `eslint.config.mjs` with an entry in `overrides`.
 - An own `.dependency-cruiser.cjs` gets `extends: "./.dependency-cruiser.standard.cjs"`.
 - An own knip config gets the `ignore` and `ignoreDependencies` entries of the template `knip.json`.
 - Variables: `process.env.X` and `process.env["X"]` in the code need a line in `.env.example`.
