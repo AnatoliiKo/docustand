@@ -91,3 +91,26 @@ def test_phpstan_ignore_without_reason_fails(project):
 
     assert code == 1
     assert "src/a.php:2:" in out
+
+
+def test_python_docstring_todo_is_not_a_comment(project):
+    text = 'def f():\n    """Notes.\n\n    # TODO fix\n    """\n'
+    assert check(project, "src/a.py", text) == (0, "")
+
+
+def test_python_real_todo_comment_reports_its_line(project):
+    code, out = check(project, "src/a.py", 'x = """\nq\n"""\n# TODO fix\n')
+
+    assert code == 1
+    assert "src/a.py:4:" in out
+
+
+def test_python_string_todo_is_not_a_comment(project):
+    assert check(project, "src/a.py", 'x = "# TODO"\ny = \'# TODO\'\n') == (0, "")
+
+
+def test_python_untokenizable_file_uses_line_fallback(project):
+    code, out = check(project, "src/a.py", 'x = (\n# TODO fix\n')
+
+    assert code == 1
+    assert "src/a.py:2:" in out

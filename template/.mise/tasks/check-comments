@@ -5,14 +5,18 @@
 # ///
 """Usage: check-comments [PATH ...]
 
-Line-based, not a parser: comment text is cut out of each line (strings are
-skipped, `/* */` state carries across lines) and matched against the rules.
+Comment text is matched against the rules. `.py` files use `tokenize`, so
+strings and docstrings are never comments; a file that fails to tokenize and
+every other language use a line scan (strings are skipped, `/* */` state
+carries across lines).
 Without paths every git-listed file with a known extension is checked.
 """
 import os
 import re
+import io
 import subprocess
 import sys
+import tokenize
 from pathlib import Path
 
 C_LIKE = ("//", "/*")
@@ -79,6 +83,27 @@ def comment_texts(line: str, starts: tuple[str, ...], in_block: bool) -> tuple[l
     return texts, False
 
 
+def python_comments(source: str) -> list[tuple[int, str]] | None:
+    """(line, text) of each `#` comment token; None when the source does not tokenize."""
+    try:
+        return [
+            (tok.start[0], tok.string[1:])
+            for tok in tokenize.generate_tokens(io.StringIO(source).readline)
+            if tok.type == tokenize.COMMENT
+        ]
+    except (tokenize.TokenError, SyntaxError, IndentationError):
+        return None
+
+
+def line_comments(lines: list[str], starts: tuple[str, ...]) -> list[tuple[int, str]]:
+    found: list[tuple[int, str]] = []
+    in_block = False
+    for number, line in enumerate(lines, 1):
+        texts, in_block = comment_texts(line, starts, in_block)
+        found.extend((number, text) for text in texts)
+    return found
+
+
 def main(argv: list[str]) -> int:
     root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
     if argv:
@@ -93,17 +118,17 @@ def main(argv: list[str]) -> int:
         if starts is None or not full.is_file():
             continue
         try:
-            lines = full.read_text().splitlines()
+            source = full.read_text()
         except (UnicodeDecodeError, OSError):
             continue
-        in_block = False
-        for number, line in enumerate(lines, 1):
-            texts, in_block = comment_texts(line, starts, in_block)
-            for text in texts:
-                for pattern, message in RULES:
-                    if pattern.search(text):
-                        print(f"{path}:{number}: {message}")
-                        violations += 1
+        comments = python_comments(source) if full.suffix == ".py" else None
+        if comments is None:
+            comments = line_comments(source.splitlines(), starts)
+        for number, text in comments:
+            for pattern, message in RULES:
+                if pattern.search(text):
+                    print(f"{path}:{number}: {message}")
+                    violations += 1
     return 1 if violations else 0
 
 

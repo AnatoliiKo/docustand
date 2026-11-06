@@ -23,5 +23,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Template `check-comments`: `.py` files are scanned with `tokenize`, so a `# TODO` inside a string or docstring is not a finding; a file that does not tokenize falls back to the line scan.
 - Template `guard_bash.py`: options of `sudo` (including `-R`), `time`, `exec`, `command` and BSD `xargs` are skipped, so `sudo -u bob git commit -n` is blocked; a redirection before the command and `--` after `sh -c` no longer hide it.
 - Template `docs/access.md`: the report GitHub App row with its secrets and permissions renders whenever reports are on; the scheduled Claude task row renders only at the full level.
