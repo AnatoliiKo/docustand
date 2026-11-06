@@ -133,10 +133,21 @@ Run all checks with:
 mise run check
 ```
 
+## Development
+
+Run Claude Code with the plugin from the working copy:
+
+```sh
+claude --plugin-dir ~/Dev/docustand
+```
+
+- `--plugin-dir` loads the plugin for one session and leaves `.claude/settings.json` as the template renders it.
+- `/plugin` commands in this repository rewrite `.claude/settings.json`; restore the file with `git restore .claude/settings.json`.
+
 ## Changes
 
 See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
-[MIT](LICENSE). The template does not add a license to projects.
+[MIT-0](LICENSE) (MIT No Attribution): copies need no copyright notice. The template does not add a license to projects.

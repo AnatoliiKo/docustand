@@ -26,6 +26,7 @@ Any other `.md` file fails the check unless its path is in `md_exceptions` in `.
 ## Stack
 
 Python 3.13 with `uv`, Copier, hk, pkl. No stack profile is set.
+Plugin development: `claude --plugin-dir ~/Dev/docustand`, see `README.md` section `Development`; `/plugin` rewrites `.claude/settings.json`.
 Tests: `mise run test`; integration tests: `mise run test -- -m integration`.
 Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Commands: `mise tasks`. Hooks: `hk.pkl`. Environment variables: `.env.example`.
 
