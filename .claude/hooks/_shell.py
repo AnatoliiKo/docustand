@@ -1,8 +1,8 @@
 """Shared helpers for the guard hooks: PreToolUse input and a small shell splitter.
 
 Python 3 standard library only. The splitter is not a full shell parser; it
-understands quotes, backslashes, comments, heredocs and the separators
-`&&`, `||`, `;`, `|`, `&`, parentheses, backticks and newlines.
+understands quotes, backslashes, comments, heredocs, redirections and
+the separators `&&`, `||`, `;`, `|`, `&`, parentheses, backticks and newlines.
 """
 
 import json
@@ -30,6 +30,44 @@ def read_bash_input():
 def block(reason):
     sys.stderr.write(reason.rstrip("\n") + "\n")
     sys.exit(2)
+
+
+def ask(reason):
+    """Ask the user to confirm the tool call (Claude Code PreToolUse decision)."""
+    json.dump({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "ask",
+        "permissionDecisionReason": reason,
+    }}, sys.stdout)
+    sys.exit(0)
+
+
+class Redirect(str):
+    """An unquoted redirection operator: `<`, `>`, `>>`, `>|`, `2>`, `&>`, `>&`, `<>` ..."""
+
+
+def redirects(words):
+    """Return the file targets of the output redirections in `words`."""
+    targets = []
+    for k, w in enumerate(words):
+        if isinstance(w, Redirect) and ">" in w and k + 1 < len(words) and not isinstance(words[k + 1], Redirect):
+            target = words[k + 1]
+            if not (w.endswith("&") and (target.isdigit() or target == "-")):
+                targets.append(target)
+    return targets
+
+
+def drop_redirects(words):
+    """Return `words` without redirection operators and their targets."""
+    result, skip = [], False
+    for w in words:
+        if skip:
+            skip = False
+        elif isinstance(w, Redirect):
+            skip = True
+        else:
+            result.append(w)
+    return result
 
 
 def _is_arith(text, i):
@@ -154,8 +192,21 @@ def split_commands(text):
             heredocs.append(("".join(delim), strip_tabs))
             flush_word()
             i = j
+        elif c in "<>" and not arith and text[i:i + 2] not in ("<<", "<("):
+            fd = "".join(cur)
+            if has and (fd.isdigit() or fd == "&"):
+                cur, has = [], False
+            else:
+                flush_word()
+                fd = ""
+            op = fd + c
+            i += 1
+            if i < n and text[i] in (">|&" if c == ">" else ">&"):
+                op += text[i]
+                i += 1
+            words.append(Redirect(op))
         elif c in _SEPARATORS:
-            if c == "&" and ((i > 0 and text[i - 1] in "<>") or text[i + 1:i + 2] == ">"):
+            if c == "&" and text[i + 1:i + 2] == ">":
                 cur.append(c)  # redirections such as 2>&1 and &>file
                 has = True
             else:
@@ -169,45 +220,66 @@ def split_commands(text):
     return commands
 
 
-_WRAPPERS = {"command", "exec", "sudo", "nohup", "builtin"}
+# Commands that run their arguments as a command, with their options that take a value
+# (short letters, long names).
+_WRAPPERS = {
+    "sudo": ("ugCDhprtTU", {"--user", "--group", "--close-from", "--chdir", "--host", "--prompt",
+                            "--role", "--type", "--command-timeout", "--other-user"}),
+    "command": ("", set()),
+    "exec": ("a", set()),
+    "nohup": ("", set()),
+    "builtin": ("", set()),
+    "time": ("of", {"--output", "--format"}),
+    "nice": ("n", {"--adjustment"}),
+    "env": ("uCS", {"--unset", "--chdir", "--split-string"}),
+    "timeout": ("sk", {"--signal", "--kill-after"}),
+    "xargs": ("nILPsdEa", {"--arg-file", "--delimiter", "--max-args", "--max-procs", "--max-chars"}),
+}
 # Shell reserved words that may precede a command: `if`, `then`, `{`, `!` ...
-_RESERVED = {"{", "}", "!", "if", "then", "elif", "else", "do", "while", "until", "time"}
-_XARGS_VALUE = {"-n", "-I", "-L", "-P", "-s", "-d", "-E", "-a", "-l", "-i"}
+_RESERVED = {"{", "}", "!", "if", "then", "elif", "else", "do", "while", "until"}
+
+
+def _skip_options(words, i, short_values, long_values):
+    """Return the index of the first word after the options that start at `i`."""
+    while i < len(words) and words[i].startswith("-"):
+        w = words[i]
+        i += 1
+        if w == "--":
+            break
+        if w.startswith("--"):
+            if w in long_values:
+                i += 1
+        else:
+            for k, ch in enumerate(w[1:], 1):
+                if ch in short_values:
+                    if k == len(w) - 1:
+                        i += 1  # the value is the next word
+                    break
+    return i
 
 
 def strip_prefix(words):
-    """Drop leading VAR=value words, reserved words and wrappers.
+    """Drop redirections, leading VAR=value words, reserved words and wrappers.
 
-    Handles env, command, sudo, nice, timeout, xargs and shell reserved words.
+    Wrappers are listed in `_WRAPPERS`; their options are skipped as well.
     Returns (assignments, remaining_words) where assignments is a list of
     (name, value) pairs seen before the real command.
     """
+    words = drop_redirects(words)
     assigns, i = [], 0
     while i < len(words):
         w = words[i]
         name, eq, value = w.partition("=")
+        wrapper = _WRAPPERS.get(w.rsplit("/", 1)[-1])
         if eq and name.replace("_", "a").isalnum() and not name[:1].isdigit():
             assigns.append((name, value))
             i += 1
-        elif w in _RESERVED or w in _WRAPPERS:
+        elif w in _RESERVED:
             i += 1
-        elif w == "env":
-            i += 1
-            while i < len(words) and words[i].startswith("-"):
-                i += 2 if words[i] in ("-u", "--unset", "-C", "--chdir", "-S") else 1
-        elif w == "nice":
-            i += 1
-            while i < len(words) and words[i].startswith("-"):
-                i += 2 if words[i] in ("-n", "--adjustment") else 1
-        elif w == "timeout":
-            i += 1
-            while i < len(words) and words[i].startswith("-"):
-                i += 2 if words[i] in ("-s", "--signal", "-k", "--kill-after") else 1
-            i += 1  # the duration
-        elif w == "xargs":
-            i += 1
-            while i < len(words) and words[i].startswith("-"):
-                i += 2 if words[i] in _XARGS_VALUE else 1
+        elif wrapper:
+            i = _skip_options(words, i + 1, *wrapper)
+            if w.rsplit("/", 1)[-1] == "timeout":
+                i += 1  # the duration
         else:
             break
     return assigns, words[i:]
@@ -224,7 +296,7 @@ def all_commands(text, depth=0):
         head = rest[0].rsplit("/", 1)[-1]
         if head == "eval":
             result.extend(all_commands(" ".join(rest[1:]), depth + 1))
-        elif head in ("sh", "bash", "zsh", "dash"):
+        elif head in ("sh", "bash", "zsh", "dash", "ksh"):
             for k, w in enumerate(rest[1:-1], 1):
                 if w.startswith("-") and not w.startswith("--") and "c" in w:
                     result.extend(all_commands(rest[k + 1], depth + 1))

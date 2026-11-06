@@ -219,6 +219,138 @@ def test_blocks_git_config_new_syntax_writes():
     assert bash("git config unset hook.hk.command").returncode == 2
 
 
+@pytest.mark.parametrize("command", [
+    "sudo -u bob git commit -n -m x",
+    "sudo -E -g staff -- git commit --no-verify -m x",
+    "sudo --user=bob git commit -n -m x",
+    "sudo -Eu bob HK=0 git commit -m x",
+    "/usr/bin/sudo -u bob git commit -n -m x",
+    'bash -c "git commit --no-verify -m x"',
+    "sh -c 'git commit -n -m x'",
+    "bash -lc 'git commit -n -m x'",
+    "bash -ec 'true && git commit --no-verify -m x'",
+    "sudo -u bob bash -c 'git commit -n -m x'",
+    "nohup git commit -n -m x",
+    "nice -n 5 git commit --no-verify -m x",
+    "nice -5 git commit -n -m x",
+    "time -p git commit -n -m x",
+    "command git commit -n -m x",
+    "command -p git commit --no-verify -m x",
+    "exec git commit -n -m x",
+    "exec -a name git commit -n -m x",
+    ">out.log git commit -n -m x",
+    "2>&1 git commit --no-verify -m x",
+])
+def test_blocks_wrapper_forms(command):
+    assert bash(command).returncode == 2, command
+
+
+@pytest.mark.parametrize("command", [
+    "bash -c \"git commit -m 'docs: explain -n and --no-verify'\"",
+    "sh -c 'git commit --message \"say --no-verify\"'",
+    "sudo -u bob git commit -m x",
+    "nohup git push origin main > push.log 2>&1",
+    "time -p git status",
+])
+def test_allows_safe_wrapper_forms(command):
+    assert bash(command).returncode == 0, command
+
+
+# --- guard_bash: writes to protected files ----------------------------------
+
+ASK_FIXTURE = [".repo.yaml", "hk.pkl", ".size-baseline.json", ".mise/tasks/**"]
+
+
+@pytest.fixture
+def project(tmp_path):
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(json.dumps(
+        {"permissions": {"ask": [f"Edit(/{p})" for p in ASK_FIXTURE] + ["Bash(rm:*)"]}}))
+    (tmp_path / "sub").mkdir()
+    return tmp_path
+
+
+def bash_in(project, command, cwd=None):
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project)}
+    return bash(command, cwd=cwd or project, env=env)
+
+
+def decision(result):
+    assert result.returncode == 0, result.stderr
+    if not result.stdout.strip():
+        return None
+    out = json.loads(result.stdout)["hookSpecificOutput"]
+    assert out["hookEventName"] == "PreToolUse" and out["permissionDecisionReason"]
+    return out["permissionDecision"]
+
+
+@pytest.mark.parametrize("command", [
+    "sed -i 's/a/b/' .repo.yaml",
+    "sed -i '' 's/a/b/' .repo.yaml",
+    "sed -Ei.bak -e 's/a/b/' .repo.yaml",
+    "sed --in-place 's/a/b/' hk.pkl",
+    "perl -pi -e 's/a/b/' .repo.yaml",
+    "echo x >> .size-baseline.json",
+    "echo x > .repo.yaml",
+    "echo x>.repo.yaml",
+    "cat a 2> hk.pkl",
+    "cat a &> hk.pkl",
+    "echo x >| .repo.yaml",
+    "exec 3<> .repo.yaml",
+    "cat > .repo.yaml <<EOF\nlevel: base\nEOF\n",
+    "tee .repo.yaml",
+    "echo x | tee -a .repo.yaml",
+    "echo x | sudo tee .repo.yaml > /dev/null",
+    "cp x .repo.yaml",
+    "cp -f x .mise/tasks/check",
+    "cp x .mise/tasks",
+    "cp a b -t .mise/tasks",
+    "cp --target-directory=.mise/tasks a",
+    "cp sub/.repo.yaml .",
+    "mv x hk.pkl",
+    "mv hk.pkl hk.pkl.old",
+    "bash -c 'echo x > .repo.yaml'",
+    "git status && echo x >> .size-baseline.json",
+])
+def test_asks_on_protected_write(project, command):
+    assert decision(bash_in(project, command)) == "ask", command
+
+
+def test_asks_on_absolute_and_relative_paths(project):
+    assert decision(bash_in(project, f"echo x > {project}/.repo.yaml")) == "ask"
+    assert decision(bash_in(project, "echo x > ../.repo.yaml", cwd=project / "sub")) == "ask"
+    assert decision(bash_in(project, "echo x > .repo.yaml", cwd=project / "sub")) is None
+
+
+@pytest.mark.parametrize("command", [
+    "cat .repo.yaml",
+    "grep level .repo.yaml > out.txt",
+    "cp .repo.yaml backup.yaml",
+    "sed 's/a/b/' .repo.yaml",
+    "sed -n 1p .repo.yaml",
+    "perl -ne 'print' .repo.yaml",
+    "echo x > /dev/null 2>&1",
+    "echo '> .repo.yaml'",
+    "echo x > notes.txt",
+    "tee out.log < .repo.yaml",
+    "wc -l <.repo.yaml >count.txt",
+    "cat <<< .repo.yaml > out.txt",
+    "cp .mise/tasks/check /tmp/check",
+    "echo $((1>2)) > out.txt",
+])
+def test_allows_reading_protected_files(project, command):
+    assert decision(bash_in(project, command)) is None, command
+
+
+def test_block_wins_over_ask(project):
+    r = bash_in(project, "sed -i 's/a/b/' .repo.yaml && git commit -n -m x")
+    assert r.returncode == 2 and not r.stdout.strip()
+
+
+def test_no_ask_without_settings(tmp_path):
+    assert decision(bash_in(tmp_path, "echo x > .repo.yaml")) is None
+
+
 # --- guard_pr_create ----------------------------------------------------------
 
 def _mark(repo: Path, content=None):

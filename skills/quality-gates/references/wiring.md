@@ -53,6 +53,8 @@ A deviation every project needs belongs in the docustand template instead.
 ## Bypasses
 
 - `--no-verify`, `git commit -n`, `git -c core.hooksPath=…`, `HK=0`, `HK_SKIP_*` and `hook.*` keys in `git -c` or `git config` are blocked by the guard hook.
+- The guard hook also analyses commands behind `sudo`, `env`, `nohup`, `nice`, `time`, `timeout`, `command`, `exec`, `xargs`, `eval` and `sh -c` / `bash -c`.
+- A Bash write to a path of an `Edit(/<path>)` rule in `permissions.ask` asks for confirmation: output redirections, `tee`, `sed -i`, `perl -i`, the destination of `cp` and `mv`, and the source of `mv`. Writes through other programs, such as `python -c` or `dd`, are not detected.
 - An emergency bypass of a local hook carries a `Skip-Check: <check> — <reason>` trailer; CI ignores the trailer and runs everything, and the report lists every such commit.
 
 ## AGENTS.md
