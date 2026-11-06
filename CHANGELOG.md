@@ -3,6 +3,21 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.1.2 — 2026-11-06
+
+### Added
+
+- `README.md` section `Development`: `claude --plugin-dir` loads the plugin from the working copy without rewriting `.claude/settings.json`.
+
+### Changed
+
+- `LICENSE`: MIT-0 (MIT No Attribution) instead of MIT; copies of template scripts need no copyright notice. The copyright holder is Anatolii Kostenko.
+- Template `report`: without the report app the vulnerability alert check does not run; the section `Vulnerability alerts` reads `Not checked, needs the report app` instead of the false finding `not enabled or not readable`.
+
+### Fixed
+
+- Template `hk.pkl`: the comment of `check-merge-conflict` no longer names `copier update`, so a detached project contains no `copier update` mention; the integration test `test_detached_project_passes_without_docustand` failed on `v0.1.1`.
+
 ## 0.1.1 — 2026-11-06
 
 ### Added
