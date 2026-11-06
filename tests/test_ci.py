@@ -66,7 +66,7 @@ def test_ci_triggers_follow_answers(tmp_path):
 
 def test_ci_concurrency_and_permissions(workflow):
     assert workflow["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
-    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["permissions"] == {"contents": "read", "pull-requests": "read"}
     checkout = next(s for s in steps(workflow) if s.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["fetch-depth"] == 0
 
@@ -140,7 +140,7 @@ def test_ci_later_steps_run_after_failure(workflow):
     later = steps(workflow)[steps(workflow).index(next(s for s in steps(workflow)
                                                        if s.get("run") == "mise run check")) + 1:]
 
-    assert len(later) == 4
+    assert len(later) == 5
     for step in later:
         assert step["if"].startswith("${{ !cancelled() && ")
 
@@ -149,13 +149,57 @@ def test_ci_runs_check(workflow):
     assert any(s.get("run") == "mise run check" for s in steps(workflow))
 
 
+MERGED = "steps.merged.outputs.merged"
+
+
+def test_ci_merged_push_skips_full_check(workflow):
+    names = [s.get("id") or s.get("run") for s in steps(workflow)]
+    detect = next(s for s in steps(workflow) if s.get("id") == "merged")
+    check = next(s for s in steps(workflow) if s.get("run") == "mise run check")
+
+    assert names.index("merged") < names.index("mise run check")
+    assert detect["if"] == "${{ github.event_name == 'push' }}"
+    assert detect["env"] == {"REPO": "${{ github.repository }}", "SHA": "${{ github.sha }}",
+                             "GH_TOKEN": "${{ github.token }}"}
+    assert 'mise run ci-merged-pr -- "$REPO" "$SHA"' in detect["run"]
+    assert '>> "$GITHUB_OUTPUT"' in detect["run"]
+    assert check["if"] == f"${{{{ github.event_name != 'push' || {MERGED} != 'true' }}}}"
+
+
+def test_ci_merged_push_lints_pushed_range(tmp_path, workflow):
+    step = next(s for s in steps(workflow) if "check-pr-commits" in s.get("run", "")
+                and s["if"] != PR_IF)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "mise").write_text('#!/bin/sh\necho "mise $*"\n')
+    (bin_dir / "mise").chmod(0o755)
+
+    def run(before):
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "BASE_SHA": before,
+               "HEAD_SHA": "b" * 40}
+        return subprocess.run(["bash", "-e", "-c", step["run"]], env=env, capture_output=True, text=True)
+
+    assert step["if"] == f"${{{{ !cancelled() && github.event_name == 'push' && {MERGED} == 'true' }}}}"
+    assert step["env"] == {"BASE_SHA": "${{ github.event.before }}", "HEAD_SHA": "${{ github.sha }}"}
+    zero = run(ZEROS)
+    real = run("a" * 40)
+    assert "new branch, no base" in zero.stdout and "mise" not in zero.stdout
+    assert f"mise run check-pr-commits -- {'a' * 40} {'b' * 40}" in real.stdout
+
+
+def test_ci_push_baseline_runs_for_merged_and_direct(workflow):
+    push = next(s for s in steps(workflow) if s.get("if") == PUSH_IF and "check-baseline" in s["run"])
+
+    assert MERGED not in push["if"]
+
+
 def test_ci_no_untrusted_expression_in_run(workflow):
     for step in steps(workflow):
         assert "${{" not in step.get("run", ""), step
 
 
 def test_ci_scripts_are_executable():
-    for name in ("check-baseline", "check-pr-body", "check-pr-commits"):
+    for name in ("check-baseline", "check-pr-body", "check-pr-commits", "ci-merged-pr"):
         assert (TASKS / name).stat().st_mode & stat.S_IXUSR, name
 
 
@@ -413,3 +457,52 @@ def test_pr_commits_with_real_commitlint(tmp_path, git_repo):
 
 def test_ci_logs_git_version(workflow):
     assert any(s.get("run") == "git --version" for s in steps(workflow))
+
+
+SHA_A = "a" * 40
+
+
+def merged_pr(tmp_path, answer, code=0, sha=SHA_A, repo="owner/repo"):
+    fake = tmp_path / "gh"
+    (tmp_path / "answer.json").write_text(answer)
+    fake.write_text(f'#!/bin/sh\necho "$*" > "{tmp_path}/args"\ncat "{tmp_path}/answer.json"\nexit {code}\n')
+    fake.chmod(0o755)
+    return run_script("ci-merged-pr", repo, sha, env={"GH": str(fake)})
+
+
+def test_merged_pr_true_for_merged_pull_request(tmp_path):
+    code, out = merged_pr(tmp_path, json.dumps([{"number": 7, "merged_at": "2026-11-06T10:00:00Z"}]))
+
+    assert code == 0 and out.splitlines()[0] == "true"
+    assert (tmp_path / "args").read_text().strip() == f"api repos/owner/repo/commits/{SHA_A}/pulls"
+
+
+@pytest.mark.parametrize("answer", ["[]", json.dumps([{"number": 8, "merged_at": None}]), "not json", "{}"])
+def test_merged_pr_false_without_merged_pull_request(tmp_path, answer):
+    code, out = merged_pr(tmp_path, answer)
+
+    assert code == 0 and out.splitlines()[0] == "false"
+
+
+def test_merged_pr_false_when_api_fails(tmp_path):
+    code, out = merged_pr(tmp_path, json.dumps([{"merged_at": "x"}]), code=1)
+
+    assert code == 0 and out.splitlines()[0] == "false"
+
+
+@pytest.mark.parametrize("repo,sha", [("owner/repo;rm", SHA_A), ("owner/repo", "HEAD"), ("-x/y", SHA_A)])
+def test_merged_pr_false_for_invalid_input(tmp_path, repo, sha):
+    code, out = merged_pr(tmp_path, json.dumps([{"merged_at": "x"}]), repo=repo, sha=sha)
+
+    assert code == 0 and out.splitlines()[0] == "false"
+    assert not (tmp_path / "args").exists()
+
+
+def test_merged_pr_stdout_is_only_the_answer(tmp_path):
+    fake = tmp_path / "gh"
+    fake.write_text("#!/bin/sh\necho failure >&2\nexit 1\n")
+    fake.chmod(0o755)
+    result = subprocess.run(["uv", "run", "--quiet", "--script", str(TASKS / "ci-merged-pr"), "owner/repo", SHA_A],
+                            env={**os.environ, "GH": str(fake)}, capture_output=True, text=True)
+
+    assert result.stdout == "false\n"

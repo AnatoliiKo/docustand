@@ -54,6 +54,10 @@ copier copy gh:AnatoliiKo/docustand .
 - Answers are stored in `.repo.yaml` (`_answers_file: .repo.yaml`).
 - A repeated run reads `.repo.yaml` and does not ask again.
 
+`standard-ci` runs on pull requests and pushes to `required_ci_branches`.
+A pull request runs every check.
+A push of a commit from a merged pull request runs only the baseline growth check and the commit message check of the pushed range; a direct push runs every check.
+
 Files owned by the standard are the paths with an `ask` rule in `.claude/settings.json`:
 
 - `.mise/conf.d/standard.toml`, `hk.pkl`, `.mise/tasks/*`, `.mise/data/*`

@@ -13,6 +13,8 @@ concurrency:
 
 permissions:
   contents: read
+  # ci-merged-pr reads the pull requests of the pushed commit.
+  pull-requests: read
 
 jobs:
   check:
@@ -27,7 +29,18 @@ jobs:
       - name: Git version
         run: git --version
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
-      - run: mise run check
+      # A commit of a merged pull request was checked in the pull request.
+      - name: Merged pull request (push)
+        id: merged
+        if: ${{ github.event_name == 'push' }}
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: echo "merged=$(mise run ci-merged-pr -- "$REPO" "$SHA")" >> "$GITHUB_OUTPUT"
+      - name: Checks
+        if: ${{ github.event_name != 'push' || steps.merged.outputs.merged != 'true' }}
+        run: mise run check
       # The base is the pull request base, or the previous tip of the pushed branch.
       - name: Baseline growth (pull request)
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
@@ -52,6 +65,17 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: mise run check-pr-commits -- "$BASE_SHA" "$HEAD_SHA"
+      - name: Commit messages (merged push)
+        if: ${{ !cancelled() && github.event_name == 'push' && steps.merged.outputs.merged == 'true' }}
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "${BASE_SHA//0/}" ]; then
+            echo "new branch, no base"
+          else
+            mise run check-pr-commits -- "$BASE_SHA" "$HEAD_SHA"
+          fi
       - name: Pull request description
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:

@@ -5,8 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- Template `standard-ci`: on a push to a required branch, a commit of a merged pull request skips `mise run check`; CI runs `check-baseline` against the previous tip and `check-pr-commits` over the pushed range. A direct push runs every check. The new task `ci-merged-pr` asks the pulls API and answers false on any error; the workflow reads pull requests (`pull-requests: read`).
+
 ### Added
 
+- ADR 0014: the `typescript` profile is the base layer of the `nextjs` and `expo` profiles.
 - `README.md` section `Update` and `repo-init` skill: resolving conflicts in a Renovate template update pull request on the Renovate branch; Renovate no longer rebases the branch after a commit by another author.
 
 ## 0.1.4 — 2026-11-06
