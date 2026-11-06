@@ -10,7 +10,7 @@ Environment: GITHUB_REPOSITORY, REPORT_SCHEDULE (monthly|weekly|twice-weekly),
 REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), GH_TOKEN for `gh`,
 REPORT_APP_CONFIGURED=false when the report GitHub App is missing, GITHUB_STEP_SUMMARY for the job summary.
 
-Order: token expiry and vulnerability alerts always; red merges, Skip-Check
+Order: token expiry always, vulnerability alerts always with the report app; red merges, Skip-Check
 trailers, protected files, new baseline files and stack drift only when the repository had activity
 since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
 is the only place that runs `gh`.
@@ -39,6 +39,7 @@ SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
 ADDED = {"added", "renamed", "copied"}
 ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 NO_APP = "report app is not configured, see docs/access.md"
+VULN_NOT_CHECKED = "Not checked, needs the report app"
 
 
 def fetch(cmd: list[str]) -> Any:
@@ -231,7 +232,8 @@ def closed_cross_repo_tasks() -> list[str]:
 
 
 def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = False,
-            protected: list[str] | None = None, base: str | None = None) -> dict[str, list[str]]:
+            protected: list[str] | None = None, base: str | None = None,
+            app: bool = True) -> dict[str, list[str]]:
     """Gather findings: always tokens and alerts, the rest only after activity."""
     sections: dict[str, list[str]] = {}
     access = root / "docs" / "access.md"
@@ -240,11 +242,15 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
         f"{name} expires soon or has expired"
         for name in expiring_tokens(access.read_text() if access.exists() else "", today)
     ]
-    try:
-        fetch(["gh", "api", f"repos/{repo}/vulnerability-alerts"])
-        sections["Vulnerability alerts"] = []
-    except subprocess.CalledProcessError:
-        sections["Vulnerability alerts"] = ["Vulnerability alerts are not enabled or not readable"]
+    if not app:
+        # The default token cannot read the alert setting; a check would report a false finding every run.
+        sections["Vulnerability alerts"] = [VULN_NOT_CHECKED]
+    else:
+        try:
+            fetch(["gh", "api", f"repos/{repo}/vulnerability-alerts"])
+            sections["Vulnerability alerts"] = []
+        except subprocess.CalledProcessError:
+            sections["Vulnerability alerts"] = ["Vulnerability alerts are not enabled or not readable"]
 
     since = since_from_schedule(now, schedule, manual)
     stamp = since.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -323,9 +329,9 @@ def main(argv: list[str]) -> int:
         print(f"monthly_due={str(monthly_due(now.date(), schedule, manual)).lower()}")
         return 0
     root = Path(".")
-    sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual,
-                       base=os.environ.get("DEFAULT_BRANCH") or None)
     no_app = os.environ.get("REPORT_APP_CONFIGURED") == "false"
+    sections = collect(os.environ["GITHUB_REPOSITORY"], root, now, schedule, manual,
+                       base=os.environ.get("DEFAULT_BRANCH") or None, app=not no_app)
     if no_app:
         sections["Report app"] = [NO_APP]
     text = render_report(sections) or "No findings."
