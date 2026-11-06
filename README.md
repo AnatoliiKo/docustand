@@ -82,8 +82,11 @@ Stack profiles in this release:
 | Profile | Format and lint | Types |
 |---|---|---|
 | Terraform | `terraform fmt`, tflint | `terraform validate` |
+| TypeScript | Prettier, ESLint with complexity rules, dependency-cruiser `no-circular`, knip, Steiger with FSD, jscpd in CI | `tsc` through the `typecheck` script |
 
 - The Terraform profile runs without secrets: `init -backend=false`, no `plan`.
+- The TypeScript profile is in [`profiles/typescript.md`](profiles/typescript.md).
+- Every stack has `check-size`: a file over the size limit of its profile fails unless `.size-baseline.json` records it.
 - A new stack needs a profile first.
 
 ## Update

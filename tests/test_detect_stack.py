@@ -85,6 +85,47 @@ def test_package_json_without_signals_or_broken(repo):
     assert detect(repo)["stack"] == []
 
 
+def test_detects_typescript_from_workspace_tsconfig(repo):
+    write(repo, "package.json", json.dumps({"devDependencies": {"typescript": "6.0.3"}}))
+    write(repo, "tsconfig.base.json", "{}")
+    write(repo, "apps/web/package.json", json.dumps({"dependencies": {"react": "19"}}))
+    write(repo, "apps/web/tsconfig.json", "{}")
+    write(repo, "apps/server/tsconfig.json", "{}")
+
+    out = detect(repo)
+
+    assert out["stack"] == ["typescript"]
+    assert out["evidence"] == {"typescript": ["apps/server/tsconfig.json", "apps/web/tsconfig.json"]}
+
+
+def test_typescript_needs_package_json(repo):
+    write(repo, "tsconfig.json", "{}")
+
+    assert detect(repo)["stack"] == []
+
+
+def test_next_or_expo_in_a_workspace_replaces_typescript(repo):
+    write(repo, "package.json", "{}")
+    write(repo, "tsconfig.json", "{}")
+    write(repo, "apps/site/package.json", json.dumps({"dependencies": {"next": "16"}}))
+
+    out = detect(repo)
+
+    assert out["stack"] == ["nextjs"]
+    assert out["evidence"] == {"nextjs": ["apps/site/package.json"]}
+
+
+def test_typescript_ignores_node_modules_outside_git(tmp_path):
+    root = tmp_path / "plain"
+    write(root, "package.json", "{}")
+    write(root, "node_modules/pkg/tsconfig.json", "{}")
+    write(root, "node_modules/pkg/package.json", json.dumps({"dependencies": {"next": "16"}}))
+
+    assert detect(root)["stack"] == []
+    write(root, "tsconfig.json", "{}")
+    assert detect(root)["stack"] == ["typescript"]
+
+
 def test_works_outside_git(tmp_path):
     root = tmp_path / "plain"
     write(root, "a/main.tf")

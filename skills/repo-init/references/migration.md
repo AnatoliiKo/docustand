@@ -46,7 +46,7 @@ The template meets existing files. The order below keeps every existing line; it
 
    `overrides` changes through `copier update -a .repo.yaml --defaults --data 'overrides=[...]'`, after `git status --porcelain` prints nothing.
 8. Own `CLAUDE.md`: its rules move into `AGENTS.md` sections in step 5; `CLAUDE.md` becomes the line `@AGENTS.md`.
-9. Old findings of the new checks: safe autofix one tool per commit, the rest into the tool's baseline (quality-gates).
+9. Old findings of the new checks: safe autofix one tool per commit, the rest into the tool's baseline (quality-gates). The profile file lists its baselines and the merge of own configs (for example `profiles/typescript.md`, «Baselines» and «Migration notes»).
 10. Prove that each check fails on a violation (quality-gates, «Prove every gate fails»).
 11. `mise run check` exits 0. Delete `docs/temp/rendered`.
 12. GitHub steps (SKILL.md section 6).

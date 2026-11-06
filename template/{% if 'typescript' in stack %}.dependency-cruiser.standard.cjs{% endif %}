@@ -1,0 +1,19 @@
+// Managed by the repository standard; change it only with the owner's approval.
+// A cycle between modules is an error in every architecture.
+const { existsSync } = require('node:fs');
+
+module.exports = {
+  forbidden: [
+    {
+      name: 'no-circular',
+      severity: 'error',
+      from: {},
+      to: { circular: true },
+    },
+  ],
+  options: {
+    doNotFollow: { path: 'node_modules' },
+    exclude: { path: '(^|/)(node_modules|dist|build|coverage)/' },
+    ...(existsSync('tsconfig.json') ? { tsConfig: { fileName: 'tsconfig.json' } } : {}),
+  },
+};

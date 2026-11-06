@@ -9,7 +9,7 @@
 Profiles come from `stack` in .repo.yaml; `--stack` (repeatable) replaces them.
 Without paths every git-listed source file is scanned; with paths only those
 (listing `.env.example` itself scans the whole repository).
-Variables in BUILTIN (`NODE_ENV`, `NEXT_RUNTIME`) are ignored for all profiles.
+Variables in BUILTIN (`NODE_ENV`, `NEXT_RUNTIME`, `ESLINT_NO_TYPES`) are ignored for all profiles.
 """
 import argparse
 import os
@@ -23,11 +23,12 @@ import yaml
 JS = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
 PROFILES = {
     "laravel": (re.compile(r"""env\(['"]([A-Z0-9_]+)"""), (".php",)),
+    "typescript": (re.compile(r"""process\.env(?:\.|\[['"])([A-Z0-9_]+)"""), JS),
     "nextjs": (re.compile(r"process\.env\.([A-Z0-9_]+)"), JS),
     "expo": (re.compile(r"\b(EXPO_PUBLIC_[A-Z0-9_]+)"), JS),
 }
-# Set by the runtime or framework, not by `.env`; never required in `.env.example`.
-BUILTIN = {"NODE_ENV", "NEXT_RUNTIME"}
+# Set by the runtime, the framework or the hooks, not by `.env`; never required in `.env.example`.
+BUILTIN = {"NODE_ENV", "NEXT_RUNTIME", "ESLINT_NO_TYPES"}
 DECLARED = re.compile(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
 
 

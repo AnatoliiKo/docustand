@@ -47,12 +47,12 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 
 Without protection on the plan: no question, the warning «CI only reports; local hooks are the only blocking layer».
 
-**Stack.** The template offers the profiles in `${CLAUDE_PLUGIN_ROOT}/profiles/`; today only `terraform`.
+**Stack.** The template offers the profiles in `${CLAUDE_PLUGIN_ROOT}/profiles/`: `terraform` and `typescript`.
 
 1. The detected profiles are right (recommended when `detect-stack` evidence matches the manifests): their tools and checks are added. Costs: the profile tools are installed by mise.
 2. Different profiles: name them from the available list. Costs: checks for what the code does not contain, or none for what it does.
 
-Code without a profile (for example PHP or TypeScript while only `terraform` exists): record nothing in `stack` for it and tell the owner that a new stack needs a profile in docustand first («new stack — profile first»). Until then the standard checks run, and the stack's own linters, types and tests do not.
+Code without a profile (for example PHP): record nothing in `stack` for it and tell the owner that a new stack needs a profile in docustand first («new stack — profile first»). Until then the standard checks run, and the stack's own linters, types and tests do not.
 
 **Multi-repository system** (only when references were found, not for siblings alone):
 

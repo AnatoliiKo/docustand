@@ -29,6 +29,23 @@ jobs:
       - name: Git version
         run: git --version
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+      # The hooks run ESLint, Prettier and the other tools from `node_modules`.
+      - name: Node dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          elif [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "pnpm-lock.yaml or package-lock.json is required"
+            exit 1
+          fi
+{%- endraw %}
+{%- endif %}
+{%- raw %}
       # A commit of a merged pull request was checked in the pull request.
       - name: Merged pull request (push)
         id: merged
@@ -76,6 +93,18 @@ jobs:
           else
             mise run check-pr-commits -- "$BASE_SHA" "$HEAD_SHA"
           fi
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+      # The threshold in `.jscpd.json` is the measured duplication; check-baseline keeps it from rising.
+      - name: Duplication
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: |
+          test -f .jscpd.json || { echo ".jscpd.json is missing"; exit 1; }
+          jscpd --config .jscpd.json --no-tips .
+{%- endraw %}
+{%- endif %}
+{%- raw %}
       - name: Pull request description
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:

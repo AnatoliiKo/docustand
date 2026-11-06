@@ -1,0 +1,68 @@
+# TypeScript profile
+
+Read by the `repo-init` skill when `typescript` is in the `stack` answer.
+The profile is the base layer of `nextjs` and `expo` ([ADR 0014](../docs/decisions/0014-typescript-profile-as-base-layer.md)); the tools are in [ADR 0015](../docs/decisions/0015-typescript-profile-dependencies.md).
+
+## Detection
+
+- Signal: a root `package.json` and a `tsconfig.json` at any depth; `next` or `expo` in any `package.json` gives `nextjs` or `expo` instead.
+- Run `.mise/tasks/detect-stack [PATH]`; the `typescript` entry of `evidence` lists up to 10 `tsconfig.json` paths.
+
+## Project requirements
+
+- `mise.toml` of the project pins `node` and, with `pnpm-lock.yaml`, `pnpm`. The project version wins over `node` of `.mise/conf.d/standard.toml`.
+- The root `package.json` has the scripts `typecheck` (for example `tsc --noEmit`) and `test`.
+- devDependencies: `eslint`, `typescript-eslint`, `eslint-plugin-sonarjs`, `prettier`, `dependency-cruiser`, `knip`, `typescript`; with FSD in `architecture` also `steiger` and `@feature-sliced/steiger-plugin` and a `steiger.config.*`.
+- `tsconfig.json` sets `strict`.
+- A lockfile: `pnpm-lock.yaml` or `package-lock.json`.
+
+## Files
+
+| File | Owner | Content |
+|---|---|---|
+| `eslint.config.mjs` | standard | Project rules first, then the parser and the standard rules; with `ESLINT_NO_TYPES=1` rules with type information are off |
+| `eslint.project.mjs` | project, written once | Project ESLint rules |
+| `.dependency-cruiser.standard.cjs` | standard | `no-circular` |
+| `.dependency-cruiser.cjs` | project, written once, protected | Architecture rules; `extends` the standard file |
+| `knip.json` | project, written once | Ignores the tools that only the hooks call |
+| `.jscpd.json` | project, written once, protected | Duplication threshold |
+| `.mise/data/size-limits.json` | standard | 300 non-empty lines for `.ts`, `.tsx`, `.mts`, `.cts` |
+| `.size-baseline.json` | project, protected | Files over the limit with their size |
+| `eslint-suppressions.json` | project, protected | Old ESLint violations |
+
+The standard rules: `complexity` 10, `sonarjs/cognitive-complexity` 15, `max-depth` 4, `max-params` 4, `max-lines-per-function` 80 (`.tsx` 120).
+A project rule cannot weaken them: `eslint.config.mjs` applies them after `eslint.project.mjs`.
+A stricter threshold is an edit of `eslint.config.mjs` with an entry in `overrides`.
+
+## Commands
+
+| Stage | Step | Command |
+|---|---|---|
+| pre-commit | `prettier` | `prettier --check` on changed code files; files of the template are excluded |
+| pre-commit | `eslint-fast` | `ESLINT_NO_TYPES=1 eslint` on changed code files |
+| pre-commit | `check-size` | `.mise/tasks/check-size` on changed files |
+| pre-push | `typecheck`, `test` | `npm run typecheck`, `npm run test` |
+| pre-push | `eslint` | `eslint` with type information on the changed files of the push |
+| pre-push | `dependency-cruiser` | `depcruise --config .dependency-cruiser.cjs .` |
+| pre-push | `knip` | `knip` |
+| pre-push | `steiger-<n>` | `steiger <part>` for each part of `architecture` with FSD |
+| CI, pull request | Duplication | `jscpd --config .jscpd.json .` |
+
+`mise run check` runs every step except `eslint-fast` on all files, so CI runs the full ESLint.
+CI installs the dependencies with `pnpm install --frozen-lockfile` or `npm ci` before the checks.
+Steps call the tools from `node_modules/.bin/`; the dependencies are installed before the hooks run.
+
+## Baselines
+
+- `check-size` records nothing by itself; `check-size --write-baseline` records every tracked file over the limit at migration.
+- Outside CI `check-size` moves an entry after a staged rename, lowers it when the file shrinks and stages `.size-baseline.json`.
+- Old ESLint violations: `eslint --suppress-all`, then `eslint --prune-suppressions` as they are fixed.
+- `.jscpd.json` gets the measured duplication percentage at migration: run `jscpd .` with the template config and write the total into `threshold`.
+- `check-baseline` fails when the suppressions, the size baseline or the threshold grow.
+
+## Migration notes
+
+- An own ESLint config moves into `eslint.project.mjs`; its thresholds stricter than the standard ones go into `eslint.config.mjs` with an entry in `overrides`.
+- An own `.dependency-cruiser.cjs` gets `extends: "./.dependency-cruiser.standard.cjs"`.
+- An own knip config gets the `ignore` and `ignoreDependencies` entries of the template `knip.json`.
+- Variables: `process.env.X` and `process.env["X"]` in the code need a line in `.env.example`.

@@ -20,6 +20,10 @@ node = "26.13.0"
 terraform = "1.17.1"
 tflint = "0.65.0"
 {%- endif %}
+{%- if 'typescript' in stack %}
+# Duplication check in CI; a standalone binary, not a project dependency.
+"npm:jscpd" = "5.4.2"
+{%- endif %}
 
 [hooks]
 # `mise install` also installs the git hooks of `hk.pkl`.

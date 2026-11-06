@@ -9,7 +9,7 @@
     "project_name": {"type": "string"},
     "level": {"enum": ["base", "full"]},
     "team": {"enum": ["solo"]},
-    "stack": {"type": "array", "items": {"enum": ["terraform"]}, "uniqueItems": true},
+    "stack": {"type": "array", "items": {"enum": ["terraform", "typescript"]}, "uniqueItems": true},
     "architecture": {"type": "object"},
     "system": {"type": ["object", "null"]},
     "contract": {"type": ["object", "null"]},

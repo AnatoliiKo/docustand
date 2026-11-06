@@ -1,0 +1,3 @@
+// Project ESLint rules; `eslint.config.mjs` applies the standard rules after them.
+// Rules with type information run before push and in CI, not before a commit.
+export default [];

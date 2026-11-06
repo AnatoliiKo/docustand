@@ -8,6 +8,8 @@
 
 Usage: detect-stack [PATH]  (default: current directory)
 Prints {"stack": [...], "evidence": {profile: [paths]}} and always exits 0.
+`typescript` needs a root `package.json` and a `tsconfig.json` at any depth; `next` or
+`expo` in any `package.json` replaces it with `nextjs` or `expo` (ADR 0014).
 Inside a git repo it uses `git ls-files` (tracked and untracked, not ignored);
 otherwise it walks the filesystem, skipping .git, .terraform, node_modules, vendor.
 """
@@ -45,9 +47,9 @@ def walk_files(root: Path) -> list[str]:
     return found
 
 
-def package_deps(root: Path) -> set[str]:
+def package_deps(path: Path) -> set[str]:
     try:
-        data = json.loads((root / "package.json").read_text())
+        data = json.loads(path.read_text())
         deps = set()
         for key in ("dependencies", "devDependencies"):
             section = data.get(key)
@@ -71,11 +73,14 @@ def detect(root: Path) -> dict:
     if "artisan" in files:
         evidence["laravel"] = ["artisan"]
     if "package.json" in files:
-        deps = package_deps(root)
-        if "next" in deps:
-            evidence["nextjs"] = ["package.json"]
-        if "expo" in deps:
-            evidence["expo"] = ["package.json"]
+        manifests = [f for f in files if f.rsplit("/", 1)[-1] == "package.json"]
+        for profile, dep in (("nextjs", "next"), ("expo", "expo")):
+            found = [f for f in manifests if dep in package_deps(root / f)]
+            if found:
+                evidence[profile] = found[:EVIDENCE_LIMIT]
+        tsconfigs = [f for f in files if f.rsplit("/", 1)[-1] == "tsconfig.json"]
+        if tsconfigs and not ({"nextjs", "expo"} & evidence.keys()):
+            evidence["typescript"] = tsconfigs[:EVIDENCE_LIMIT]
 
     return {"stack": sorted(evidence), "evidence": dict(sorted(evidence.items()))}
 

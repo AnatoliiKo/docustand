@@ -18,7 +18,11 @@ PROTECTED = [
     ".repo.yaml", "renovate.json", "mise.toml", ".mise/conf.d/**", "hk.pkl",
     ".github/workflows/**", ".claude/settings.json", ".claude/hooks/**",
     ".mise/tasks/**", ".mise/data/**", ".github/repo.schema.json",
-    "commitlint.config.mjs", "typos.toml", ".rumdl.toml", "lychee.toml",
+    "commitlint.config.mjs", "typos.toml", ".rumdl.toml", "lychee.toml", ".size-baseline.json",
+]
+TYPESCRIPT_PROTECTED = [
+    "eslint.config.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",
+    ".dependency-cruiser.cjs", ".jscpd.json", "tsconfig.json", "steiger.config.*",
 ]
 
 
@@ -588,6 +592,13 @@ def test_settings_json_valid(render, tmp_path):
     assert "Edit(/.mise/tasks/**)" in ask and "Edit(/.github/repo.schema.json)" in ask
     assert "Edit(/.tflint.hcl)" not in ask
     assert sorted(ask) == sorted(f"Edit(/{p})" for p in PROTECTED)
+
+
+def test_settings_typescript_protects_profile_files(render, tmp_path):
+    ask = _settings(render(tmp_path, project_name="demo", stack=["typescript"]))["permissions"]["ask"]
+
+    assert sorted(ask) == sorted(f"Edit(/{p})" for p in PROTECTED + TYPESCRIPT_PROTECTED)
+    assert "Edit(/eslint.project.mjs)" not in ask and "Edit(/knip.json)" not in ask
 
 
 def test_settings_terraform_protects_tflint(render, tmp_path):

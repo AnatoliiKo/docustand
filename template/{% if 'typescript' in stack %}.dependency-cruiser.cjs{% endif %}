@@ -1,0 +1,5 @@
+// Project architecture rules; `no-circular` comes from the standard file.
+module.exports = {
+  extends: "./.dependency-cruiser.standard.cjs",
+  forbidden: [],
+};

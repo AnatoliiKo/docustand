@@ -7,7 +7,7 @@
 """Usage: check-gitignore-block [PATH ...]  (checks .gitignore; with paths, only if listed)
 
 BLOCK and the rendered `.gitignore` of the template hold the same lines (a test keeps them equal).
-With `terraform` in the `stack` of `.repo.yaml`, TERRAFORM_BLOCK is required too.
+With `terraform` or `typescript` in the `stack` of `.repo.yaml`, its block is required too.
 New lines arrive with a template update.
 The lines alone are not enough: `git check-ignore` confirms that TRACKED paths stay in git
 and IGNORED paths stay out, which a rule like `.claude/` before the block breaks.
@@ -31,6 +31,9 @@ CLAUDE.local.md
 TERRAFORM_BLOCK = """\
 .terraform/
 *.tfstate*
+"""
+TYPESCRIPT_BLOCK = """\
+node_modules/
 """
 TRACKED = [".claude/settings.json", ".claude/hooks/guard_bash.py"]
 IGNORED = ["CLAUDE.local.md"]
@@ -69,7 +72,9 @@ def main(argv: list[str]) -> int:
         print(".gitignore:1: file is missing")
         return 1
     present = {line.strip() for line in path.read_text().splitlines()}
-    required = BLOCK + (TERRAFORM_BLOCK if "terraform" in stack(root) else "")
+    profiles = stack(root)
+    required = (BLOCK + (TERRAFORM_BLOCK if "terraform" in profiles else "")
+                + (TYPESCRIPT_BLOCK if "typescript" in profiles else ""))
     missing = [line for line in required.splitlines() if line not in present]
     for line in missing:
         print(f".gitignore:1: missing line `{line}` of the standard block")

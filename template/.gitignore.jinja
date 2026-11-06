@@ -9,3 +9,6 @@ CLAUDE.local.md
 .terraform/
 *.tfstate*
 {%- endif %}
+{%- if 'typescript' in stack %}
+node_modules/
+{%- endif %}

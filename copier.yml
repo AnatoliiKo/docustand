@@ -10,6 +10,11 @@ _skip_if_exists:
   - .gitignore
   - CLAUDE.md
   - docs/operations.md
+  # TypeScript profile: project rules and the measured duplication threshold.
+  - eslint.project.mjs
+  - .dependency-cruiser.cjs
+  - knip.json
+  - .jscpd.json
 
 project_name:
   type: str
@@ -38,6 +43,7 @@ stack:
   help: Technology stack
   choices:
     terraform: terraform
+    typescript: typescript
   default: []
 
 architecture:

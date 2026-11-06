@@ -1,0 +1,9 @@
+{%- set fsd = [] -%}
+{%- for part, style in architecture.items() if style is string and ('fsd' in style | lower or 'feature-sliced' in style | lower) -%}
+{%- set _ = fsd.append(part) -%}
+{%- endfor -%}
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [".dependency-cruiser.standard.cjs", "commitlint.config.mjs"{% if fsd %}, "steiger.config.*"{% endif %}],
+  "ignoreDependencies": ["prettier", "dependency-cruiser"{% if fsd %}, "steiger", "@feature-sliced/steiger-plugin"{% endif %}]
+}

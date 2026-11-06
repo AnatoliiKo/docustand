@@ -13,11 +13,25 @@ local function script(name: String, files: String | List<String>) = new Step {
   check = new Command { argv = List(".mise/tasks/\(name)", "{{files}}") }
 }
 
+// A tool installed by the package manager of the project.
+local function bin(name: String) = "node_modules/.bin/\(name)"
+
 // Fast checks on changed files.
 local commitSteps = new Mapping<String, Step> {
 {%- endraw %}
 {%- if 'terraform' in stack %}
   ["terraform-fmt"] = Builtins.terraform
+{%- endif %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+  ["prettier"] {
+    glob = List("**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,css,scss}")
+    // Files of the template keep its style whatever the project formatter says.
+    exclude = List("eslint.config.mjs", ".dependency-cruiser.standard.cjs", "commitlint.config.mjs")
+    check = new Command { argv = List(bin("prettier"), "--check", "--ignore-unknown", "{{files}}") }
+    fix = new Command { argv = List(bin("prettier"), "--write", "--ignore-unknown", "{{files}}") }
+  }
+{%- endraw %}
 {%- endif %}
 {%- raw %}
   ["betterleaks"] = Builtins.betterleaks
@@ -35,11 +49,36 @@ local commitSteps = new Mapping<String, Step> {
   }
   ["check-env-example"] = script("check-env-example", "**/*")
   ["check-gitignore-block"] = script("check-gitignore-block", ".gitignore")
+  // Limits per extension are in `.mise/data/size-limits.json`.
+  ["check-size"] = script("check-size", "**/*")
   ["check-comments"] = script(
     "check-comments",
     List("**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.php", "**/*.tf", "**/*.py", "**/*.sh")
   )
 }
+
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+
+local code = List("**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}")
+
+// Pre-commit only: the same rules without type information; `check` runs the full ESLint.
+local fastLint = new Mapping<String, Step> {
+  ["eslint-fast"] {
+    glob = code
+    env { ["ESLINT_NO_TYPES"] = "1" }
+    check = new Command { argv = List(bin("eslint"), "--no-warn-ignored", "{{files}}") }
+  }
+}
+{%- endraw %}
+{%- else %}
+{%- raw %}
+
+local fastLint = new Mapping<String, Step> {}
+{%- endraw %}
+{%- endif %}
+{%- raw %}
 
 // Slower checks before a push.
 local pushSteps = new Mapping<String, Step> {
@@ -57,6 +96,37 @@ local pushSteps = new Mapping<String, Step> {
     check = ".mise/tasks/tf-validate"
   }
 {%- endif %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+  // `typecheck` and `test` are scripts of the root `package.json`.
+  ["typecheck"] {
+    glob = code
+    check = "npm run --silent typecheck"
+  }
+  ["eslint"] {
+    glob = code
+    check = new Command { argv = List(bin("eslint"), "--no-warn-ignored", "{{files}}") }
+  }
+  ["test"] {
+    glob = code
+    check = "npm run --silent test"
+  }
+  ["dependency-cruiser"] {
+    glob = code
+    check = new Command { argv = List(bin("depcruise"), "--config", ".dependency-cruiser.cjs", "--output-type", "err", ".") }
+  }
+  ["knip"] {
+    glob = List("**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}", "**/package.json")
+    check = new Command { argv = List(bin("knip"), "--no-progress") }
+  }
+{%- endraw %}
+{%- for part, style in architecture.items() if style is string and ('fsd' in style | lower or 'feature-sliced' in style | lower) %}
+  ["steiger-{{ loop.index }}"] {
+    glob = List("{{ part }}/**")
+    check = new Command { argv = List(bin("steiger"), "{{ part }}") }
+  }
+{%- endfor %}
+{%- endif %}
 {%- raw %}
   // Internal links only; external links are checked on a schedule.
   ["lychee"] = (Builtins.lychee) {
@@ -68,7 +138,10 @@ local pushSteps = new Mapping<String, Step> {
 
 hooks {
   ["pre-commit"] {
-    steps = commitSteps
+    steps {
+      ...commitSteps
+      ...fastLint
+    }
   }
   ["commit-msg"] {
     steps {

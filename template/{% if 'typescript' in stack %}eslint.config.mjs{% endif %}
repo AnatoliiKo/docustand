@@ -1,0 +1,41 @@
+// Managed by the repository standard; change it only with the owner's approval.
+// Project rules come first and the standard rules last, so the project cannot weaken them.
+// A stricter threshold is an edit of this file with an entry in `overrides` of `.repo.yaml`.
+import { defineConfig } from 'eslint/config';
+import sonarjs from 'eslint-plugin-sonarjs';
+import tseslint from 'typescript-eslint';
+import project from './eslint.project.mjs';
+
+// The pre-commit hook sets ESLINT_NO_TYPES=1: rules with type information exceed its 5 s budget.
+const typed = process.env.ESLINT_NO_TYPES !== '1';
+const functionLength = { skipBlankLines: true, skipComments: true };
+
+export default defineConfig(
+  { ignores: ['**/node_modules/', '**/dist/', '**/build/', '**/coverage/'] },
+  ...project,
+  {
+    files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
+    languageOptions: { parser: tseslint.parser },
+    plugins: { sonarjs },
+    rules: {
+      complexity: ['error', 10],
+      'sonarjs/cognitive-complexity': ['error', 15],
+      'max-depth': ['error', 4],
+      'max-params': ['error', 4],
+      'max-lines-per-function': ['error', { max: 80, ...functionLength }],
+    },
+  },
+  {
+    files: ['**/*.tsx'],
+    rules: { 'max-lines-per-function': ['error', { max: 120, ...functionLength }] },
+  },
+  {
+    files: ['**/*.{ts,tsx,mts,cts}'],
+    languageOptions: {
+      parserOptions: { projectService: typed, tsconfigRootDir: import.meta.dirname },
+    },
+  },
+  typed
+    ? { files: ['**/*.{js,jsx,mjs,cjs}'], ...tseslint.configs.disableTypeChecked }
+    : tseslint.configs.disableTypeChecked,
+);

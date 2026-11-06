@@ -506,3 +506,19 @@ def test_merged_pr_stdout_is_only_the_answer(tmp_path):
                             env={**os.environ, "GH": str(fake)}, capture_output=True, text=True)
 
     assert result.stdout == "false\n"
+
+
+def test_ci_typescript_installs_dependencies_and_checks_duplication(tmp_path, workflow):
+    dest = tmp_path / "project"
+    assert run_copier(dest, project_name="demo", stack=["typescript"]).returncode == 0
+    ts = yaml.safe_load((dest / ".github/workflows/standard-ci.yml").read_text())
+    names = [s.get("name") for s in steps(ts)]
+
+    assert names.index("Node dependencies") < names.index("Checks")
+    install = next(s for s in steps(ts) if s.get("name") == "Node dependencies")["run"]
+    assert "pnpm install --frozen-lockfile" in install and "npm ci" in install
+    duplication = next(s for s in steps(ts) if s.get("name") == "Duplication")
+    assert duplication["if"] == PR_IF
+    assert "jscpd --config .jscpd.json" in duplication["run"]
+    assert "Node dependencies" not in [s.get("name") for s in steps(workflow)]
+    assert "Duplication" not in [s.get("name") for s in steps(workflow)]
