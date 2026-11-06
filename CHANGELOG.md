@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Added
+
+- `README.md` section `Update` and `repo-init` skill: resolving conflicts in a Renovate template update pull request on the Renovate branch; Renovate no longer rebases the branch after a commit by another author.
+
 ## 0.1.4 — 2026-11-06
 
 ### Fixed

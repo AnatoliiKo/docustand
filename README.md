@@ -90,6 +90,16 @@ Stack profiles in this release:
 - `.repo.yaml` differs from the Copier default `.copier-answers.yml`, so `renovate.json` lists it in `managerFilePatterns`.
 - The template contains no `_tasks`, migrations or `_jinja_extensions`, so it needs no `--trust`.
 
+Resolve conflicts in a template update pull request:
+
+1. Check out the Renovate branch: `gh pr checkout <number>`.
+2. Remove the conflict markers and keep the intended side in each file; `.rej` files are resolved and deleted the same way.
+3. Commit `fix: resolve template update conflicts` and push to the same branch.
+4. The owner merges the pull request after `standard-ci` passes.
+
+After a commit by another author, Renovate no longer rebases or recreates the branch.
+The rebase checkbox in the pull request makes Renovate recreate the branch and discards the resolution.
+
 Change an answer:
 
 ```sh

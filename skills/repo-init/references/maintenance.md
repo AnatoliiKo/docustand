@@ -13,6 +13,10 @@ A repeated run is safe: it reads `.repo.yaml` and asks only questions that have 
    ```
 
    Conflicts appear as inline markers or `.rej` files; show each to the owner, resolve, and keep or add the `overrides` entry.
+
+   A Renovate pull request with conflicts: `gh pr checkout <number>`, show each marker and `.rej` file to the owner, resolve, commit `fix: resolve template update conflicts` and push to the same branch after the owner approves.
+   After a commit by another author, Renovate no longer rebases or recreates the branch; the rebase checkbox recreates it and discards the resolution.
+   The owner merges the pull request.
 4. `mise install`, then `mise run check` exits 0.
 5. Check the GitHub steps (SKILL.md section 6): vulnerability alerts answer 204, protection matches `required_ci_branches`, the report secrets exist when `report_schedule` is not `off` (`gh secret list`).
 6. Report the differences found and what changed.
