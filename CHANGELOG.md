@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Template `standard-ci.yml`: the log records `git --version`, which shows whether hk hooks run in git config mode (Git 2.54+).
 - `check-baseline`: a baseline file absent at the base ref passes only when `.repo.yaml` did not exist at the base, `_commit` changed, or `stack` changed and the file belongs to an added profile; a missing or invalid current `.repo.yaml` allows nothing; each new baseline file is printed with the reason.
 - Scheduled `report`: section `New baseline files` lists the baseline files each merged pull request added, renamed or copied.
 

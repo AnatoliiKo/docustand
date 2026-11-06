@@ -23,6 +23,9 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Git 2.54+ stores hk hooks in git config; the log records which mode CI exercises.
+      - name: Git version
+        run: git --version
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       - run: mise run check
       # The base is the pull request base, or the previous tip of the pushed branch.

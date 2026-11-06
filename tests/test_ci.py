@@ -376,3 +376,7 @@ def test_pr_commits_with_real_commitlint(tmp_path, git_repo):
 
     assert ok.returncode == 0, ok.stdout + ok.stderr
     assert bad.returncode == 1 and "header" in (bad.stdout + bad.stderr).lower()
+
+
+def test_ci_logs_git_version(workflow):
+    assert any(s.get("run") == "git --version" for s in steps(workflow))
