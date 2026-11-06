@@ -320,10 +320,14 @@ def test_project_without_mise_toml_works(project):
 
 
 def test_hooks_are_installed_by_mise_install(project):
+    """hk writes shims to the hooks directory, or on Git 2.54+ the local config
+    entries `hook.hk-<event>.event` (hk `src/cli/install.rs`)."""
     root, env = project
     hooks = sh(root, env, "git", "rev-parse", "--git-path", "hooks", check=True).stdout.strip()
+    config = sh(root, env, "git", "config", "--local", "--get-regexp", r"^hook\.hk-.*\.event$").stdout
+    events = {line.split(maxsplit=1)[1].strip() for line in config.splitlines() if " " in line}
     for name in ("pre-commit", "commit-msg", "pre-push"):
-        assert (root / hooks / name).exists(), name
+        assert (root / hooks / name).exists() or name in events, name
 
 
 def test_pr_ready_records_head(project):
