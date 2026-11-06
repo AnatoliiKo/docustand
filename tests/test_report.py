@@ -68,12 +68,12 @@ class Fake:
         raise AssertionError(f"unexpected command: {text}")
 
 
-def collect(report, fake, tmp_path, access=ACCESS, declared=(), schedule="weekly", manual=False):
+def collect(report, fake, tmp_path, access=ACCESS, declared=(), schedule="weekly", manual=False, app=True):
     (tmp_path / "docs").mkdir(exist_ok=True)
     (tmp_path / "docs" / "access.md").write_text(access)
     (tmp_path / ".repo.yaml").write_text(yaml.safe_dump({"stack": list(declared)}))
     report.fetch = fake
-    return report.collect("o/r", tmp_path, NOW, schedule, manual, protected=[".github/workflows/**"])
+    return report.collect("o/r", tmp_path, NOW, schedule, manual, protected=[".github/workflows/**"], app=app)
 
 
 def commit(sha, message, when="2026-11-04T10:00:00Z"):
@@ -136,6 +136,7 @@ def test_main_without_app_fails_with_summary(report, tmp_path, monkeypatch, caps
     text = summary.read_text()
     assert "## Report app" in text and report.NO_APP in text
     assert "Deploy key" in text
+    assert report.VULN_NOT_CHECKED in text
 
 
 def test_main_with_app_publishes(report, tmp_path, monkeypatch):
@@ -176,6 +177,13 @@ def test_tokens_checked_without_activity(report, tmp_path):
 def test_vuln_alerts_disabled_is_finding(report, tmp_path):
     sections = collect(report, Fake(vuln_enabled=False), tmp_path, access="")
     assert sections["Vulnerability alerts"]
+
+
+def test_vuln_alerts_not_checked_without_app(report, tmp_path):
+    fake = Fake(vuln_enabled=False)
+    sections = collect(report, fake, tmp_path, access="", app=False)
+    assert sections["Vulnerability alerts"] == [report.VULN_NOT_CHECKED]
+    assert not any("vulnerability-alerts" in c for c in fake.calls)
 
 
 def test_expiring_token_within_30_days(report):
