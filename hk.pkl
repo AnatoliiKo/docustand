@@ -15,7 +15,11 @@ local function script(name: String, files: String | List<String>) = new Step {
 // Fast checks on changed files.
 local commitSteps = new Mapping<String, Step> {
   ["betterleaks"] = Builtins.betterleaks
+<<<<<<< before updating
   // `--assume-in-merge`: markers left by a `copier update` conflict fail outside a merge too.
+=======
+  // `--assume-in-merge`: markers left by a conflicted template update fail outside a merge too.
+>>>>>>> after updating
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["typos"] = Builtins.typos
   ["rumdl"] = Builtins.rumdl
