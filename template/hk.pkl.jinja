@@ -21,7 +21,7 @@ local commitSteps = new Mapping<String, Step> {
 {%- endif %}
 {%- raw %}
   ["betterleaks"] = Builtins.betterleaks
-  // `--assume-in-merge`: markers left by a `copier update` conflict fail outside a merge too.
+  // `--assume-in-merge`: markers left by a conflicted template update fail outside a merge too.
   ["check-merge-conflict"] = Builtins.check_merge_conflict
   ["typos"] = Builtins.typos
   ["rumdl"] = Builtins.rumdl
