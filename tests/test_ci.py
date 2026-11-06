@@ -184,6 +184,20 @@ def test_renovate_merges_itself(renovate):
     assert rule["matchUpdateTypes"] == ["patch"]
 
 
+COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerge": False}
+
+
+@pytest.mark.parametrize("source", ["rendered", "root"])
+def test_renovate_copier_updates_wait_for_review(renovate, source):
+    # Git tags carry no release date, so the age check would hold copier updates forever.
+    config = renovate if source == "rendered" else json.loads((REPO_ROOT / "renovate.json").read_text())
+    rules = config["packageRules"]
+    patch = rules.index({"matchUpdateTypes": ["patch"], "automerge": True})
+
+    assert COPIER_RULE in rules
+    assert rules.index(COPIER_RULE) > patch
+
+
 def test_renovate_groups_updates(renovate):
     assert any("groupName" in r for r in renovate["packageRules"])
 
