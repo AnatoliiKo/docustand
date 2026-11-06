@@ -9,6 +9,8 @@
 BLOCK and the rendered `.gitignore` of the template hold the same lines (a test keeps them equal).
 With `terraform` in the `stack` of `.repo.yaml`, TERRAFORM_BLOCK is required too.
 New lines arrive with a template update.
+The lines alone are not enough: `git check-ignore` confirms that TRACKED paths stay in git
+and IGNORED paths stay out, which a rule like `.claude/` before the block breaks.
 """
 import os
 import subprocess
@@ -30,6 +32,8 @@ TERRAFORM_BLOCK = """\
 .terraform/
 *.tfstate*
 """
+TRACKED = [".claude/settings.json", ".claude/hooks/guard_bash.py"]
+IGNORED = ["CLAUDE.local.md"]
 
 
 def stack(root: Path) -> list:
@@ -46,6 +50,13 @@ def relative(root: Path, arg: str) -> str | None:
     """Repo-relative POSIX path without following symlinks; None when outside the root."""
     rel = os.path.relpath(os.path.normpath(os.path.abspath(arg)), os.path.abspath(root))
     return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def ignored(root: Path, rel: str) -> bool:
+    """Whether the rules of the repository ignore `rel`; global excludes do not count."""
+    result = subprocess.run(["git", "-c", f"core.excludesFile={os.devnull}", "check-ignore", "-q",
+                             "--no-index", rel], cwd=root, capture_output=True, text=True)
+    return result.returncode == 0
 
 
 def main(argv: list[str]) -> int:
@@ -70,7 +81,11 @@ def main(argv: list[str]) -> int:
             if line.startswith("!.claude/") and number - 1 < anchor:
                 print(f".gitignore:{number}: `{line}` must come after `.claude/*`")
                 misplaced.append(line)
-    return 1 if missing or misplaced else 0
+    wrong = [rel for rel in TRACKED if ignored(root, rel)] + [rel for rel in IGNORED if not ignored(root, rel)]
+    for rel in wrong:
+        state = "is ignored" if rel in TRACKED else "is not ignored"
+        print(f".gitignore:1: `{rel}` {state}; check the rules before and after the standard block")
+    return 1 if missing or misplaced or wrong else 0
 
 
 if __name__ == "__main__":
