@@ -1,4 +1,5 @@
 import importlib.machinery
+import json
 import importlib.util
 import subprocess
 from pathlib import Path
@@ -200,10 +201,15 @@ def test_two_new_files_are_each_printed(tmp_path, git_repo):
     assert "second.txt: new baseline file allowed" in out
 
 
-def test_stack_change_allows_only_added_profile_baselines(tmp_path, git_repo, monkeypatch, capsys):
+def load_module():
     loader = importlib.machinery.SourceFileLoader("check_baseline_script", str(SCRIPT))
     module = importlib.util.module_from_spec(importlib.util.spec_from_loader("check_baseline_script", loader))
     loader.exec_module(module)
+    return module
+
+
+def test_stack_change_allows_only_added_profile_baselines(tmp_path, git_repo, monkeypatch, capsys):
+    module = load_module()
     monkeypatch.setitem(module.PROFILE_BASELINES, "a", ["a.baseline"])
     monkeypatch.setitem(module.PROFILE_BASELINES, "b", ["b.baseline"])
     repo = git_repo(tmp_path / "repo")
@@ -220,3 +226,103 @@ def test_stack_change_allows_only_added_profile_baselines(tmp_path, git_repo, mo
     out = capsys.readouterr().out
     assert "a.baseline: new baseline file allowed" in out
     assert "b.baseline:1:" in out
+
+
+def baseline_change(tmp_path, git_repo, name: str, before: str | None, after: str | None):
+    """Commit `name` with `before`, change it to `after` (None deletes), run the check."""
+    repo = git_repo(tmp_path / "repo")
+    commit_repo_yaml(repo, "stack: [typescript]\n", "chore: answers")
+    if before is not None:
+        (repo / name).write_text(before)
+        git(repo, "add", name)
+        git(repo, "commit", "-m", "chore: add baseline")
+    base = git(repo, "rev-parse", "HEAD")
+    if after is None:
+        git(repo, "rm", "-q", name)
+    else:
+        (repo / name).write_text(after)
+        git(repo, "add", name)
+    git(repo, "commit", "-m", "chore: change baseline")
+    return run_baseline(repo, base)
+
+
+def suppressions(**counts: int) -> str:
+    return json.dumps({f"src/{file}.ts": {"complexity": {"count": n}} for file, n in counts.items()})
+
+
+def test_typescript_profile_lists_its_baselines():
+    module = load_module()
+
+    assert module.PROFILE_BASELINES["typescript"] == ["eslint-suppressions.json", ".jscpd.json"]
+    assert module.BASE_BASELINES == [".size-baseline.json"]
+
+
+def test_eslint_suppressions_count_sums_counts(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json",
+                                suppressions(a=2, b=1), suppressions(a=1, c=3))
+
+    assert code == 1
+    assert "eslint-suppressions.json:1: baseline grew from 3 to 4 suppressions" in out
+
+
+def test_eslint_suppressions_may_move_between_files(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json",
+                                suppressions(a=2, b=1), suppressions(c=3))
+
+    assert code == 0, out
+
+
+def test_size_baseline_value_may_not_grow(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, ".size-baseline.json",
+                                json.dumps({"a.ts": 400, "b.ts": 350}), json.dumps({"a.ts": 401, "b.ts": 300}))
+
+    assert code == 1
+    assert ".size-baseline.json:1: a.ts grew from 400 to 401 lines" in out
+
+
+def test_size_baseline_rename_passes_and_new_entry_fails(tmp_path, git_repo):
+    before = json.dumps({"old/a.ts": 400})
+
+    code, out = baseline_change(tmp_path, git_repo, ".size-baseline.json", before,
+                                json.dumps({"new/a.ts": 400}))
+    assert code == 0, out
+
+    code, out = baseline_change(tmp_path / "2", git_repo, ".size-baseline.json", before,
+                                json.dumps({"old/a.ts": 400, "b.ts": 310}))
+    assert code == 1
+    assert "baseline grew from 1 to 2 entries" in out
+
+
+def test_size_baseline_swap_for_bigger_file_fails(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, ".size-baseline.json",
+                                json.dumps({"a.ts": 310}), json.dumps({"b.ts": 900}))
+
+    assert code == 1
+    assert "baseline grew from 310 to 900 lines" in out
+
+
+def test_jscpd_threshold_may_not_rise(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, ".jscpd.json",
+                                json.dumps({"threshold": 2.5}), json.dumps({"threshold": 3}))
+
+    assert code == 1
+    assert ".jscpd.json:1: threshold grew from 2.5 to 3" in out
+
+    code, out = baseline_change(tmp_path / "2", git_repo, ".jscpd.json",
+                                json.dumps({"threshold": 2.5}), json.dumps({"threshold": 1}))
+    assert code == 0, out
+
+
+@pytest.mark.parametrize("after", [None, json.dumps({"format": ["typescript"]})])
+def test_jscpd_threshold_may_not_disappear(tmp_path, git_repo, after):
+    code, out = baseline_change(tmp_path, git_repo, ".jscpd.json", json.dumps({"threshold": 2}), after)
+
+    assert code == 1
+    assert ".jscpd.json:1: threshold removed" in out
+
+
+def test_invalid_json_baseline_fails(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json", suppressions(a=1), "{x")
+
+    assert code == 1
+    assert "eslint-suppressions.json:1: invalid JSON" in out and "Traceback" not in out

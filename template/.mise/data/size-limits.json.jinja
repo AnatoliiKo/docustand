@@ -1,0 +1,5 @@
+{%- set limits = {} -%}
+{%- if 'typescript' in stack -%}
+{%- set _ = limits.update({".ts": 300, ".tsx": 300, ".mts": 300, ".cts": 300}) -%}
+{%- endif -%}
+{{ limits | tojson }}

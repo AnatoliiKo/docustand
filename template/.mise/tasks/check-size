@@ -1,0 +1,110 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when a code file exceeds its size limit or its baseline"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-size [--write-baseline] [FILE ...]
+
+Limits come from `.mise/data/size-limits.json` ({".ts": 300}) and count non-empty
+lines. A file over its limit fails unless `.size-baseline.json` records it; a recorded
+file may not grow. Outside CI the script keeps the baseline current and stages it:
+an entry follows a staged rename, drops to the new size when the file shrinks, and
+disappears when the file falls under the limit or is gone. `--write-baseline`
+records every tracked file over its limit (migration).
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+LIMITS = Path(".mise/data/size-limits.json")
+BASELINE = Path(".size-baseline.json")
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True,
+                          text=True).stdout
+
+
+def size(path: Path) -> int:
+    return sum(1 for line in path.read_text(errors="replace").splitlines() if line.strip())
+
+
+def renames(root: Path) -> dict[str, str]:
+    """Staged renames as {new path: old path}."""
+    fields = git(root, "diff", "--cached", "-M", "--name-status", "--diff-filter=R", "-z").split("\0")
+    pairs = {}
+    for i in range(0, len(fields) - 2, 3):
+        if fields[i].startswith("R"):
+            pairs[fields[i + 2]] = fields[i + 1]
+    return pairs
+
+
+def save(root: Path, entries: dict[str, int]) -> None:
+    (root / BASELINE).write_text(json.dumps(dict(sorted(entries.items())), indent=2) + "\n")
+    git(root, "add", "--", str(BASELINE))
+
+
+def relative(root: Path, arg: str) -> str | None:
+    rel = os.path.relpath(os.path.abspath(arg), root)
+    return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
+
+
+def write_baseline(root: Path, limits: dict[str, int]) -> int:
+    entries = {}
+    for rel in git(root, "ls-files", "-z").split("\0"):
+        limit = limits.get(Path(rel).suffix)
+        path = root / rel
+        if limit is not None and path.is_file() and (n := size(path)) > limit:
+            entries[rel] = n
+    save(root, entries)
+    print(f"{BASELINE}: {len(entries)} files over their limit recorded")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    limits = json.loads((root / LIMITS).read_text()) if (root / LIMITS).is_file() else {}
+    if not limits:
+        return 0
+    if argv[:1] == ["--write-baseline"]:
+        return write_baseline(root, limits)
+    try:
+        entries = json.loads((root / BASELINE).read_text()) if (root / BASELINE).is_file() else {}
+        if not isinstance(entries, dict):
+            raise ValueError("not an object")
+    except ValueError as err:
+        print(f"{BASELINE}:1: invalid baseline: {err}")
+        return 1
+
+    moved = renames(root)
+    updated = dict(entries)
+    failed = False
+    for arg in argv:
+        rel = relative(root, arg)
+        limit = limits.get(Path(arg).suffix)
+        if rel is None or limit is None or not (root / rel).is_file():
+            continue
+        n = size(root / rel)
+        key = rel if rel in entries else moved.get(rel) if moved.get(rel) in entries else None
+        if key is None:
+            if n > limit:
+                print(f"{rel}:1: {n} non-empty lines, limit {limit}")
+                failed = True
+            continue
+        if n > entries[key]:
+            print(f"{rel}:1: grew from {entries[key]} to {n} non-empty lines (baseline in {BASELINE})")
+            failed = True
+            continue
+        updated.pop(key)
+        if n > limit:
+            updated[rel] = n
+    updated = {rel: n for rel, n in updated.items() if (root / rel).is_file()}
+    if updated != entries and not os.environ.get("CI"):
+        save(root, updated)
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
