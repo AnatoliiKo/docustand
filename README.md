@@ -12,6 +12,21 @@ A Claude Code plugin and Copier template that brings a repository to one documen
 - The plugin contains skills, agents, stack profiles and the Copier template.
 - Decisions are recorded in [`docs/decisions/`](docs/decisions/).
 
+## Install
+
+Add the marketplace and install the plugin in Claude Code:
+
+```text
+/plugin marketplace add AnatoliiKo/docustand
+```
+
+```text
+/plugin install docustand@docustand
+```
+
+- A new repository needs these two commands: it has no `.claude/settings.json` that enables the plugin yet.
+- A repository with the standard enables the plugin in `.claude/settings.json`; Claude Code loads it after the folder is trusted.
+
 ## How a project uses it
 
 With the plugin:
@@ -108,7 +123,7 @@ The repository keeps standard tools only: mise, hk, GitHub Actions, linters, REA
 | Requirement | Detail |
 |---|---|
 | mise | Installs Copier, hk and stack tools. `repo-init` stops and prints the install command if mise is missing |
-| Trusted folder | Claude Code loads the plugin from the repository only after the folder is trusted |
+| Trusted folder | Claude Code loads the plugin from `.claude/settings.json` only after the folder is trusted; without that file, see [Install](#install) |
 | superpowers | External Claude Code plugin. `AGENTS.md` redirects its output (plans, specifications) to `docs/temp/` |
 | Git and GitHub | Copier reads the template from `gh:AnatoliiKo/docustand` without a token |
 
@@ -121,3 +136,7 @@ mise run check
 ## Changes
 
 See [`CHANGELOG.md`](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE). The template does not add a license to projects.
