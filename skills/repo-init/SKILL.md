@@ -29,6 +29,7 @@ References, read when the step needs them:
 - Single-quote every `--data` whose value is a list or a mapping (`--data 'stack=[terraform]'`): unquoted brackets and braces are globs in zsh and fail with «no matches found».
 - Commits and PRs follow the target's `AGENTS.md`; hooks are never bypassed.
 - Pushing to GitHub needs the owner's explicit yes.
+- Rewrite git history only to remove credentials (passwords, keys, tokens), and only after the owner has changed them. Internal network addresses, MAC addresses and hardware serial numbers are not secrets; a history scan reports them, and the history stays.
 
 ## 1. Preconditions
 

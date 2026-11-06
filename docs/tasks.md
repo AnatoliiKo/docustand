@@ -4,8 +4,8 @@
 
 - Goal: first pilot on a repository with code; results go to `docs/pilot-log.md`.
 - Done when: the success criteria of section 12 of the specification pass in `cinema-ops`.
-- Stopped at: reconnaissance done; real projector and station addresses found in the tree and the history.
-- Next: owner decision on the addresses, then the TypeScript profile in docustand.
+- Stopped at: reconnaissance done; the history holds no credentials and stays as it is.
+- Next: owner answers on the profile and migration questions, then the TypeScript profile in docustand.
 - Refs: `docs/temp/pilot-cinema-ops-plan.md`.
 
 ## Backlog
