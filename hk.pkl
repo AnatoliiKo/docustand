@@ -12,6 +12,9 @@ local function script(name: String, files: String | List<String>) = new Step {
   check = new Command { argv = List(".mise/tasks/\(name)", "{{files}}") }
 }
 
+// A tool installed by the package manager of the project.
+local function bin(name: String) = "node_modules/.bin/\(name)"
+
 // Fast checks on changed files.
 local commitSteps = new Mapping<String, Step> {
   ["betterleaks"] = Builtins.betterleaks
@@ -29,11 +32,15 @@ local commitSteps = new Mapping<String, Step> {
   }
   ["check-env-example"] = script("check-env-example", "**/*")
   ["check-gitignore-block"] = script("check-gitignore-block", ".gitignore")
+  // Limits per extension are in `.mise/data/size-limits.json`.
+  ["check-size"] = script("check-size", "**/*")
   ["check-comments"] = script(
     "check-comments",
     List("**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.php", "**/*.tf", "**/*.py", "**/*.sh")
   )
 }
+
+local fastLint = new Mapping<String, Step> {}
 
 // Slower checks before a push.
 local pushSteps = new Mapping<String, Step> {
@@ -47,7 +54,10 @@ local pushSteps = new Mapping<String, Step> {
 
 hooks {
   ["pre-commit"] {
-    steps = commitSteps
+    steps {
+      ...commitSteps
+      ...fastLint
+    }
   }
   ["commit-msg"] {
     steps {
