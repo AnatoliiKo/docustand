@@ -15,9 +15,12 @@ the file belongs to a profile added to `stack`. `stack` compares as a set, `_com
 as raw text. A missing, non-mapping or invalid current `.repo.yaml` allows nothing.
 With `--file` the files are not tied to profiles, so any `stack` change allows them.
 Otherwise a new file counts as growth. Every new baseline file is printed with the
-reason. Entries are the non-empty lines of a text file. JSON baselines
-(`.size-baseline.json`, `.jscpd.json`) are future work: they need their own counting.
+reason. Entries are the non-empty lines of a text file; JSON baselines compare:
+`eslint-suppressions.json` the sum of the counts; `.size-baseline.json` the number of
+entries, the sum of the lines and each kept entry, so a rename passes; `.jscpd.json` the
+`threshold`, which may not rise or disappear.
 """
+import json
 import os
 import subprocess
 import sys
@@ -25,8 +28,12 @@ from pathlib import Path
 
 import yaml
 
-# Baseline files per profile. Terraform has none; code profiles add theirs.
-PROFILE_BASELINES: dict[str, list[str]] = {"terraform": []}
+# Baseline files of every repository, and per profile.
+BASE_BASELINES: list[str] = [".size-baseline.json"]
+PROFILE_BASELINES: dict[str, list[str]] = {
+    "terraform": [],
+    "typescript": ["eslint-suppressions.json", ".jscpd.json"],
+}
 
 
 def relative(root: Path, arg: str) -> str | None:
@@ -43,7 +50,7 @@ def profile_files(root: Path) -> list[str]:
     path = root / ".repo.yaml"
     data = yaml.safe_load(path.read_text()) if path.exists() else None
     stack = data.get("stack") if isinstance(data, dict) else None
-    files: list[str] = []
+    files: list[str] = list(BASE_BASELINES)
     for profile in stack if isinstance(stack, list) else []:
         files += PROFILE_BASELINES.get(profile, [])
     return files
@@ -93,6 +100,44 @@ def classify(root: Path, ref: str) -> tuple[str, str, set[str]]:
 
 def count(text: str) -> int:
     return sum(1 for line in text.splitlines() if line.strip())
+
+
+def suppressions(data: object) -> int:
+    files = data.values() if isinstance(data, dict) else []
+    rules = [r for f in files if isinstance(f, dict) for r in f.values() if isinstance(r, dict)]
+    return sum(int(r.get("count", 0)) for r in rules)
+
+
+def growth(name: str, before: str | None, after: str | None) -> list[str]:
+    """Messages for every way the baseline `name` grew between the two texts."""
+    kind = Path(name).name
+    if kind not in ("eslint-suppressions.json", ".size-baseline.json", ".jscpd.json"):
+        old, new = count(before or ""), count(after or "")
+        return [f"baseline grew from {old} to {new} entries"] if new > old else []
+    try:
+        old = json.loads(before) if before else {}
+        new = json.loads(after) if after else {}
+    except ValueError as err:
+        return [f"invalid JSON: {err}"]
+    if kind == "eslint-suppressions.json":
+        old, new = suppressions(old), suppressions(new)
+        return [f"baseline grew from {old} to {new} suppressions"] if new > old else []
+    if kind == ".jscpd.json":
+        was = old.get("threshold") if isinstance(old, dict) else None
+        now = new.get("threshold") if isinstance(new, dict) else None
+        if was is None:
+            return []
+        if not isinstance(now, (int, float)):
+            return ["threshold removed"]
+        return [f"threshold grew from {was} to {now}"] if now > was else []
+    old = {k: v for k, v in old.items() if isinstance(v, int)} if isinstance(old, dict) else {}
+    new = {k: v for k, v in new.items() if isinstance(v, int)} if isinstance(new, dict) else {}
+    found = [f"{k} grew from {old[k]} to {v} lines" for k, v in new.items() if k in old and v > old[k]]
+    if len(new) > len(old):
+        found.append(f"baseline grew from {len(old)} to {len(new)} entries")
+    if sum(new.values()) > sum(old.values()):
+        found.append(f"baseline grew from {sum(old.values())} to {sum(new.values())} lines")
+    return found
 
 
 def parse(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -153,10 +198,9 @@ def main(argv: list[str]) -> int:
                 print(f"{name}:1: new baseline file without .repo.yaml change")
                 failed = True
             continue
-        before = count(shown.stdout) if shown.returncode == 0 else 0
-        after = count(path.read_text()) if path.is_file() else 0
-        if after > before:
-            print(f"{name}:1: baseline grew from {before} to {after} entries")
+        before = shown.stdout if shown.returncode == 0 else None
+        for message in growth(name, before, path.read_text() if path.is_file() else None):
+            print(f"{name}:1: {message}")
             failed = True
     return 1 if failed else 0
 

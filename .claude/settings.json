@@ -22,7 +22,8 @@
       "Edit(/commitlint.config.mjs)",
       "Edit(/typos.toml)",
       "Edit(/.rumdl.toml)",
-      "Edit(/lychee.toml)"
+      "Edit(/lychee.toml)",
+      "Edit(/.size-baseline.json)"
     ],
     "deny": [
       "mcp__github__merge_pull_request",

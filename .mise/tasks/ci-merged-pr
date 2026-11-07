@@ -1,0 +1,55 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Print true when a merged pull request contains the commit, else false"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: ci-merged-pr REPO SHA
+
+`standard-ci` calls it on a push to a required branch: a commit of a merged pull
+request was already checked in the pull request, so CI skips `mise run check`.
+Only a pull request with `merged_at` counts: an open pull request whose head is the
+pushed commit was not merged. Any error prints false, so CI runs every check.
+`GH` overrides the command (default `gh`).
+"""
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+
+REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+")
+SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def merged(repo: str, sha: str) -> bool:
+    if not REPO.fullmatch(repo) or not SHA.fullmatch(sha):
+        print(f"invalid repository or commit: {repo} {sha}", file=sys.stderr)
+        return False
+    command = [*shlex.split(os.environ.get("GH", "gh")), "api", f"repos/{repo}/commits/{sha}/pulls"]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as err:
+        print(f"cannot run {command[0]}: {err}", file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        print(result.stderr.strip(), file=sys.stderr)
+        return False
+    try:
+        pulls = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        print("unexpected answer of the pulls API", file=sys.stderr)
+        return False
+    return isinstance(pulls, list) and any(isinstance(p, dict) and p.get("merged_at") for p in pulls)
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print("usage: ci-merged-pr REPO SHA", file=sys.stderr)
+        return 1
+    print("true" if merged(*argv) else "false")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
