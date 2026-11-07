@@ -323,7 +323,9 @@ def test_size_baseline_follows_a_rename(ts):
     write(root, "src/main.ts", MAIN + 'export * from "./moved/big.js";\n')
     sh(root, env, "git", "add", "-A", check=True)
 
-    sh(root, env, "mise", "x", "--", "hk", "run", "pre-commit", check=True)
+    # A local commit: in CI `check-size` never writes the baseline.
+    local = {k: v for k, v in env.items() if k not in ("CI", "GITHUB_ACTIONS")}
+    sh(root, local, "mise", "x", "--", "hk", "run", "pre-commit", check=True)
 
     assert json.loads((root / ".size-baseline.json").read_text()) == {"src/moved/big.ts": 320}
     assert ".size-baseline.json" in sh(root, env, "git", "diff", "--cached", "--name-only", check=True).stdout
