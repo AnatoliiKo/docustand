@@ -11,3 +11,6 @@
 ## Backlog
 
 - Migrate the `infrastructure` project to the repository standard — second pilot project, results go to `docs/pilot-log.md`.
+- Investigate Protected files: #4: `.claude/settings.json`, `.github/repo.schema.json`, `.github/workflows/standard-ci.yml`, `.mise/data/size-limits.json`, `.mise/tasks/check-baseline`, `.mise/tasks/check-env-example`, `.mise/tasks/check-gitignore-block`, `.mise/tasks/check-size`, `.mise/tasks/ci-merged-pr`, `.mise/tasks/detect-stack`, `.repo.yaml`, `hk.pkl` — report 2026-11-09
+- Investigate Protected files: #3: `.mise/tasks/check-gitignore-block`, `.repo.yaml` — report 2026-11-09
+- Investigate Protected files: #2: `.mise/tasks/report`, `.repo.yaml`, `hk.pkl` — report 2026-11-09
