@@ -394,6 +394,15 @@ def test_env_example_builtin_vars_ignored(project):
     assert code == 0, out
 
 
+def test_env_example_ci_vars_ignored(project):
+    dest = project()
+    write(dest, "scripts/release.ts", "x(process.env['GITHUB_SHA'], process.env.RUNNER_OS, process.env.CI)\n")
+
+    code, out = run(dest, "check-env-example", "--stack", "typescript")
+
+    assert code == 0, out
+
+
 def test_md_extension_case_insensitive(project):
     dest = project()
     write(dest, "notes/NOTES.MD", "x\n")

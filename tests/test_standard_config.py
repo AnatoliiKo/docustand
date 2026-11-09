@@ -105,6 +105,15 @@ def test_steiger_part_with_project_script(render, tmp_path):
     assert "- `apps/web/src`: `fsd`, checked by the script `lint:fsd`." in (dest / "AGENTS.md").read_text()
 
 
+def test_typos_config_is_project_owned_and_protected(render, tmp_path):
+    copier = yaml.safe_load((REPO_ROOT / "copier.yml").read_text())
+    dest = render(tmp_path, project_name="demo")
+    ask = json.loads((dest / ".claude/settings.json").read_text())["permissions"]["ask"]
+
+    assert "typos.toml" in copier["_skip_if_exists"]
+    assert "Edit(/typos.toml)" in ask and "Edit(/.betterleaksignore)" in ask
+
+
 def test_project_files_of_typescript_are_written_once(render, tmp_path):
     copier = yaml.safe_load((REPO_ROOT / "copier.yml").read_text())
 

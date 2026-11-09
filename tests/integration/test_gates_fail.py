@@ -5,6 +5,7 @@ install directory, so later runs reuse them). One rendered, installed and
 committed base project is built per session; each test works on a copy.
 """
 
+import json
 import os
 import re
 import shutil
@@ -139,6 +140,21 @@ def test_clean_project_passes(project):
 def test_fails_on_secret(project):
     write(project[0], "notes.txt", AWS_KEYS)
 
+    assert_step_fails(check(project), "betterleaks")
+
+
+def test_betterleaks_ignore_keeps_known_findings_only(project):
+    root, env = project
+    write(root, "notes.txt", AWS_KEYS)
+    report = root.parent / "leaks.json"
+    sh(root, env, "mise", "x", "--", "betterleaks", "dir", "--no-banner", "--report-format", "json",
+       "--report-path", str(report), "notes.txt")
+    fingerprints = [item["Fingerprint"] for item in json.loads(report.read_text())]
+    assert fingerprints
+    write(root, ".betterleaksignore", "".join(f"{f}\n" for f in fingerprints))
+
+    assert "betterleaks" not in failed_steps(check(project))
+    write(root, "more.txt", AWS_KEYS)
     assert_step_fails(check(project), "betterleaks")
 
 

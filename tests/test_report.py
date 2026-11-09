@@ -301,7 +301,7 @@ def test_renamed_baseline_file_listed(report, tmp_path, monkeypatch):
 def test_baseline_files_come_from_check_baseline(report, tmp_path, monkeypatch):
     (tmp_path / ".repo.yaml").write_text("stack: [terraform]\n")
     monkeypatch.setitem(report.check_baseline().PROFILE_BASELINES, "terraform", ["x.baseline"])
-    assert report.baseline_files(tmp_path) == [".size-baseline.json", "x.baseline"]
+    assert report.baseline_files(tmp_path) == [".size-baseline.json", ".betterleaksignore", "x.baseline"]
 
 
 def test_renamed_and_copied_count_as_added(report):

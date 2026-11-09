@@ -29,7 +29,7 @@ from pathlib import Path
 import yaml
 
 # Baseline files of every repository, and per profile.
-BASE_BASELINES: list[str] = [".size-baseline.json"]
+BASE_BASELINES: list[str] = [".size-baseline.json", ".betterleaksignore"]
 PROFILE_BASELINES: dict[str, list[str]] = {
     "terraform": [],
     "typescript": ["eslint-suppressions.json", ".jscpd.json"],

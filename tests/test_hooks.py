@@ -18,7 +18,7 @@ PROTECTED = [
     ".repo.yaml", "renovate.json", "mise.toml", ".mise/conf.d/**", "hk.pkl",
     ".github/workflows/**", ".claude/settings.json", ".claude/hooks/**",
     ".mise/tasks/**", ".mise/data/**", ".github/repo.schema.json",
-    "commitlint.config.mjs", "typos.toml", ".rumdl.toml", "lychee.toml", ".size-baseline.json",
+    "commitlint.config.mjs", "typos.toml", ".rumdl.toml", "lychee.toml", ".size-baseline.json", ".betterleaksignore",
 ]
 TYPESCRIPT_PROTECTED = [
     "eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",

@@ -254,7 +254,7 @@ def test_typescript_profile_lists_its_baselines():
     module = load_module()
 
     assert module.PROFILE_BASELINES["typescript"] == ["eslint-suppressions.json", ".jscpd.json"]
-    assert module.BASE_BASELINES == [".size-baseline.json"]
+    assert module.BASE_BASELINES == [".size-baseline.json", ".betterleaksignore"]
 
 
 def test_eslint_suppressions_count_sums_counts(tmp_path, git_repo):
@@ -268,6 +268,22 @@ def test_eslint_suppressions_count_sums_counts(tmp_path, git_repo):
 def test_eslint_suppressions_may_move_between_files(tmp_path, git_repo):
     code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json",
                                 suppressions(a=2, b=1), suppressions(c=3))
+
+    assert code == 0, out
+
+
+def test_betterleaks_ignore_may_not_grow(tmp_path, git_repo):
+    before = "a.test.ts:generic-password:3\n"
+    code, out = baseline_change(tmp_path, git_repo, ".betterleaksignore", before,
+                                before + "b.test.ts:generic-password:7\n")
+
+    assert code == 1
+    assert ".betterleaksignore:1: baseline grew from 1 to 2 entries" in out
+
+
+def test_betterleaks_ignore_entry_may_move(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, ".betterleaksignore",
+                                "a.test.ts:generic-password:3\n", "a.test.ts:generic-password:5\n")
 
     assert code == 0, out
 
