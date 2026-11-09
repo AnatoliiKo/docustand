@@ -223,6 +223,19 @@ def test_stricter_threshold_through_protected_file(ts):
     assert "Maximum allowed is 5" in result.stdout
 
 
+def test_project_parser_options_refine_the_standard_parser(ts):
+    root = ts[0]
+    write(root, "tool.config.ts", "export const tool = 1;\n")
+    assert "was not found by the project service" in eslint(ts, "tool.config.ts").stdout
+
+    write(root, "eslint.project.mjs", "export default [{ files: [\"**/*.ts\"], languageOptions: { parserOptions: "
+          "{ projectService: { allowDefaultProject: [\"tool.config.ts\"] } } } }];\n")
+    result = eslint(ts, "tool.config.ts")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert eslint(ts, "tool.config.ts", no_types=True).returncode == 0
+
+
 def test_typed_rules_run_before_push_not_before_commit(ts):
     root = ts[0]
     write(root, "eslint.project.mjs", 'import tseslint from "typescript-eslint";\n\n'

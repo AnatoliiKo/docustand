@@ -27,6 +27,14 @@ if (dropped.length > 0) {
 
 export default defineConfig(
   { ignores: ['**/node_modules/', '**/dist/', '**/build/', '**/coverage/'] },
+  // The parser comes before the project config, so a project setting such as
+  // `allowDefaultProject` refines it; disableTypeChecked below still wins in fast mode.
+  {
+    files: ['**/*.{ts,tsx,mts,cts}'],
+    languageOptions: {
+      parserOptions: { projectService: typed, tsconfigRootDir: import.meta.dirname },
+    },
+  },
   ...projectConfig.filter((item) => !isGlobalIgnore(item)),
   {
     files: ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'],
@@ -43,12 +51,6 @@ export default defineConfig(
   {
     files: ['**/*.tsx'],
     rules: { 'max-lines-per-function': ['error', { max: 120, ...functionLength }] },
-  },
-  {
-    files: ['**/*.{ts,tsx,mts,cts}'],
-    languageOptions: {
-      parserOptions: { projectService: typed, tsconfigRootDir: import.meta.dirname },
-    },
   },
   typed
     ? { files: ['**/*.{js,jsx,mjs,cjs}'], ...tseslint.configs.disableTypeChecked }
