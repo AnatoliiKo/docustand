@@ -403,6 +403,18 @@ def test_env_example_ci_vars_ignored(project):
     assert code == 0, out
 
 
+def test_env_example_mixed_case_os_vars_ignored(project):
+    dest = project()
+    write(dest, "src/paths.ts", "x(process.env['SystemDrive'], process.env.ProgramData, process.env['API_KEY'])\n")
+    write(dest, ".env.example", "")
+
+    code, out = run(dest, "check-env-example", "--stack", "typescript")
+
+    assert code == 1
+    assert "API_KEY" in out
+    assert not re.search(r"\b(S|P|SystemDrive|ProgramData)\b is read", out), out
+
+
 def test_md_extension_case_insensitive(project):
     dest = project()
     write(dest, "notes/NOTES.MD", "x\n")

@@ -10,6 +10,7 @@ Profiles come from `stack` in .repo.yaml; `--stack` (repeatable) replaces them.
 Without paths every git-listed source file is scanned; with paths only those
 (listing `.env.example` itself scans the whole repository).
 Variables in BUILTIN (`NODE_ENV`, `NEXT_RUNTIME`, `ESLINT_NO_TYPES`, `CI`) and those starting with `GITHUB_` or `RUNNER_` are ignored for all profiles.
+Names with lower case letters (`SystemDrive`) are OS variables and are ignored too.
 """
 import argparse
 import os
@@ -22,15 +23,17 @@ import yaml
 
 JS = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
 PROFILES = {
-    "laravel": (re.compile(r"""env\(['"]([A-Z0-9_]+)"""), (".php",)),
-    "typescript": (re.compile(r"""process\.env(?:\.|\[['"])([A-Z0-9_]+)"""), JS),
-    "nextjs": (re.compile(r"process\.env\.([A-Z0-9_]+)"), JS),
+    "laravel": (re.compile(r"""env\(['"]([A-Za-z0-9_]+)"""), (".php",)),
+    "typescript": (re.compile(r"""process\.env(?:\.|\[['"])([A-Za-z_][A-Za-z0-9_]*)"""), JS),
+    "nextjs": (re.compile(r"process\.env\.([A-Za-z_][A-Za-z0-9_]*)"), JS),
     "expo": (re.compile(r"\b(EXPO_PUBLIC_[A-Z0-9_]+)"), JS),
 }
 # Set by the runtime, the framework or the hooks, not by `.env`; never required in `.env.example`.
 # GITHUB_* variables are set by GitHub Actions, not by the project.
 BUILTIN = {"NODE_ENV", "NEXT_RUNTIME", "ESLINT_NO_TYPES", "CI"}
 BUILTIN_PREFIXES = ("GITHUB_", "RUNNER_")
+# Project variables are upper case; a name with lower case letters is an OS variable (`SystemDrive`).
+PROJECT_NAME = re.compile(r"[A-Z0-9_]+")
 DECLARED = re.compile(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
 
 
@@ -78,8 +81,9 @@ def main(argv: list[str]) -> int:
                 break
             for number, line in enumerate(text.splitlines(), 1):
                 for match in pattern.finditer(line):
-                    if match.group(1) not in BUILTIN and not match.group(1).startswith(BUILTIN_PREFIXES):
-                        found.append((path, number, match.group(1)))
+                    name = match.group(1)
+                    if PROJECT_NAME.fullmatch(name) and name not in BUILTIN and not name.startswith(BUILTIN_PREFIXES):
+                        found.append((path, number, name))
     found = sorted(set(found))
 
     example = root / ".env.example"
