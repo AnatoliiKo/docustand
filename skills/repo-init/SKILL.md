@@ -104,7 +104,7 @@ Branch protection waits until each branch exists on GitHub; until then report it
    gh secret set REPORT_APP_PRIVATE_KEY --repo {owner}/{repo} < <path to the .pem the owner names>
    ```
 
-   The Client ID is on the page of the App. The owner types or points to the values; they never appear in the chat. The template already lists the App in `docs/access.md`; fill in the owner.
+   The Client ID is on the page of the App; the App ID works as the value too. The owner types or points to the values; they never appear in the chat. The template already lists the App in `docs/access.md`; fill in the owner.
 4. Without consent, say that the report workflow fails until both secrets exist.
 
 ## 7. Finish
