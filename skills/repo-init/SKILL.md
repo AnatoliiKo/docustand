@@ -100,11 +100,11 @@ Branch protection waits until each branch exists on GitHub; until then report it
 3. Report secrets, only with the owner's explicit consent and only when `report_schedule` is not `off`. The report GitHub App needs Contents read and write, Pull requests read and write, Administration read. The owner installs it on the repository; then:
 
    ```bash
-   gh secret set REPORT_APP_ID --repo {owner}/{repo}
+   gh secret set REPORT_APP_CLIENT_ID --repo {owner}/{repo}
    gh secret set REPORT_APP_PRIVATE_KEY --repo {owner}/{repo} < <path to the .pem the owner names>
    ```
 
-   The owner types or points to the values; they never appear in the chat. The template already lists the App in `docs/access.md`; fill in the owner.
+   The Client ID is on the page of the App. The owner types or points to the values; they never appear in the chat. The template already lists the App in `docs/access.md`; fill in the owner.
 4. Without consent, say that the report workflow fails until both secrets exist.
 
 ## 7. Finish

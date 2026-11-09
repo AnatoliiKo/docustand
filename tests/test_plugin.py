@@ -165,6 +165,14 @@ def test_repo_init_names_plugin_root_for_references():
     assert "Plugin root: `${CLAUDE_PLUGIN_ROOT}`" in head
 
 
+def test_repo_init_audit_enables_vulnerability_alerts():
+    text = (REPO_ROOT / "skills" / "repo-init" / "references" / "maintenance.md").read_text()
+    audit = text.split("## Audit and update", 1)[1].split("\n## ", 1)[0]
+    assert "gh api repos/{owner}/{repo}/vulnerability-alerts` answers 204; on 404 enable the alerts" in audit
+    skill = (REPO_ROOT / "skills" / "repo-init" / "SKILL.md").read_text()
+    assert "gh api -X PUT repos/{owner}/{repo}/vulnerability-alerts" in skill
+
+
 def test_repo_init_carries_build_facts():
     text = repo_init_text()
     for fact in (
@@ -174,7 +182,7 @@ def test_repo_init_carries_build_facts():
         "${CLAUDE_PLUGIN_ROOT}/template/.mise/tasks/detect-stack",
         "mise run detect-stack",
         "gh api -X PUT repos/{owner}/{repo}/vulnerability-alerts",
-        "gh secret set REPORT_APP_ID",
+        "gh secret set REPORT_APP_CLIENT_ID",
         "REPORT_APP_PRIVATE_KEY",
         "required_ci_branches",
         "docs/temp/inventory.md",

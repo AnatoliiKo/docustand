@@ -18,7 +18,10 @@ A repeated run is safe: it reads `.repo.yaml` and asks only questions that have 
    After a commit by another author, Renovate no longer rebases or recreates the branch; the rebase checkbox recreates it and discards the resolution.
    The owner merges the pull request.
 4. `mise install`, then `mise run check` exits 0.
-5. Check the GitHub steps (SKILL.md section 6): vulnerability alerts answer 204, protection matches `required_ci_branches`, the report secrets exist when `report_schedule` is not `off` (`gh secret list`).
+5. Check the GitHub steps (SKILL.md section 6):
+   - `gh api repos/{owner}/{repo}/vulnerability-alerts` answers 204; on 404 enable the alerts with SKILL.md section 6 step 1 and check again;
+   - protection matches `required_ci_branches`;
+   - the report secrets `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` exist when `report_schedule` is not `off` (`gh secret list`); a repository with only `REPORT_APP_ID` gets `REPORT_APP_CLIENT_ID` (SKILL.md section 6 step 3), then the owner deletes `REPORT_APP_ID` after a green report run.
 6. Report the differences found and what changed.
 
 ## Changing an answer

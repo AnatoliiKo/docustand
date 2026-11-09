@@ -24,7 +24,7 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 | Branch protection: on which branches CI is required | the plan allows protection; otherwise a warning instead of the question | `required_ci_branches` |
 | What to do with files outside git next to the repository | such files found | inventory (migration step 1) |
 | Is the system deployed? | code with deploy signs (Dockerfile, deploy workflow, infrastructure code) | `deployed` (adds `docs/operations.md`) |
-| Report secrets: set `REPORT_APP_ID` and `REPORT_APP_PRIVATE_KEY` now | `report_schedule` is not `off` | GitHub secrets, `docs/access.md` |
+| Report secrets: set `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` now | `report_schedule` is not `off` | GitHub secrets, `docs/access.md` |
 
 ## Option texts
 
