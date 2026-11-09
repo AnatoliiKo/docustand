@@ -3,6 +3,14 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.2 — 2026-11-09
+
+### Changed
+
+- Template `typos.toml` is written once and belongs to the project (ADR 0017); it is protected.
+- Template `check-baseline`: `.betterleaksignore` is a baseline of every stack and may not grow; `.claude/settings.json` protects it.
+- Template `check-env-example` ignores `CI` and variables starting with `GITHUB_` or `RUNNER_`.
+
 ## 0.3.1 — 2026-11-09
 
 ### Changed
