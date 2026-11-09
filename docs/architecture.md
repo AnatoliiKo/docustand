@@ -23,7 +23,7 @@
 5. Renovate raises a pull request that changes `_commit` in `.repo.yaml`, and `copier update -a .repo.yaml` brings the template files up to date.
 6. Detachment removes `_src_path` and `_commit` from `.repo.yaml`, the plugin from `.claude/settings.json` and the docustand lines from `AGENTS.md`; the rendered files stay and work without docustand.
 
-The scheduled `standard-report` workflow of a project reads the repository and opens a report issue through the report GitHub App.
+The scheduled `standard-report` workflow of a project reads the repository and opens or updates the `report` pull request through the report GitHub App; the app bot signs the commit, and a run without findings closes the open pull request.
 
 ## External services
 

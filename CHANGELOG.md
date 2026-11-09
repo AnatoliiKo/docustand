@@ -3,6 +3,14 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Changed
+
+- Template `report`: the commit of the `report` pull request has the report app bot as its author (`<app-slug>[bot]`, `<id>+<app-slug>[bot]@users.noreply.github.com`); `standard-report.yml` passes `REPORT_APP_SLUG`.
+- Template `report`: `docs/tasks.md` gets one backlog line `- <action> — <reason>` per kind of finding instead of one per item; the date moves to the pull request description.
+- Template `report`: a run without findings closes the open `report` pull request with the comment `no findings in the report of <date>`.
+
 ## 0.2.0 — 2026-11-07
 
 ### Added

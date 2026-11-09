@@ -46,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           REPORT_APP_CONFIGURED: ${{ env.HAS_APP }}
+          REPORT_APP_SLUG: ${{ steps.app.outputs.app-slug }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           REPORT_SCHEDULE: {% endraw %}{{ report_schedule }}{% raw %}
           REPORT_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}

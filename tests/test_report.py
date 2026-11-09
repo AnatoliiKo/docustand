@@ -107,6 +107,7 @@ def test_workflow_runs_without_app(render, tmp_path):
     assert steps["app"]["if"] == "${{ env.HAS_APP == 'true' }}"
     assert steps["Report"]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token || github.token }}"
     assert steps["Report"]["env"]["REPORT_APP_CONFIGURED"] == "${{ env.HAS_APP }}"
+    assert steps["Report"]["env"]["REPORT_APP_SLUG"] == "${{ steps.app.outputs.app-slug }}"
     assert jobs["fresh-install"]["if"].startswith("${{ !cancelled() && ")
 
 
@@ -314,23 +315,109 @@ def test_repo_without_history(report):
     assert report.has_activity([commit("e", "m")], [], since) is True
 
 
+def report_fetch(open_prs=()):
+    """`fetch` for `publish`: the open `report` PR list and the bot user."""
+    def fetch(cmd):
+        if cmd[:3] == ["gh", "pr", "list"]:
+            return [{"number": n} for n in open_prs]
+        if cmd[:2] == ["gh", "api"] and cmd[2].startswith("/users/"):
+            return {"id": 4242}
+        raise AssertionError(f"unexpected command: {cmd}")
+    return fetch
+
+
 def test_no_findings_opens_no_pr(report, tmp_path):
     ran = []
-    report.fetch = lambda cmd: ran.append(cmd)
-    assert report.publish({"Tokens": []}, tmp_path, "2026-11-05", runner=ran.append) is None
+    report.fetch = report_fetch()
+    assert report.publish({"Tokens": []}, tmp_path, "2026-11-05", "repo-report", runner=ran.append) is None
     assert ran == []
+
+
+def test_no_findings_closes_open_report_pr(report, tmp_path):
+    ran = []
+    report.fetch = report_fetch(open_prs=[5])
+
+    assert report.publish({"Tokens": []}, tmp_path, "2026-11-05", "repo-report", runner=ran.append) is None
+
+    assert ran == [["gh", "pr", "close", "5", "--comment", "no findings in the report of 2026-11-05"]]
 
 
 def test_findings_open_pr(report, tmp_path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "tasks.md").write_text("## In progress\n\n## Backlog\n")
     ran = []
-    report.fetch = lambda cmd: [] if cmd[:3] == ["gh", "pr", "list"] else None
-    report.publish({"Tokens": ["CI token (expires 2026-11-20)"]}, tmp_path, "2026-11-05", runner=ran.append)
+    report.fetch = report_fetch()
+    body = report.publish({"Tokens": ["CI token (expires 2026-11-20)"]}, tmp_path, "2026-11-05", "repo-report",
+                          runner=ran.append)
     tasks = (tmp_path / "docs" / "tasks.md").read_text()
-    assert "- Investigate Tokens: CI token [expires 2026-11-20] — report 2026-11-05\n" in tasks
+    assert tasks.endswith("- Replace the expiring tokens of `docs/access.md` — they expire within 30 days or have expired.\n")
+    assert "2026-11-05" not in tasks
+    assert body.startswith("Report of 2026-11-05.\n")
     flat = [" ".join(c) for c in ran]
     assert any(c.startswith("gh pr create") and "--title report" in c for c in flat)
+
+
+def test_findings_without_app_slug_stop(report, tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "tasks.md").write_text("## In progress\n\n## Backlog\n")
+    report.fetch = report_fetch()
+    with pytest.raises(SystemExit, match="REPORT_APP_SLUG"):
+        report.publish({"Tokens": ["CI token"]}, tmp_path, "2026-11-05", "", runner=lambda c: None)
+
+
+def test_report_commit_author_is_the_app_bot(report, tmp_path, git_repo, monkeypatch):
+    repo = git_repo(tmp_path / "repo")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "tasks.md").write_text("## In progress\n\n## Backlog\n")
+    monkeypatch.chdir(repo)
+    report.fetch = report_fetch()
+
+    def runner(cmd):
+        if cmd[0] == "git" and cmd[1] != "push":
+            subprocess.run(cmd, check=True, capture_output=True)
+
+    report.publish({"Tokens": ["CI token"]}, repo, "2026-11-05", "repo-report", runner=runner)
+
+    author = subprocess.run(["git", "log", "-1", "--format=%an <%ae>"], check=True, capture_output=True,
+                            text=True).stdout.strip()
+    assert author == "repo-report[bot] <4242+repo-report[bot]@users.noreply.github.com>"
+    assert author.split(" <")[0].endswith("[bot]")
+
+
+def test_one_backlog_line_per_kind(report):
+    lines = report.backlog_lines({
+        "Protected files": ["#12: `hk.pkl`", "#14: `.claude/settings.json`, `mise.toml`"],
+        "Red merges": ["#7"],
+        "Tokens": [],
+    })
+    assert lines == [
+        "- Review changes to protected files in #12, #14 — they change how checks run outside a template update.",
+        "- Investigate failed checks of merged pull requests #7 — a merge with a red check skips the gate.",
+    ]
+
+
+ALL_FINDINGS = {
+    "Tokens": ["Deploy key expires soon or has expired"],
+    "Vulnerability alerts": ["Vulnerability alerts are not enabled or not readable"],
+    "Red merges": ["#7", "#9"],
+    "Skip-Check": ["`ddddddd fix: z (urgent)`"],
+    "Protected files": ["#12: `hk.pkl`"],
+    "New baseline files": ["#14: `.size-baseline.json`"],
+    "Stack": ["`laravel` is in the code but not in `stack` of .repo.yaml"],
+    "Contract": ["drift (api)"],
+}
+
+
+def test_backlog_lines_pass_tasks_format(report, render, tmp_path, git_repo):
+    project = git_repo(render(tmp_path, project_name="demo"))
+    tasks = project / "docs" / "tasks.md"
+    tasks.write_text(tasks.read_text().rstrip("\n") + "\n" + "\n".join(report.backlog_lines(ALL_FINDINGS)) + "\n")
+
+    result = subprocess.run([str(project / ".mise/tasks/check-tasks-format")], cwd=project,
+                            capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(report.backlog_lines(ALL_FINDINGS)) == len(ALL_FINDINGS)
 
 
 def test_cancelled_is_red_merge(report):
@@ -363,11 +450,11 @@ def test_untrusted_text_cannot_mention(report, tmp_path):
     assert "`@octocat fix: 'x'`" in body
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "tasks.md").write_text("## In progress\n\n## Backlog\n")
-    report.fetch = lambda cmd: []
-    report.publish(sections, tmp_path, "2026-11-05", runner=lambda c: None)
+    report.fetch = report_fetch()
+    report.publish(sections, tmp_path, "2026-11-05", "repo-report", runner=lambda c: None)
     line = (tmp_path / "docs" / "tasks.md").read_text().splitlines()[-1]
     assert "`@octocat" in line
-    assert line.startswith("- Investigate ") and " — " in line
+    assert line.startswith("- Review ") and " — " in line
 
 
 def test_typescript_report_lists_project_check_configs(render, tmp_path, report):
