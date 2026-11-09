@@ -12,7 +12,7 @@ REPORT_APP_CONFIGURED=false when the report GitHub App is missing, REPORT_APP_SL
 GITHUB_STEP_SUMMARY for the job summary.
 
 Order: token expiry always, vulnerability alerts always with the report app; red merges, Skip-Check
-trailers, protected files, new baseline files and stack drift only when the repository had activity
+trailers, template updates, protected files, new baseline files and stack drift only when the repository had activity
 since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
 is the only place that runs `gh`.
 """
@@ -42,6 +42,10 @@ ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 NO_APP = "report app is not configured, see docs/access.md"
 NO_SLUG = "REPORT_APP_SLUG is not set; the report commit needs the app as its author"
 VULN_NOT_CHECKED = "Not checked, needs the report app"
+RENOVATE = {"app/renovate", "renovate[bot]"}
+TEMPLATE_COMMIT = re.compile(r"^\+_commit:\s*(\S+)\s*$", re.M)
+# Shown in the report, but not findings: they open no PR and add no backlog line.
+INFO_SECTIONS = {"Template updates"}
 
 
 def fetch(cmd: list[str]) -> Any:
@@ -201,6 +205,26 @@ def protected_changes(files_by_pr: dict[int, list[str]], protected: list[str]) -
     return result
 
 
+def template_update(pr: dict, files: list[dict]) -> str | None:
+    """Template version of a Renovate PR that changes `_commit` in .repo.yaml; None for any other PR."""
+    if ((pr.get("author") or {}).get("login") or "") not in RENOVATE:
+        return None
+    for item in files:
+        if item.get("filename") == ".repo.yaml" and (match := TEMPLATE_COMMIT.search(item.get("patch") or "")):
+            return match.group(1)
+    return None
+
+
+def files_of_other_authors(commits: list[dict], files_of: Callable[[str], list[str]]) -> list[str]:
+    """Files changed by commits of a template update PR whose author is not Renovate; an unknown author counts."""
+    found: list[str] = []
+    for item in commits:
+        if ((item.get("author") or {}).get("login") or "") in RENOVATE:
+            continue
+        found += [f for f in files_of(item["sha"]) if f not in found]
+    return found
+
+
 def load_protected(root: Path) -> list[str]:
     """Protected paths: the `Edit(/<path>)` rules of `permissions.ask` in .claude/settings.json."""
     settings = json.loads((root / ".claude" / "settings.json").read_text())
@@ -262,7 +286,7 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
     scope = ["--base", base] if base else []
     prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "merged", "--limit", "200", *scope,
                  "--search", f"merged:>={since:%Y-%m-%d}",
-                 "--json", "number,mergedAt,statusCheckRollup"]) or []
+                 "--json", "number,mergedAt,statusCheckRollup,author"]) or []
     prs = [p for p in prs if (_parse_time(p.get("mergedAt", "")) or since) >= since]
     open_prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "open", "--limit", "200", *scope,
                       "--json", "number,updatedAt"]) or []
@@ -273,6 +297,13 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
         changed = {p["number"]: fetch(
             ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or [] for p in prs}
         files = {n: [f["filename"] for f in fs] for n, fs in changed.items()}
+        updates = {p["number"]: v for p in prs if (v := template_update(p, changed[p["number"]]))}
+        for number in updates:
+            # Renovate commits of a template update change protected files by design; other commits stay findings.
+            commits_of_pr = fetch(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{number}/commits"]) or []
+            files[number] = files_of_other_authors(commits_of_pr, lambda sha: [
+                f["filename"] for f in (fetch(["gh", "api", f"repos/{repo}/commits/{sha}"]) or {}).get("files") or []])
+        sections["Template updates"] = [f"#{n}: {code(v)}" for n, v in updates.items()]
         added = {n: [f["filename"] for f in fs if f.get("status") in ADDED] for n, fs in changed.items()}
         if protected is None:
             protected = load_protected(root)
@@ -334,20 +365,23 @@ def open_report_pr() -> int | None:
     return existing[0]["number"] if existing else None
 
 
+def findings_only(sections: dict[str, list[str]]) -> dict[str, list[str]]:
+    return {name: items for name, items in sections.items() if name not in INFO_SECTIONS}
+
+
 def publish(sections: dict[str, list[str]], root: Path, stamp: str, slug: str = "",
             runner: Callable[[list[str]], Any] = run) -> str | None:
     """Open or update the `report` PR with the findings; without findings close an open one."""
-    findings = render_report(sections)
-    if findings is None:
+    if render_report(findings_only(sections)) is None:
         if (number := open_report_pr()) is not None:
             runner(["gh", "pr", "close", str(number), "--comment", f"no findings in the report of {stamp}"])
         return None
     if not slug:
         raise SystemExit(NO_SLUG)
-    body = f"Report of {stamp}.\n\n{findings}"
+    body = f"Report of {stamp}.\n\n{render_report(sections)}"
     tasks = root / "docs" / "tasks.md"
     text = tasks.read_text()
-    new = [line for line in backlog_lines(sections) if line not in text.splitlines()]
+    new = [line for line in backlog_lines(findings_only(sections)) if line not in text.splitlines()]
     tasks.write_text(text.rstrip("\n") + "\n" + "".join(f"{line}\n" for line in new))
     name, email = bot_identity(slug)
     runner(["git", "config", "user.name", name])

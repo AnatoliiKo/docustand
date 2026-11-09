@@ -165,7 +165,7 @@ def test_access_lists_report_app_at_base_level(render, tmp_path):
     text = (render(tmp_path, project_name="demo") / "docs" / "access.md").read_text()
 
     assert REPORT_APP_ROW in text
-    assert "`REPORT_APP_ID`, `REPORT_APP_PRIVATE_KEY`" in text
+    assert "`REPORT_APP_CLIENT_ID`, `REPORT_APP_PRIVATE_KEY`" in text
     assert "| Renovate GitHub App on the repository | | GitHub App settings | never |" in text
     # The scheduled Claude task writes LLM reports, a full-level feature.
     assert CLAUDE_TASK_ROW not in text

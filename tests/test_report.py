@@ -42,9 +42,11 @@ def report():
 class Fake:
     """Replacement for report.fetch: answers by command text, records every call."""
 
-    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=(), added=(), renamed=()):
+    def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=(), added=(), renamed=(),
+                 patches=None, pr_commits=None, commit_files=None):
         self.vuln_enabled, self.commits, self.prs = vuln_enabled, list(commits), list(prs)
         self.files, self.detected = files or {}, list(detected)
+        self.patches, self.pr_commits, self.commit_files = patches or {}, pr_commits or {}, commit_files or {}
         self.open_prs, self.added, self.renamed = list(open_prs), set(added), set(renamed)
         self.calls: list[str] = []
 
@@ -55,13 +57,18 @@ class Fake:
             if self.vuln_enabled:
                 return None
             raise subprocess.CalledProcessError(1, cmd)
+        if match := re.search(r"pulls/(\d+)/commits", text):
+            return self.pr_commits.get(int(match.group(1)), [])
+        if match := re.search(r"/commits/(\w+)$", text):
+            return {"files": [{"filename": f} for f in self.commit_files.get(match.group(1), [])]}
         if "/commits" in text:
             return self.commits
         if cmd[:3] == ["gh", "pr", "list"]:
             return self.open_prs if "open" in cmd else self.prs
         if "/files" in text:
             number = int(re.search(r"pulls/(\d+)/files", text).group(1))
-            return [{"filename": f, "status": "added" if f in self.added else "renamed" if f in self.renamed else "modified"}
+            return [{"filename": f, "status": "added" if f in self.added else "renamed" if f in self.renamed else "modified",
+                     "patch": self.patches.get((number, f), "")}
                     for f in self.files.get(number, [])]
         if "detect-stack" in text:
             return {"stack": self.detected, "evidence": {}}
@@ -93,7 +100,8 @@ def test_cron_mapping(render, tmp_path, schedule):
     assert "workflow_dispatch" in on
     assert workflow["permissions"] == {"contents": "read", "pull-requests": "read"}
     text = path.read_text()
-    assert "REPORT_APP_ID" in text and "REPORT_APP_PRIVATE_KEY" in text
+    assert "REPORT_APP_CLIENT_ID" in text and "REPORT_APP_PRIVATE_KEY" in text
+    assert "REPORT_APP_ID" not in text and "app-id:" not in text
     assert "docustand" not in text.lower()
 
 
@@ -103,7 +111,8 @@ def test_workflow_runs_without_app(render, tmp_path):
     report_job = jobs["report"]
     steps = {s.get("id") or s.get("name"): s for s in report_job["steps"]}
 
-    assert report_job["env"]["HAS_APP"] == "${{ secrets.REPORT_APP_ID != '' }}"
+    assert report_job["env"]["HAS_APP"] == "${{ secrets.REPORT_APP_CLIENT_ID != '' }}"
+    assert steps["app"]["with"]["client-id"] == "${{ secrets.REPORT_APP_CLIENT_ID }}"
     assert steps["app"]["if"] == "${{ env.HAS_APP == 'true' }}"
     assert steps["Report"]["env"]["GH_TOKEN"] == "${{ steps.app.outputs.token || github.token }}"
     assert steps["Report"]["env"]["REPORT_APP_CONFIGURED"] == "${{ env.HAS_APP }}"
@@ -138,6 +147,25 @@ def test_main_without_app_fails_with_summary(report, tmp_path, monkeypatch, caps
     assert "## Report app" in text and report.NO_APP in text
     assert "Deploy key" in text
     assert report.VULN_NOT_CHECKED in text
+
+
+def test_main_without_app_skips_the_slug_check(report, tmp_path, monkeypatch, capsys):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "access.md").write_text(ACCESS)
+    summary = tmp_path / "summary.md"
+    monkeypatch.chdir(tmp_path)
+    for name, value in {"GITHUB_REPOSITORY": "o/r", "GITHUB_STEP_SUMMARY": str(summary),
+                        "REPORT_APP_CONFIGURED": "false"}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("REPORT_APP_SLUG", raising=False)
+    monkeypatch.setattr(report, "fetch", Fake())
+    monkeypatch.setattr(report, "run", lambda cmd: pytest.fail(f"ran {cmd}"))
+
+    assert report.main([]) == 1
+
+    err = capsys.readouterr().err
+    assert report.NO_APP in err and "REPORT_APP_SLUG" not in err
+    assert "Deploy key" in summary.read_text()
 
 
 def test_main_with_app_publishes(report, tmp_path, monkeypatch):
@@ -289,6 +317,52 @@ def test_activity_findings_listed(report, tmp_path):
     assert sections["Skip-Check"] == ["`ddddddd fix: z`"]
     assert sections["Protected files"] == ["#7: `.github/workflows/standard-ci.yml`"]
     assert sections["Stack"]
+
+
+TEMPLATE_PATCH = "@@ -1,2 +1,2 @@\n-_commit: v0.1.4\n+_commit: v0.2.0\n _src_path: gh:o/docustand"
+RENOVATE_PR = {"number": 4, "mergedAt": "2026-11-04T10:00:00Z", "statusCheckRollup": [],
+               "author": {"login": "app/renovate", "is_bot": True}}
+
+
+def renovate_commit(sha):
+    return {"sha": sha, "author": {"login": "renovate[bot]"}}
+
+
+def test_template_update_is_its_own_section(report, tmp_path):
+    fake = Fake(prs=[RENOVATE_PR], files={4: [".repo.yaml", "hk.pkl", ".github/workflows/standard-ci.yml"]},
+                patches={(4, ".repo.yaml"): TEMPLATE_PATCH}, pr_commits={4: [renovate_commit("aaa1")]})
+    sections = collect(report, fake, tmp_path, access="")
+    assert sections["Template updates"] == ["#4: `v0.2.0`"]
+    assert sections["Protected files"] == []
+
+
+def test_other_author_on_template_update_stays_protected(report, tmp_path):
+    other = {"sha": "bbb2", "author": {"login": "someone"}}
+    fake = Fake(prs=[RENOVATE_PR], files={4: [".repo.yaml", ".github/workflows/standard-ci.yml", ".github/workflows/x.yml"]},
+                patches={(4, ".repo.yaml"): TEMPLATE_PATCH},
+                pr_commits={4: [renovate_commit("aaa1"), other]},
+                commit_files={"bbb2": [".github/workflows/x.yml", "src/a.py"]})
+    sections = collect(report, fake, tmp_path, access="")
+    assert sections["Template updates"] == ["#4: `v0.2.0`"]
+    assert sections["Protected files"] == ["#4: `.github/workflows/x.yml`"]
+
+
+def test_protected_change_without_template_bump_stays_protected(report, tmp_path):
+    prs = [{**RENOVATE_PR, "number": 6}, {**RENOVATE_PR, "number": 7, "author": {"login": "someone"}}]
+    fake = Fake(prs=prs, files={6: [".github/workflows/standard-ci.yml"], 7: [".repo.yaml", ".github/workflows/a.yml"]},
+                patches={(7, ".repo.yaml"): TEMPLATE_PATCH})
+    sections = collect(report, fake, tmp_path, access="")
+    assert sections["Template updates"] == []
+    assert sections["Protected files"] == ["#6: `.github/workflows/standard-ci.yml`", "#7: `.github/workflows/a.yml`"]
+
+
+def test_template_updates_alone_open_no_pr(report, tmp_path):
+    ran = []
+    report.fetch = report_fetch(open_prs=[5])
+    assert report.publish({"Template updates": ["#4: `v0.2.0`"]}, tmp_path, "2026-11-05", "repo-report",
+                          runner=ran.append) is None
+    assert ran == [["gh", "pr", "close", "5", "--comment", "no findings in the report of 2026-11-05"]]
+    assert report.backlog_lines(report.findings_only({"Template updates": ["#4: `v0.2.0`"]})) == []
 
 
 def test_protected_list_matches_settings(render, tmp_path, report):

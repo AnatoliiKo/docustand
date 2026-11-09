@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Template `report`: the commit of the `report` pull request has the report app bot as its author (`<app-slug>[bot]`, `<id>+<app-slug>[bot]@users.noreply.github.com`); `standard-report.yml` passes `REPORT_APP_SLUG`.
 - Template `report`: `docs/tasks.md` gets one backlog line `- <action> — <reason>` per kind of finding instead of one per item; the date moves to the pull request description.
 - Template `report`: a run without findings closes the open `report` pull request with the comment `no findings in the report of <date>`.
+- Template `standard-report.yml`: `create-github-app-token` takes `client-id` from the secret `REPORT_APP_CLIENT_ID` instead of the deprecated `app-id`; a repository sets `REPORT_APP_CLIENT_ID` before it merges this update, and deletes `REPORT_APP_ID` after a green report run.
+- Template `report`: a Renovate pull request that changes `_commit` in `.repo.yaml` goes to the section `Template updates` with its version; such a section alone opens no pull request and adds no backlog line. Files changed by other authors in that pull request stay in `Protected files`.
+- `repo-init` audit enables vulnerability alerts when `gh api repos/{owner}/{repo}/vulnerability-alerts` answers 404.
 
 ## 0.2.0 — 2026-11-07
 
