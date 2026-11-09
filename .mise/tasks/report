@@ -8,10 +8,11 @@
 
 Environment: GITHUB_REPOSITORY, REPORT_SCHEDULE (monthly|weekly|twice-weekly),
 REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), GH_TOKEN for `gh`,
-REPORT_APP_CONFIGURED=false when the report GitHub App is missing, GITHUB_STEP_SUMMARY for the job summary.
+REPORT_APP_CONFIGURED=false when the report GitHub App is missing, REPORT_APP_SLUG for the commit author,
+GITHUB_STEP_SUMMARY for the job summary.
 
 Order: token expiry always, vulnerability alerts always with the report app; red merges, Skip-Check
-trailers, protected files, new baseline files and stack drift only when the repository had activity
+trailers, template updates, protected files, new baseline files and stack drift only when the repository had activity
 since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
 is the only place that runs `gh`.
 """
@@ -39,7 +40,12 @@ SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
 ADDED = {"added", "renamed", "copied"}
 ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 NO_APP = "report app is not configured, see docs/access.md"
+NO_SLUG = "REPORT_APP_SLUG is not set; the report commit needs the app as its author"
 VULN_NOT_CHECKED = "Not checked, needs the report app"
+RENOVATE = {"app/renovate", "renovate[bot]"}
+TEMPLATE_COMMIT = re.compile(r"^\+_commit:\s*(\S+)\s*$", re.M)
+# Shown in the report, but not findings: they open no PR and add no backlog line.
+INFO_SECTIONS = {"Template updates"}
 
 
 def fetch(cmd: list[str]) -> Any:
@@ -199,6 +205,26 @@ def protected_changes(files_by_pr: dict[int, list[str]], protected: list[str]) -
     return result
 
 
+def template_update(pr: dict, files: list[dict]) -> str | None:
+    """Template version of a Renovate PR that changes `_commit` in .repo.yaml; None for any other PR."""
+    if ((pr.get("author") or {}).get("login") or "") not in RENOVATE:
+        return None
+    for item in files:
+        if item.get("filename") == ".repo.yaml" and (match := TEMPLATE_COMMIT.search(item.get("patch") or "")):
+            return match.group(1)
+    return None
+
+
+def files_of_other_authors(commits: list[dict], files_of: Callable[[str], list[str]]) -> list[str]:
+    """Files changed by commits of a template update PR whose author is not Renovate; an unknown author counts."""
+    found: list[str] = []
+    for item in commits:
+        if ((item.get("author") or {}).get("login") or "") in RENOVATE:
+            continue
+        found += [f for f in files_of(item["sha"]) if f not in found]
+    return found
+
+
 def load_protected(root: Path) -> list[str]:
     """Protected paths: the `Edit(/<path>)` rules of `permissions.ask` in .claude/settings.json."""
     settings = json.loads((root / ".claude" / "settings.json").read_text())
@@ -260,7 +286,7 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
     scope = ["--base", base] if base else []
     prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "merged", "--limit", "200", *scope,
                  "--search", f"merged:>={since:%Y-%m-%d}",
-                 "--json", "number,mergedAt,statusCheckRollup"]) or []
+                 "--json", "number,mergedAt,statusCheckRollup,author"]) or []
     prs = [p for p in prs if (_parse_time(p.get("mergedAt", "")) or since) >= since]
     open_prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "open", "--limit", "200", *scope,
                       "--json", "number,updatedAt"]) or []
@@ -271,6 +297,13 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
         changed = {p["number"]: fetch(
             ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or [] for p in prs}
         files = {n: [f["filename"] for f in fs] for n, fs in changed.items()}
+        updates = {p["number"]: v for p in prs if (v := template_update(p, changed[p["number"]]))}
+        for number in updates:
+            # Renovate commits of a template update change protected files by design; other commits stay findings.
+            commits_of_pr = fetch(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{number}/commits"]) or []
+            files[number] = files_of_other_authors(commits_of_pr, lambda sha: [
+                f["filename"] for f in (fetch(["gh", "api", f"repos/{repo}/commits/{sha}"]) or {}).get("files") or []])
+        sections["Template updates"] = [f"#{n}: {code(v)}" for n, v in updates.items()]
         added = {n: [f["filename"] for f in fs if f.get("status") in ADDED] for n, fs in changed.items()}
         if protected is None:
             protected = load_protected(root)
@@ -287,35 +320,78 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
     return sections
 
 
-def backlog_lines(sections: dict[str, list[str]], stamp: str) -> list[str]:
-    """Backlog entries in the docs/tasks.md format; parentheses would read as repository names."""
+# One backlog line per kind of finding; the details and the date stay in the PR description.
+BACKLOG = {
+    "Tokens": ("Replace the expiring tokens of `docs/access.md`", "they expire within 30 days or have expired."),
+    "Vulnerability alerts": ("Enable vulnerability alerts of the repository", "the report cannot read open alerts."),
+    "Red merges": ("Investigate failed checks of merged pull requests {items}",
+                   "a merge with a red check skips the gate."),
+    "Skip-Check": ("Review commits with a `Skip-Check` trailer: {items}", "the trailer skips a check."),
+    "Protected files": ("Review changes to protected files in {items}",
+                        "they change how checks run outside a template update."),
+    "New baseline files": ("Review new baseline files in {items}", "a baseline hides existing violations."),
+    "Stack": ("Update `stack` of `.repo.yaml` to match the code", "the profile checks follow `stack`."),
+}
+PR_REF = re.compile(r"^#\d+")
+
+
+def _subjects(items: list[str]) -> str:
+    """PR numbers for per-PR findings, the item text otherwise."""
+    refs = [m.group(0) for item in items if (m := PR_REF.match(item))]
+    return ", ".join(refs) if len(refs) == len(items) else ", ".join(items)
+
+
+def backlog_lines(sections: dict[str, list[str]]) -> list[str]:
+    """Backlog lines `- <action> — <reason>` for docs/tasks.md; parentheses would read as repository names."""
     lines = []
     for name, items in sections.items():
-        for item in items:
-            text = " ".join(item.replace("(", "[").replace(")", "]").split())
-            lines.append(f"- Investigate {name}: {text} — report {stamp}")
+        if not items:
+            continue
+        action, reason = BACKLOG.get(name, (f"Investigate the report section {name}", "see the report pull request."))
+        text = action.format(items=_subjects(items)).replace("(", "[").replace(")", "]")
+        lines.append(f"- {' '.join(text.split())} — {reason}")
     return lines
 
 
-def publish(sections: dict[str, list[str]], root: Path, stamp: str,
+def bot_identity(slug: str) -> tuple[str, str]:
+    """Commit name and email of the GitHub App bot; another address would credit a user account."""
+    login = f"{slug}[bot]"
+    user = fetch(["gh", "api", f"/users/{login}"]) or {}
+    return login, f"{user['id']}+{login}@users.noreply.github.com"
+
+
+def open_report_pr() -> int | None:
+    existing = fetch(["gh", "pr", "list", "--head", BRANCH, "--state", "open", "--json", "number"]) or []
+    return existing[0]["number"] if existing else None
+
+
+def findings_only(sections: dict[str, list[str]]) -> dict[str, list[str]]:
+    return {name: items for name, items in sections.items() if name not in INFO_SECTIONS}
+
+
+def publish(sections: dict[str, list[str]], root: Path, stamp: str, slug: str = "",
             runner: Callable[[list[str]], Any] = run) -> str | None:
-    """Open or update the `report` PR with the findings; nothing happens without findings."""
-    body = render_report(sections)
-    if body is None:
+    """Open or update the `report` PR with the findings; without findings close an open one."""
+    if render_report(findings_only(sections)) is None:
+        if (number := open_report_pr()) is not None:
+            runner(["gh", "pr", "close", str(number), "--comment", f"no findings in the report of {stamp}"])
         return None
+    if not slug:
+        raise SystemExit(NO_SLUG)
+    body = f"Report of {stamp}.\n\n{render_report(sections)}"
     tasks = root / "docs" / "tasks.md"
     text = tasks.read_text()
-    new = [line for line in backlog_lines(sections, stamp) if line not in text]
+    new = [line for line in backlog_lines(findings_only(sections)) if line not in text.splitlines()]
     tasks.write_text(text.rstrip("\n") + "\n" + "".join(f"{line}\n" for line in new))
-    runner(["git", "config", "user.name", "report"])
-    runner(["git", "config", "user.email", "report@users.noreply.github.com"])
+    name, email = bot_identity(slug)
+    runner(["git", "config", "user.name", name])
+    runner(["git", "config", "user.email", email])
     runner(["git", "checkout", "-B", BRANCH])
     runner(["git", "add", "docs/tasks.md"])
     runner(["git", "commit", "-m", "chore: update report", "--allow-empty"])
     runner(["git", "push", "--force", "origin", BRANCH])
-    existing = fetch(["gh", "pr", "list", "--head", BRANCH, "--state", "open", "--json", "number"]) or []
-    if existing:
-        runner(["gh", "pr", "edit", str(existing[0]["number"]), "--body", body])
+    if (number := open_report_pr()) is not None:
+        runner(["gh", "pr", "edit", str(number), "--body", body])
     else:
         runner(["gh", "pr", "create", "--title", "report", "--body", body, "--head", BRANCH])
     return body
@@ -345,7 +421,7 @@ def main(argv: list[str]) -> int:
         # The default token cannot push or open a pull request; the findings stay in the job summary.
         print(f"::error::{NO_APP}" if os.environ.get("GITHUB_ACTIONS") == "true" else NO_APP, file=sys.stderr)
         return 1
-    publish(sections, root, now.strftime("%Y-%m-%d"))
+    publish(sections, root, now.strftime("%Y-%m-%d"), os.environ.get("REPORT_APP_SLUG", ""))
     return 0
 
 

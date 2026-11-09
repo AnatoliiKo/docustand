@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 30
     env:
       # Without the app the default token collects what it can and the job fails with the reason.
-      HAS_APP: ${{ secrets.REPORT_APP_ID != '' }}
+      HAS_APP: ${{ secrets.REPORT_APP_CLIENT_ID != '' }}
     outputs:
       monthly_due: ${{ steps.due.outputs.monthly_due }}
     steps:
@@ -33,7 +33,7 @@ jobs:
         if: ${{ env.HAS_APP == 'true' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ secrets.REPORT_APP_ID }}
+          client-id: ${{ secrets.REPORT_APP_CLIENT_ID }}
           private-key: ${{ secrets.REPORT_APP_PRIVATE_KEY }}
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       - name: Monthly checks due
@@ -46,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           REPORT_APP_CONFIGURED: ${{ env.HAS_APP }}
+          REPORT_APP_SLUG: ${{ steps.app.outputs.app-slug }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           REPORT_SCHEDULE: weekly
           REPORT_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
