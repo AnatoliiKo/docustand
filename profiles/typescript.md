@@ -35,6 +35,7 @@ A project rule cannot weaken them: `eslint.config.mjs` applies them after `eslin
 A stricter threshold is an edit of `eslint.config.mjs` with an entry in `overrides`.
 An object of `eslint.project.mjs` with only `ignores` would switch off the standard rules too, so `eslint.config.mjs` drops it with a warning; a global ignore of the project is an edit of `eslint.config.mjs` with an entry in `overrides`.
 The template brings no Prettier config: formatting is a project setting ([ADR 0016](../docs/decisions/0016-project-owned-check-configs.md)).
+The parser options of `eslint.config.mjs` come before `eslint.project.mjs`, so a project setting such as `allowDefaultProject` refines them.
 
 ## Commands
 
@@ -47,7 +48,7 @@ The template brings no Prettier config: formatting is a project setting ([ADR 00
 | pre-push | `eslint` | `eslint` with type information on the changed files of the push |
 | pre-push | `dependency-cruiser` | `depcruise --config .dependency-cruiser.cjs .` |
 | pre-push | `knip` | `knip` |
-| pre-push | `steiger-<n>` | `steiger <part>` for each part of `architecture` with FSD |
+| pre-push | `steiger-<n>` | `steiger <part>` for each part of `architecture` with FSD; `npm run <script>` for a part with `script` |
 | CI, pull request | Duplication | `jscpd --config .jscpd.json .` |
 
 `mise run check` runs every step except `eslint-fast` on all files, so CI runs the full ESLint.
@@ -68,3 +69,4 @@ Steps call the tools from `node_modules/.bin/`; the dependencies are installed b
 - An own `.dependency-cruiser.cjs` gets `extends: "./.dependency-cruiser.standard.cjs"`.
 - An own knip config gets the `ignore` and `ignoreDependencies` entries of the template `knip.json`.
 - Variables: `process.env.X` and `process.env["X"]` in the code need a line in `.env.example`.
+- Steiger exceptions that `steiger.config.*` cannot express (Steiger drops the files of an excluded slice and misses their imports): a `package.json` script runs Steiger and filters its report, and the part in `architecture` names it: `--data 'architecture={"apps/web/src": {"style": "fsd", "script": "lint:fsd"}}'`.
