@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.3 — 2026-11-09
+
+### Fixed
+
+- Template `check-env-example` reads the whole name of a variable: `process.env['SystemDrive']` was reported as `S`; names with lower case letters are OS variables and are ignored.
+
 ## 0.3.2 — 2026-11-09
 
 ### Changed
