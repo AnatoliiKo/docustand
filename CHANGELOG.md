@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.1 — 2026-11-09
+
+### Changed
+
+- Template `hk.pkl`: a part of `architecture` may be a mapping `{style, script}`; for an FSD part with `script` the `steiger-<n>` step runs `npm run --silent <script>` instead of `steiger <part>`. `repo.schema.json` accepts that form.
+- Template `eslint.config.mjs`: the parser options come before the rules of `eslint.project.mjs`, so `allowDefaultProject` of a project is kept; the standard rules still come last.
+
 ## 0.3.0 — 2026-11-09
 
 ### Changed
