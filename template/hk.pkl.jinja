@@ -120,11 +120,21 @@ local pushSteps = new Mapping<String, Step> {
     check = new Command { argv = List(bin("knip"), "--no-progress") }
   }
 {%- endraw %}
-{%- for part, style in architecture.items() if style is string and ('fsd' in style | lower or 'feature-sliced' in style | lower) %}
-  ["steiger-{{ loop.index }}"] {
+{%- set steiger = namespace(n=0) %}
+{%- for part, value in architecture.items() %}
+{%- set style = value if value is string else ((value.style or '') if value is mapping else '') %}
+{%- if 'fsd' in style | lower or 'feature-sliced' in style | lower %}
+{%- set steiger.n = steiger.n + 1 %}
+  ["steiger-{{ steiger.n }}"] {
     glob = List("{{ part }}/**")
+{%- if value is mapping and value.script %}
+    // Project script from `architecture` in .repo.yaml: Steiger with exceptions it cannot express.
+    check = new Command { argv = List("npm", "run", "--silent", "{{ value.script }}") }
+{%- else %}
     check = new Command { argv = List(bin("steiger"), "{{ part }}") }
+{%- endif %}
   }
+{%- endif %}
 {%- endfor %}
 {%- endif %}
 {%- raw %}

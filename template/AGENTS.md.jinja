@@ -32,8 +32,12 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 
 - The system map is in `docs/architecture.md`.
 {%- if architecture %}
-{%- for part, style in architecture.items() %}
-- `{{ part }}`: `{{ style }}`.
+{%- for part, value in architecture.items() %}
+{%- if value is mapping %}
+- `{{ part }}`: `{{ value.style }}`{% if value.script %}, checked by the script `{{ value.script }}`{% endif %}.
+{%- else %}
+- `{{ part }}`: `{{ value }}`.
+{%- endif %}
 {%- endfor %}
 {%- else %}
 - No architecture rules are set in `.repo.yaml`.

@@ -92,6 +92,19 @@ def test_steiger_step_per_fsd_part(render, tmp_path):
     assert "steiger" not in json.loads((plain / "knip.json").read_text())["ignoreDependencies"]
 
 
+def test_steiger_part_with_project_script(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", stack=["typescript"],
+                  architecture={"apps/web/src": {"style": "fsd", "script": "lint:fsd"}, "lib": "FSD"})
+
+    hk = (dest / "hk.pkl").read_text()
+    web = hk.split('["steiger-1"]', 1)[1].split('["steiger-2"]', 1)[0]
+    assert 'glob = List("apps/web/src/**")' in web
+    assert 'List("npm", "run", "--silent", "lint:fsd")' in web and 'bin("steiger")' not in web
+    assert 'List(bin("steiger"), "lib")' in hk.split('["steiger-2"]', 1)[1]
+    assert "steiger" in json.loads((dest / "knip.json").read_text())["ignoreDependencies"]
+    assert "- `apps/web/src`: `fsd`, checked by the script `lint:fsd`." in (dest / "AGENTS.md").read_text()
+
+
 def test_project_files_of_typescript_are_written_once(render, tmp_path):
     copier = yaml.safe_load((REPO_ROOT / "copier.yml").read_text())
 

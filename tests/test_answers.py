@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 from conftest import REPO_ROOT
@@ -55,6 +56,25 @@ def test_schema_rejects_unknown_key(render, tmp_path):
     bad = subprocess.run(["check-jsonschema", "--schemafile", str(schema), str(answers)],
                          capture_output=True, text=True)
     assert bad.returncode == 1
+
+
+@pytest.mark.parametrize("value, valid", [
+    ('{"apps/web/src": "fsd"}', True),
+    ('{"apps/web/src": {"style": "fsd", "script": "lint:fsd"}}', True),
+    ('{"apps/web/src": {"script": "lint:fsd"}}', False),
+    ('{"apps/web/src": {"style": "fsd", "script": "lint:fsd && true"}}', False),
+    ('{"apps/web/src": {"style": "fsd", "command": "x"}}', False),
+])
+def test_schema_checks_architecture_parts(render, tmp_path, value, valid):
+    dest = render(tmp_path, project_name="demo")
+    schema = dest / ".github" / "repo.schema.json"
+    answers = dest / ".repo.yaml"
+    answers.write_text(answers.read_text().replace("architecture: {}", f"architecture: {value}"))
+    assert f"architecture: {value}" in answers.read_text()
+
+    result = subprocess.run(["check-jsonschema", "--schemafile", str(schema), str(answers)],
+                            capture_output=True, text=True)
+    assert (result.returncode == 0) is valid, result.stdout + result.stderr
 
 
 def test_schema_rejects_empty_ci_branches(render, tmp_path):

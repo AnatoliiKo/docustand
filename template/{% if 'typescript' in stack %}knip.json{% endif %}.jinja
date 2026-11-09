@@ -1,6 +1,9 @@
 {%- set fsd = [] -%}
-{%- for part, style in architecture.items() if style is string and ('fsd' in style | lower or 'feature-sliced' in style | lower) -%}
+{%- for part, value in architecture.items() -%}
+{%- set style = value if value is string else ((value.style or '') if value is mapping else '') -%}
+{%- if 'fsd' in style | lower or 'feature-sliced' in style | lower -%}
 {%- set _ = fsd.append(part) -%}
+{%- endif -%}
 {%- endfor -%}
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
