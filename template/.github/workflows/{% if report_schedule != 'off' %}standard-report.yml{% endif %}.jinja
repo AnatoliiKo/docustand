@@ -71,6 +71,15 @@ jobs:
           install: false
           cache: false
       - run: mise install && mise run check
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+        # The same heap as `Checks` in standard-ci.yml: type-aware ESLint needs more than 2 GB.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+{%- endraw %}
+{%- endif %}
+{%- raw %}
       - name: External links
         run: mise exec -- lychee --config lychee.toml --no-progress .
 {% endraw %}

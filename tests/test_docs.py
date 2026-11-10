@@ -157,7 +157,7 @@ def test_no_blank_line_defects(render, tmp_path):
         assert "\n\n" not in gitignore and gitignore.endswith("\n")
 
 
-REPORT_APP_ROW = "| Report GitHub App: Contents read and write, Pull requests read and write, Administration read |"
+REPORT_APP_ROW = "| Report GitHub App: Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read |"
 CLAUDE_TASK_ROW = "| Scheduled Claude task for reports |"
 
 

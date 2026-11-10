@@ -548,3 +548,16 @@ def test_fetch_prints_the_stderr_of_a_failed_command(capsys):
         report.fetch(["sh", "-c", "echo 'HTTP 403: Resource not accessible' >&2; exit 1"])
 
     assert "HTTP 403: Resource not accessible" in capsys.readouterr().err
+
+
+def fresh_install_check(project):
+    jobs = yaml.safe_load((project / ".github/workflows/standard-report.yml").read_text())["jobs"]
+    return next(s for s in jobs["fresh-install"]["steps"] if s.get("run") == "mise install && mise run check")
+
+
+def test_fresh_install_raises_node_heap_for_typescript(render, tmp_path):
+    ts = render(tmp_path / "ts", project_name="demo", report_schedule="weekly", stack=["typescript"])
+    plain = render(tmp_path / "plain", project_name="demo", report_schedule="weekly")
+
+    assert fresh_install_check(ts)["env"] == {"NODE_OPTIONS": "--max-old-space-size=4096"}
+    assert "env" not in fresh_install_check(plain)
