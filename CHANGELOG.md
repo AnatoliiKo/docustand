@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.9 — 2026-11-10
+
+### Fixed
+
+- Template `standard-report.yml` checks external links in the tracked Markdown files, as the `lychee` hook: `lychee .` of `cinema-ops` failed on HTML fixtures of external sites and the root-relative links of the web panel.
+
 ## 0.3.8 — 2026-11-10
 
 ### Fixed
