@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.8 — 2026-11-10
+
+### Fixed
+
+- Template `standard-report.yml` gives type-aware ESLint of `fresh-install` the 4 GB heap of `standard-ci.yml`: the job of `cinema-ops` ran out of memory.
+- The report GitHub App needs Checks read and Commit statuses read: `gh pr list` reads `statusCheckRollup`, and the `cinema-ops` report failed with «Resource not accessible by integration». `SKILL.md` and `docs/access.md` list the permissions.
+
 ## 0.3.7 — 2026-11-10
 
 ### Fixed
