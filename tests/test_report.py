@@ -540,3 +540,11 @@ def test_typescript_report_lists_project_check_configs(render, tmp_path, report)
     changes = report.protected_changes({5: [*configs, "src/a.ts"]}, protected)
 
     assert changes == {5: configs}
+
+
+def test_fetch_prints_the_stderr_of_a_failed_command(capsys):
+    report = load()
+    with pytest.raises(subprocess.CalledProcessError):
+        report.fetch(["sh", "-c", "echo 'HTTP 403: Resource not accessible' >&2; exit 1"])
+
+    assert "HTTP 403: Resource not accessible" in capsys.readouterr().err

@@ -51,9 +51,15 @@ INFO_SECTIONS = {"Template updates"}
 def fetch(cmd: list[str]) -> Any:
     """Run a command and return its parsed JSON output (None when empty).
 
-    Raises CalledProcessError on failure. Paged `gh api` results (--slurp) are flattened.
+    Raises CalledProcessError on failure and prints the stderr of the command first:
+    the exception text alone does not say why `gh` failed. Paged `gh api` results
+    (--slurp) are flattened.
     """
-    out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
+    try:
+        out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
+    except subprocess.CalledProcessError as error:
+        print(f"{' '.join(cmd[:3])}: {(error.stderr or '').strip()}", file=sys.stderr)
+        raise
     if not out:
         return None
     data = json.loads(out)
