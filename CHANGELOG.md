@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.6 — 2026-11-10
+
+### Fixed
+
+- Template `standard.toml` of TypeScript projects installs the Node dependencies in the `mise install` hook: a fresh clone of `cinema-ops` set up by the README failed `mise run check` and `mise run test` without `node_modules`.
+
 ## 0.3.5 — 2026-11-10
 
 ### Fixed
