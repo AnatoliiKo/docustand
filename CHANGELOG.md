@@ -3,10 +3,11 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 0.3.4 — 2026-11-10
 
 ### Fixed
 
+- Template `standard-ci.yml` sets `NODE_OPTIONS=--max-old-space-size=4096` for `mise run check` in TypeScript projects: type-aware ESLint of `cinema-ops` (1144 files, 2.6 GB peak) ran out of the 2 GB default heap of the runner.
 - Skill `repo-init` passes `required_ci_branches` with the default branch also when the plan has no branch protection: `cinema-ops` with the default branch `dev` got `[main]` and no CI runs.
 
 ## 0.3.3 — 2026-11-09
