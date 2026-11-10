@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.5 — 2026-11-10
+
+### Fixed
+
+- Template `check-gitignore-block` fails when a rule of `.gitignore` ignores a file the template renders for the answers of `.repo.yaml`: a project rule `data/` matched `.mise/data/`, so `size-limits.json` and `task-verbs.txt` stayed out of git. The check runs `git check-ignore --no-index` on the list of standard files; a test keeps the list equal to the rendered files.
+
 ## 0.3.4 — 2026-11-10
 
 ### Fixed
