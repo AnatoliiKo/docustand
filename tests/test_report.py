@@ -561,3 +561,12 @@ def test_fresh_install_raises_node_heap_for_typescript(render, tmp_path):
 
     assert fresh_install_check(ts)["env"] == {"NODE_OPTIONS": "--max-old-space-size=4096"}
     assert "env" not in fresh_install_check(plain)
+
+
+def test_external_links_check_only_tracked_markdown(render, tmp_path):
+    project = render(tmp_path, project_name="demo", report_schedule="weekly")
+    jobs = yaml.safe_load((project / ".github/workflows/standard-report.yml").read_text())["jobs"]
+    step = next(s for s in jobs["fresh-install"]["steps"] if s.get("name") == "External links")
+
+    assert step["run"].startswith("git ls-files -z '*.md' | xargs -0 ")
+    assert step["run"].endswith("lychee --config lychee.toml --no-progress")

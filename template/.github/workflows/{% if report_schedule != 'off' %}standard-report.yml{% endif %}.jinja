@@ -81,5 +81,6 @@ jobs:
 {%- endif %}
 {%- raw %}
       - name: External links
-        run: mise exec -- lychee --config lychee.toml --no-progress .
+        # The tracked Markdown files, as the lychee hook: HTML fixtures and node_modules hold no project links.
+        run: git ls-files -z '*.md' | xargs -0 mise exec -- lychee --config lychee.toml --no-progress
 {% endraw %}
