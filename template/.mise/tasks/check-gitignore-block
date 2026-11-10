@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --script
-#MISE description="Fail when .gitignore lacks a line of the standard block"
+#MISE description="Fail when .gitignore lacks a line of the standard block or ignores a standard file"
 # /// script
 # requires-python = ">=3.13"
 # dependencies = ["pyyaml==6.0.3"]
@@ -11,6 +11,8 @@ With `terraform` or `typescript` in the `stack` of `.repo.yaml`, its block is re
 New lines arrive with a template update.
 The lines alone are not enough: `git check-ignore` confirms that TRACKED paths stay in git
 and IGNORED paths stay out, which a rule like `.claude/` before the block breaks.
+TRACKED lists every file the template renders (a test keeps them equal): a project rule like
+`data/` also matches `.mise/data/`, and an ignored standard file is missing from every clone.
 """
 import os
 import subprocess
@@ -35,18 +37,53 @@ TERRAFORM_BLOCK = """\
 TYPESCRIPT_BLOCK = """\
 node_modules/
 """
-TRACKED = [".claude/settings.json", ".claude/hooks/guard_bash.py"]
+TRACKED = [
+    ".claude/hooks/_shell.py", ".claude/hooks/guard_bash.py", ".claude/hooks/guard_pr_create.py",
+    ".claude/hooks/guard_pr_merge.py", ".claude/settings.json",
+    ".github/pull_request_template.md", ".github/repo.schema.json",
+    ".github/workflows/standard-ci.yml", ".gitignore", ".mise/conf.d/standard.toml",
+    ".mise/data/size-limits.json", ".mise/data/task-verbs.txt",
+    ".mise/tasks/check-agents-md", ".mise/tasks/check-baseline", ".mise/tasks/check-comments",
+    ".mise/tasks/check-env-example", ".mise/tasks/check-gitignore-block",
+    ".mise/tasks/check-md-placement", ".mise/tasks/check-pr-body", ".mise/tasks/check-pr-commits",
+    ".mise/tasks/check-repo-yaml", ".mise/tasks/check-size", ".mise/tasks/check-tasks-format",
+    ".mise/tasks/ci-merged-pr", ".mise/tasks/detect-stack", ".mise/tasks/pr-ready",
+    ".mise/tasks/report", ".repo.yaml", ".rumdl.toml", ".worktreeinclude", "AGENTS.md", "CLAUDE.md",
+    "README.md", "commitlint.config.mjs", "docs/access.md", "docs/architecture.md",
+    "docs/decisions/0000-adopt-repository-standard.md", "docs/tasks.md", "hk.pkl", "lychee.toml",
+    "renovate.json", "typos.toml",
+]
+TERRAFORM_TRACKED = [".mise/tasks/tf-validate", ".tflint.hcl"]
+TYPESCRIPT_TRACKED = [
+    ".dependency-cruiser.cjs", ".dependency-cruiser.standard.cjs", ".jscpd.json",
+    "eslint.config.mjs", "eslint.project.mjs", "knip.json",
+]
+DEPLOYED_TRACKED = ["docs/operations.md"]
+REPORT_TRACKED = [".github/workflows/standard-report.yml"]
 IGNORED = ["CLAUDE.local.md"]
 
 
-def stack(root: Path) -> list:
-    """The `stack` answer of `.repo.yaml`; empty when the file is missing or unreadable."""
+def answers(root: Path) -> dict:
+    """The answers of `.repo.yaml`; empty when the file is missing or unreadable."""
     try:
-        answers = yaml.safe_load((root / ".repo.yaml").read_text())
+        data = yaml.safe_load((root / ".repo.yaml").read_text())
     except (OSError, yaml.YAMLError):
-        return []
-    value = answers.get("stack") if isinstance(answers, dict) else None
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def stack(data: dict) -> list:
+    value = data.get("stack")
     return value if isinstance(value, list) else []
+
+
+def tracked(data: dict) -> list[str]:
+    """The files the template renders for these answers."""
+    profiles = stack(data)
+    return (TRACKED + (TERRAFORM_TRACKED if "terraform" in profiles else [])
+            + (TYPESCRIPT_TRACKED if "typescript" in profiles else [])
+            + (DEPLOYED_TRACKED if data.get("deployed") is True else [])
+            + (REPORT_TRACKED if data.get("report_schedule", "weekly") != "off" else []))
 
 
 def relative(root: Path, arg: str) -> str | None:
@@ -55,11 +92,14 @@ def relative(root: Path, arg: str) -> str | None:
     return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
 
 
-def ignored(root: Path, rel: str) -> bool:
-    """Whether the rules of the repository ignore `rel`; global excludes do not count."""
-    result = subprocess.run(["git", "-c", f"core.excludesFile={os.devnull}", "check-ignore", "-q",
-                             "--no-index", rel], cwd=root, capture_output=True, text=True)
-    return result.returncode == 0
+def ignored(root: Path, rels: list[str]) -> set[str]:
+    """The paths of `rels` the rules of the repository ignore; global excludes do not count."""
+    result = subprocess.run(["git", "-c", f"core.excludesFile={os.devnull}", "check-ignore",
+                             "--no-index", "-z", "--stdin"], cwd=root, capture_output=True,
+                            text=True, input="\0".join(rels) + "\0")
+    if result.returncode > 1:
+        raise SystemExit(f".gitignore:1: git check-ignore failed: {result.stderr.strip()}")
+    return set(filter(None, result.stdout.split("\0")))
 
 
 def main(argv: list[str]) -> int:
@@ -72,7 +112,8 @@ def main(argv: list[str]) -> int:
         print(".gitignore:1: file is missing")
         return 1
     present = {line.strip() for line in path.read_text().splitlines()}
-    profiles = stack(root)
+    data = answers(root)
+    profiles = stack(data)
     required = (BLOCK + (TERRAFORM_BLOCK if "terraform" in profiles else "")
                 + (TYPESCRIPT_BLOCK if "typescript" in profiles else ""))
     missing = [line for line in required.splitlines() if line not in present]
@@ -86,9 +127,11 @@ def main(argv: list[str]) -> int:
             if line.startswith("!.claude/") and number - 1 < anchor:
                 print(f".gitignore:{number}: `{line}` must come after `.claude/*`")
                 misplaced.append(line)
-    wrong = [rel for rel in TRACKED if ignored(root, rel)] + [rel for rel in IGNORED if not ignored(root, rel)]
+    standard = tracked(data)
+    matched = ignored(root, standard + IGNORED)
+    wrong = [rel for rel in standard if rel in matched] + [rel for rel in IGNORED if rel not in matched]
     for rel in wrong:
-        state = "is ignored" if rel in TRACKED else "is not ignored"
+        state = "is ignored" if rel in standard else "is not ignored"
         print(f".gitignore:1: `{rel}` {state}; check the rules before and after the standard block")
     return 1 if missing or misplaced or wrong else 0
 

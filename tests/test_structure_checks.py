@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+from importlib import machinery, util
 
 import pytest
 
@@ -457,6 +458,67 @@ def test_gitignore_whole_claude_dir_before_block_fails(project):
     assert code == 1
     assert "`.claude/settings.json` is ignored" in out
     assert "`.claude/hooks/guard_bash.py` is ignored" in out
+
+
+def load_gitignore_block():
+    path = REPO_ROOT / "template/.mise/tasks/check-gitignore-block"
+    loader = machinery.SourceFileLoader("check_gitignore_block_script", str(path))
+    module = util.module_from_spec(util.spec_from_loader(loader.name, loader))
+    loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("data", [
+    {},
+    {"stack": ["terraform", "typescript"], "deployed": True, "report_schedule": "off"},
+])
+def test_gitignore_tracked_list_equals_rendered_files(render, tmp_path, data):
+    dest = render(tmp_path, project_name="demo", **data)
+    rendered = sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*") if p.is_file())
+    script = load_gitignore_block()
+
+    assert sorted(script.tracked(script.answers(dest))) == rendered
+
+
+def test_gitignore_tracked_follows_answers():
+    script = load_gitignore_block()
+
+    assert ".github/workflows/standard-report.yml" in script.tracked({})
+    assert ".github/workflows/standard-report.yml" not in script.tracked({"report_schedule": "off"})
+    assert "docs/operations.md" in script.tracked({"deployed": True})
+    assert ".tflint.hcl" in script.tracked({"stack": ["terraform"]})
+    assert "knip.json" not in script.tracked({"stack": ["terraform"]})
+
+
+def test_gitignore_rule_ignoring_standard_data_fails(project):
+    dest = project()
+    write(dest, ".gitignore", "data/\n" + (dest / ".gitignore").read_text())
+
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 1
+    assert "`.mise/data/size-limits.json` is ignored" in out
+    assert "`.mise/data/task-verbs.txt` is ignored" in out
+
+
+def test_gitignore_root_anchored_data_rule_passes(project):
+    dest = project()
+    write(dest, ".gitignore", "/data/\n" + (dest / ".gitignore").read_text())
+
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 0, out
+
+
+def test_gitignore_rule_ignoring_standard_task_fails(project):
+    dest = project(stack=["terraform"])
+    write(dest, ".gitignore", (dest / ".gitignore").read_text() + ".mise/tasks/*\nhk.pkl\n.repo.yaml\n")
+
+    code, out = run(dest, "check-gitignore-block")
+
+    assert code == 1
+    for rel in [".mise/tasks/check-size", ".mise/tasks/tf-validate", "hk.pkl", ".repo.yaml"]:
+        assert f"`{rel}` is ignored" in out
 
 
 def test_gitignore_local_notes_not_ignored_fails(project):
