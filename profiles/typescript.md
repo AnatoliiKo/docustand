@@ -52,7 +52,7 @@ The parser options of `eslint.config.mjs` come before `eslint.project.mjs`, so a
 | CI, pull request | Duplication | `jscpd --config .jscpd.json .` |
 
 `mise run check` runs every step except `eslint-fast` on all files, so CI runs the full ESLint.
-CI installs the dependencies with `pnpm install --frozen-lockfile` or `npm ci` before the checks.
+`mise install` installs the dependencies after the hooks: `pnpm install --frozen-lockfile` with `pnpm-lock.yaml`, `npm ci` with `package-lock.json`. CI runs the same command before the checks.
 Steps call the tools from `node_modules/.bin/`; the dependencies are installed before the hooks run.
 
 ## Baselines
