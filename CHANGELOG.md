@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.7 — 2026-11-10
+
+### Fixed
+
+- Template `report` prints the error output of a failed `gh` call: the first `cinema-ops` report run failed on `gh pr list` with only an exit status in the log.
+
 ## 0.3.6 — 2026-11-10
 
 ### Fixed
