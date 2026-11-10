@@ -4,8 +4,8 @@
 
 - Goal: first pilot on a repository with code; results go to `docs/pilot-log.md`.
 - Done when: the success criteria of section 12 of the specification pass in `cinema-ops`.
-- Stopped at: Task 2 and 3 are in `cinema-ops` PR 83 with `v0.3.4`; CI passes; the owner merges it.
-- Next: Task 4, comment cleanup in `cinema-ops`, with the template update to `v0.3.5`.
+- Stopped at: Task 4 merged: `v0.3.5` in PR 84, code comments in English in PR 85–93.
+- Next: Task 5, documentation translation, after the owner answers the documentation language, `CLAUDE.local.md`, `docs/vendor/` and `md_exceptions`.
 - Refs: `docs/temp/pilot-cinema-ops-plan.md`.
 
 ## Backlog
