@@ -57,6 +57,16 @@ jobs:
         run: echo "merged=$(mise run ci-merged-pr -- "$REPO" "$SHA")" >> "$GITHUB_OUTPUT"
       - name: Checks
         if: ${{ github.event_name != 'push' || steps.merged.outputs.merged != 'true' }}
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+        # The runner's default V8 heap is 2 GB; type-aware ESLint of a large project needs more.
+        # 4 GB is the default heap of a developer machine, so CI and the hooks have the same limit.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+{%- endraw %}
+{%- endif %}
+{%- raw %}
         run: mise run check
       # The base is the pull request base, or the previous tip of the pushed branch.
       - name: Baseline growth (pull request)

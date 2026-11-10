@@ -149,6 +149,22 @@ def test_ci_runs_check(workflow):
     assert any(s.get("run") == "mise run check" for s in steps(workflow))
 
 
+def check_step(workflow):
+    return next(s for s in steps(workflow) if s.get("run") == "mise run check")
+
+
+def test_ci_check_keeps_default_heap_without_node(workflow):
+    assert "env" not in check_step(workflow)
+
+
+def test_ci_check_raises_node_heap_for_typescript(tmp_path):
+    dest = tmp_path / "project"
+    assert run_copier(dest, project_name="demo", stack=["typescript"]).returncode == 0
+    workflow = yaml.safe_load((dest / ".github/workflows/standard-ci.yml").read_text())
+
+    assert check_step(workflow)["env"] == {"NODE_OPTIONS": "--max-old-space-size=4096"}
+
+
 MERGED = "steps.merged.outputs.merged"
 
 
