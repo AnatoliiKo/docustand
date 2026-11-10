@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Fixed
+
+- Skill `repo-init` passes `required_ci_branches` with the default branch also when the plan has no branch protection: `cinema-ops` with the default branch `dev` got `[main]` and no CI runs.
+
 ## 0.3.3 — 2026-11-09
 
 ### Fixed

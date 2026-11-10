@@ -21,7 +21,7 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 | Own configs found: keep the differences with a reason in `overrides`, or bring them to the template | the project already has configs that the template also brings | `overrides` or the template file |
 | Is the repository part of a multi-repository system? Which repositories? Which is the center? | references to other repositories found, or sibling repositories that reference this one; siblings alone do not count; after «no», no other multi-repository question | `system` |
 | Is there an API? Provider or consumer? For a new project: the contract approach | an API or a client of one found | `contract`, ADR |
-| Branch protection: on which branches CI is required | the plan allows protection; otherwise a warning instead of the question | `required_ci_branches` |
+| Branch protection: on which branches CI is required | the plan allows protection; otherwise a warning instead of the question and the long-lived branches as the answer | `required_ci_branches` |
 | What to do with files outside git next to the repository | such files found | inventory (migration step 1) |
 | Is the system deployed? | code with deploy signs (Dockerfile, deploy workflow, infrastructure code) | `deployed` (adds `docs/operations.md`) |
 | Report secrets: set `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` now | `report_schedule` is not `off` | GitHub secrets, `docs/access.md` |
@@ -46,6 +46,7 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 2. `<default branch>` and the other long-lived branches found: the same on each. Costs: every branch waits for CI.
 
 Without protection on the plan: no question, the warning «CI only reports; local hooks are the only blocking layer».
+The answer is still passed as `--data 'required_ci_branches=[<default branch>, <other long-lived branches>]'`: the branches also select where `standard-ci` runs, and the template default `[main]` leaves a repository with another default branch without CI.
 
 **Stack.** The template offers the profiles in `${CLAUDE_PLUGIN_ROOT}/profiles/`: `terraform` and `typescript`.
 
