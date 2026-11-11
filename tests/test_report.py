@@ -39,6 +39,19 @@ def report():
     return load()
 
 
+def graphql_pages(prs):
+    """`gh api graphql --paginate --slurp` output of `MERGED_PRS_QUERY` for PRs in the `gh pr list` shape."""
+    nodes = []
+    for pr in prs:
+        login = (pr.get("author") or {}).get("login", "someone")
+        bot = login.startswith("app/")
+        nodes.append({"number": pr["number"], "mergedAt": pr.get("mergedAt"),
+                      "author": {"__typename": "Bot" if bot else "User", "login": login.removeprefix("app/")},
+                      "commits": {"nodes": [{"commit": {"statusCheckRollup": {"contexts": {
+                          "nodes": pr.get("statusCheckRollup") or []}}}}]}})
+    return [{"data": {"search": {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": nodes}}}]
+
+
 class Fake:
     """Replacement for report.fetch: answers by command text, records every call."""
 
@@ -63,8 +76,10 @@ class Fake:
             return {"files": [{"filename": f} for f in self.commit_files.get(match.group(1), [])]}
         if "/commits" in text:
             return self.commits
+        if cmd[:3] == ["gh", "api", "graphql"]:
+            return graphql_pages(self.prs)
         if cmd[:3] == ["gh", "pr", "list"]:
-            return self.open_prs if "open" in cmd else self.prs
+            return self.open_prs
         if "/files" in text:
             number = int(re.search(r"pulls/(\d+)/files", text).group(1))
             return [{"filename": f, "status": "added" if f in self.added else "renamed" if f in self.renamed else "modified",
@@ -505,7 +520,9 @@ def test_activity_scoped_to_default_branch(report, tmp_path):
     report.fetch = fake
     report.collect("o/r", tmp_path, NOW, "weekly", protected=[], base="trunk")
     listed = [c for c in fake.calls if c.startswith("gh pr list")]
-    assert len(listed) == 2 and all("--base trunk" in c for c in listed)
+    assert len(listed) == 1 and "--base trunk" in listed[0]
+    assert any(c.startswith("gh api graphql") and "q=repo:o/r is:pr is:merged" in c and c.endswith(" base:trunk")
+               for c in fake.calls)
     assert any("/commits" in c and "sha=trunk" in c for c in fake.calls)
 
 
@@ -570,3 +587,31 @@ def test_external_links_check_only_tracked_markdown(render, tmp_path):
 
     assert step["run"].startswith("git ls-files -z '*.md' | xargs -0 ")
     assert step["run"].endswith("lychee --config lychee.toml --no-progress")
+
+
+def test_merged_prs_reads_graphql_pages(report):
+    pages = [
+        {"data": {"search": {"nodes": [
+            {"number": 1, "mergedAt": "2026-11-03T10:00:00Z", "author": {"__typename": "Bot", "login": "renovate"},
+             "commits": {"nodes": [{"commit": {"statusCheckRollup": {"contexts": {"nodes": [
+                 {"conclusion": "SUCCESS"}, {"state": "ERROR"}]}}}}]}},
+            {}]}}},
+        {"data": {"search": {"nodes": [
+            {"number": 2, "mergedAt": "2026-11-04T10:00:00Z", "author": {"__typename": "User", "login": "owner"},
+             "commits": {"nodes": [{"commit": {"statusCheckRollup": None}}]}}]}}},
+    ]
+
+    prs = report.merged_prs(pages)
+
+    assert prs == [
+        {"number": 1, "mergedAt": "2026-11-03T10:00:00Z", "author": {"login": "app/renovate"},
+         "statusCheckRollup": [{"conclusion": "SUCCESS"}, {"state": "ERROR"}]},
+        {"number": 2, "mergedAt": "2026-11-04T10:00:00Z", "author": {"login": "owner"}, "statusCheckRollup": []},
+    ]
+    assert report.red_merges(prs) == [1]
+
+
+def test_merged_prs_query_reads_no_workflow_run(report):
+    # `workflowRun` needs Actions read, which the report app does not have.
+    assert "workflowRun" not in report.MERGED_PRS_QUERY
+    assert "$endCursor" in report.MERGED_PRS_QUERY and "pageInfo" in report.MERGED_PRS_QUERY

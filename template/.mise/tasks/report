@@ -184,6 +184,40 @@ def red_merges(prs: list[dict]) -> list[int]:
     return red
 
 
+# `gh pr list --json statusCheckRollup` also reads the workflow run of each check, which needs
+# Actions read; this query reads only the check results (Checks and Commit statuses read).
+MERGED_PRS_QUERY = """
+query($q: String!, $endCursor: String) {
+  search(query: $q, type: ISSUE, first: 100, after: $endCursor) {
+    pageInfo { hasNextPage endCursor }
+    nodes { ... on PullRequest { number mergedAt author { __typename login }
+      commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 100) { nodes {
+        ... on CheckRun { conclusion } ... on StatusContext { state } } } } } } } } }
+  }
+}"""
+
+
+def merged_prs(pages: list[dict]) -> list[dict]:
+    """PRs of `MERGED_PRS_QUERY` pages in the shape of `gh pr list --json number,mergedAt,statusCheckRollup,author`."""
+    prs = []
+    for page in pages:
+        for node in ((page.get("data") or {}).get("search") or {}).get("nodes") or []:
+            if not node or "number" not in node:
+                continue
+            author = node.get("author") or {}
+            login = author.get("login") or ""
+            # `gh pr list` names a bot author `app/<login>`.
+            if author.get("__typename") == "Bot":
+                login = f"app/{login}"
+            checks = []
+            for item in (node.get("commits") or {}).get("nodes") or []:
+                rollup = (item.get("commit") or {}).get("statusCheckRollup") or {}
+                checks += [c for c in (rollup.get("contexts") or {}).get("nodes") or [] if c]
+            prs.append({"number": node["number"], "mergedAt": node.get("mergedAt", ""),
+                        "author": {"login": login}, "statusCheckRollup": checks})
+    return prs
+
+
 def skip_check_trailers(commits: list[dict]) -> list[str]:
     """`<sha7> <subject>` of commits carrying a `Skip-Check:` trailer."""
     found = []
@@ -290,9 +324,9 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
     commits = fetch(["gh", "api", "--paginate", "--slurp",
                      f"repos/{repo}/commits?since={stamp}&per_page=100{branch}"]) or []
     scope = ["--base", base] if base else []
-    prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "merged", "--limit", "200", *scope,
-                 "--search", f"merged:>={since:%Y-%m-%d}",
-                 "--json", "number,mergedAt,statusCheckRollup,author"]) or []
+    search = f"repo:{repo} is:pr is:merged merged:>={since:%Y-%m-%d}" + (f" base:{base}" if base else "")
+    prs = merged_prs(fetch(["gh", "api", "graphql", "--paginate", "--slurp",
+                            "-f", f"query={MERGED_PRS_QUERY}", "-f", f"q={search}"]) or [])
     prs = [p for p in prs if (_parse_time(p.get("mergedAt", "")) or since) >= since]
     open_prs = fetch(["gh", "pr", "list", "--repo", repo, "--state", "open", "--limit", "200", *scope,
                       "--json", "number,updatedAt"]) or []
