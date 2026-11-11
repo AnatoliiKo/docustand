@@ -97,7 +97,7 @@ Branch protection waits until each branch exists on GitHub; until then report it
    ```
 
    `check` is the job of `standard-ci.yml`. If the plan does not allow protection (Free, private repository), say plainly: CI only reports; local hooks are the only blocking layer; the scheduled report counts merges with red checks. The branches stay in `required_ci_branches`, so one command enables protection after a plan change.
-3. Report secrets, only with the owner's explicit consent and only when `report_schedule` is not `off`. The report GitHub App needs Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read. The owner installs it on the repository; then:
+3. Report secrets, only with the owner's explicit consent and only when `report_schedule` is not `off`. The report GitHub App needs Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read, Dependabot alerts read. The owner installs it on the repository; then:
 
    ```bash
    gh secret set REPORT_APP_CLIENT_ID --repo {owner}/{repo}

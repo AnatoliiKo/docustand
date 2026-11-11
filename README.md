@@ -56,7 +56,7 @@ copier copy gh:AnatoliiKo/docustand .
 
 `standard-ci` runs on pull requests and pushes to `required_ci_branches`.
 A pull request runs every check.
-A push of a commit from a merged pull request runs only the baseline growth check and the commit message check of the pushed range; a direct push runs every check.
+A push of a commit from a merged pull request whose `check` run passed runs only the baseline growth check and the commit message check of the pushed range; a direct push, or a pull request merged with red or unfinished CI, runs every check.
 
 Files owned by the standard are the paths with an `ask` rule in `.claude/settings.json`:
 
@@ -82,7 +82,7 @@ Stack profiles in this release:
 | Profile | Format and lint | Types |
 |---|---|---|
 | Terraform | `terraform fmt`, tflint | `terraform validate` |
-| TypeScript | Prettier, ESLint with complexity rules, dependency-cruiser `no-circular`, knip, Steiger with FSD, jscpd in CI | `tsc` through the `typecheck` script |
+| TypeScript | Prettier, ESLint with complexity rules, dependency-cruiser `no-circular`, knip, Steiger with FSD, jscpd and the `build` script in CI | `tsc` through the `typecheck` script |
 
 - The Terraform profile runs without secrets: `init -backend=false`, no `plan`.
 - The TypeScript profile is in [`profiles/typescript.md`](profiles/typescript.md).

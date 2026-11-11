@@ -22,7 +22,8 @@ PROTECTED = [
 ]
 TYPESCRIPT_PROTECTED = [
     "eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",
-    ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "tsconfig.json", "steiger.config.*",
+    ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "steiger.config.*",
+    "**/package.json", "**/tsconfig*.json", "**/vitest.config.*", "**/vitest.workspace.*",
 ]
 
 

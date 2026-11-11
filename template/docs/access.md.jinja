@@ -9,7 +9,7 @@ Expiry is a date in `YYYY-MM-DD` format or `never`.
 | CI token | | | YYYY-MM-DD |
 | Renovate GitHub App on the repository | | GitHub App settings | never |
 {%- if report_schedule != 'off' %}
-| Report GitHub App: Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read | | GitHub Actions secrets `REPORT_APP_CLIENT_ID`, `REPORT_APP_PRIVATE_KEY` | never |
+| Report GitHub App: Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read, Dependabot alerts read | | GitHub Actions secrets `REPORT_APP_CLIENT_ID`, `REPORT_APP_PRIVATE_KEY` | never |
 {%- endif %}
 {%- if level == 'full' and report_schedule != 'off' %}
 | Scheduled Claude task for reports | | | never |

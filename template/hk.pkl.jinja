@@ -111,6 +111,13 @@ local pushSteps = new Mapping<String, Step> {
     glob = code
     check = "npm run --silent test"
   }
+  // The standard config alone: a project rule of the same name or a wider `exclude` would replace it on `extends`.
+  ["dependency-cruiser-standard"] {
+    glob = code
+    check = new Command {
+      argv = List(bin("depcruise"), "--config", ".dependency-cruiser.standard.cjs", "--output-type", "err", ".")
+    }
+  }
   ["dependency-cruiser"] {
     glob = code
     check = new Command { argv = List(bin("depcruise"), "--config", ".dependency-cruiser.cjs", "--output-type", "err", ".") }

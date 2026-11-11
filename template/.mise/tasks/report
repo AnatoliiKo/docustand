@@ -11,7 +11,7 @@ REPORT_MANUAL=true for a manual run, DEFAULT_BRANCH (activity is scoped to it), 
 REPORT_APP_CONFIGURED=false when the report GitHub App is missing, REPORT_APP_SLUG for the commit author,
 GITHUB_STEP_SUMMARY for the job summary.
 
-Order: token expiry always, vulnerability alerts always with the report app; red merges, Skip-Check
+Order: token expiry always, vulnerability alerts and open high and critical alerts always with the report app; red merges, Skip-Check
 trailers, template updates, protected files, new baseline files and stack drift only when the repository had activity
 since `since_from_schedule`. The pure functions below are unit-tested; `fetch`
 is the only place that runs `gh`.
@@ -42,6 +42,7 @@ ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 NO_APP = "report app is not configured, see docs/access.md"
 NO_SLUG = "REPORT_APP_SLUG is not set; the report commit needs the app as its author"
 VULN_NOT_CHECKED = "Not checked, needs the report app"
+ALERTS_NOT_READABLE = "Open alerts are not readable: the report app needs Dependabot alerts read"
 RENOVATE = {"app/renovate", "renovate[bot]"}
 TEMPLATE_COMMIT = re.compile(r"^\+_commit:\s*(\S+)\s*$", re.M)
 # Shown in the report, but not findings: they open no PR and add no backlog line.
@@ -218,6 +219,19 @@ def merged_prs(pages: list[dict]) -> list[dict]:
     return prs
 
 
+def open_vulnerabilities(alerts: list[dict]) -> list[str]:
+    """`<severity> <package> <range>, fixed in <version>` of open alerts, one line per package and range."""
+    found = []
+    for alert in alerts:
+        advisory = alert.get("security_vulnerability") or {}
+        package = ((advisory.get("package") or (alert.get("dependency") or {}).get("package")) or {}).get("name", "?")
+        fixed = (advisory.get("first_patched_version") or {}).get("identifier") or "no fix yet"
+        line = f"{advisory.get('severity', '?')} `{package}` {advisory.get('vulnerable_version_range', '')}, fixed in {fixed}"
+        if line not in found:
+            found.append(line)
+    return found
+
+
 def skip_check_trailers(commits: list[dict]) -> list[str]:
     """`<sha7> <subject>` of commits carrying a `Skip-Check:` trailer."""
     found = []
@@ -229,8 +243,9 @@ def skip_check_trailers(commits: list[dict]) -> list[str]:
 
 
 def _glob(pattern: str) -> re.Pattern:
-    parts = re.split(r"(\*\*|\*)", pattern)
-    body = "".join(".*" if p == "**" else "[^/]*" if p == "*" else re.escape(p) for p in parts)
+    parts = re.split(r"(\*\*/|\*\*|\*)", pattern)
+    body = "".join("(?:.*/)?" if p == "**/" else ".*" if p == "**" else "[^/]*" if p == "*" else re.escape(p)
+                   for p in parts)
     return re.compile(body + r"\Z")
 
 
@@ -256,7 +271,7 @@ def template_update(pr: dict, files: list[dict]) -> str | None:
 
 
 def files_of_other_authors(commits: list[dict], files_of: Callable[[str], list[str]]) -> list[str]:
-    """Files changed by commits of a template update PR whose author is not Renovate; an unknown author counts."""
+    """Files changed by commits of a Renovate PR whose author is not Renovate; an unknown author counts."""
     found: list[str] = []
     for item in commits:
         if ((item.get("author") or {}).get("login") or "") in RENOVATE:
@@ -317,6 +332,14 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
             sections["Vulnerability alerts"] = []
         except subprocess.CalledProcessError:
             sections["Vulnerability alerts"] = ["Vulnerability alerts are not enabled or not readable"]
+        else:
+            # Renovate updates direct dependencies; an alert of a transitive one stays open until the lock file changes.
+            try:
+                alerts = fetch(["gh", "api", "--paginate", "--slurp",
+                                f"repos/{repo}/dependabot/alerts?state=open&severity=high,critical&per_page=100"]) or []
+                sections["Open vulnerabilities"] = open_vulnerabilities(alerts)
+            except subprocess.CalledProcessError:
+                sections["Open vulnerabilities"] = [ALERTS_NOT_READABLE]
 
     since = since_from_schedule(now, schedule, manual)
     stamp = since.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -338,8 +361,9 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
             ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or [] for p in prs}
         files = {n: [f["filename"] for f in fs] for n, fs in changed.items()}
         updates = {p["number"]: v for p in prs if (v := template_update(p, changed[p["number"]]))}
-        for number in updates:
-            # Renovate commits of a template update change protected files by design; other commits stay findings.
+        renovate = [p["number"] for p in prs if ((p.get("author") or {}).get("login") or "") in RENOVATE]
+        for number in renovate:
+            # Renovate commits change dependency manifests and template files by design; other commits stay findings.
             commits_of_pr = fetch(["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{number}/commits"]) or []
             files[number] = files_of_other_authors(commits_of_pr, lambda sha: [
                 f["filename"] for f in (fetch(["gh", "api", f"repos/{repo}/commits/{sha}"]) or {}).get("files") or []])
@@ -364,6 +388,8 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
 BACKLOG = {
     "Tokens": ("Replace the expiring tokens of `docs/access.md`", "they expire within 30 days or have expired."),
     "Vulnerability alerts": ("Enable vulnerability alerts of the repository", "the report cannot read open alerts."),
+    "Open vulnerabilities": ("Fix the open high and critical vulnerability alerts",
+                             "Renovate updates direct dependencies only, and lock file maintenance runs weekly."),
     "Red merges": ("Investigate failed checks of merged pull requests {items}",
                    "a merge with a red check skips the gate."),
     "Skip-Check": ("Review commits with a `Skip-Check` trailer: {items}", "the trailer skips a check."),

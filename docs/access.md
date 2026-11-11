@@ -7,7 +7,7 @@ Expiry is a date in `YYYY-MM-DD` format or `never`.
 |---|---|---|---|
 | Code hosting: public repository `AnatoliiKo/docustand` | Owner | No secrets | never |
 | Renovate GitHub App on the repositories that use the standard | Owner | GitHub App settings | never |
-| Report GitHub App `anatoliiko-repo-report` of `AnatoliiKo`, installed on that account only: Contents RW, Pull requests RW, Administration read, Checks read, Commit statuses read | Owner | Private key in the owner's keychain; repository secrets `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` in each repository | never |
+| Report GitHub App `anatoliiko-repo-report` of `AnatoliiKo`, installed on that account only: Contents RW, Pull requests RW, Administration read, Checks read, Commit statuses read, Dependabot alerts read | Owner | Private key in the owner's keychain; repository secrets `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` in each repository | never |
 
 ## Owner steps
 

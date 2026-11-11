@@ -58,6 +58,7 @@ class Fake:
     def __init__(self, vuln_enabled=True, commits=(), prs=(), files=None, detected=(), open_prs=(), added=(), renamed=(),
                  patches=None, pr_commits=None, commit_files=None):
         self.vuln_enabled, self.commits, self.prs = vuln_enabled, list(commits), list(prs)
+        self.alerts = []
         self.files, self.detected = files or {}, list(detected)
         self.patches, self.pr_commits, self.commit_files = patches or {}, pr_commits or {}, commit_files or {}
         self.open_prs, self.added, self.renamed = list(open_prs), set(added), set(renamed)
@@ -66,6 +67,10 @@ class Fake:
     def __call__(self, cmd):
         text = " ".join(cmd)
         self.calls.append(text)
+        if "dependabot/alerts" in text:
+            if self.alerts is None:
+                raise subprocess.CalledProcessError(1, cmd)
+            return self.alerts
         if "vulnerability-alerts" in text:
             if self.vuln_enabled:
                 return None
@@ -90,12 +95,13 @@ class Fake:
         raise AssertionError(f"unexpected command: {text}")
 
 
-def collect(report, fake, tmp_path, access=ACCESS, declared=(), schedule="weekly", manual=False, app=True):
+def collect(report, fake, tmp_path, access=ACCESS, declared=(), schedule="weekly", manual=False, app=True,
+            protected=(".github/workflows/**",)):
     (tmp_path / "docs").mkdir(exist_ok=True)
     (tmp_path / "docs" / "access.md").write_text(access)
     (tmp_path / ".repo.yaml").write_text(yaml.safe_dump({"stack": list(declared)}))
     report.fetch = fake
-    return report.collect("o/r", tmp_path, NOW, schedule, manual, protected=[".github/workflows/**"], app=app)
+    return report.collect("o/r", tmp_path, NOW, schedule, manual, protected=list(protected), app=app)
 
 
 def commit(sha, message, when="2026-11-04T10:00:00Z"):
@@ -362,13 +368,22 @@ def test_other_author_on_template_update_stays_protected(report, tmp_path):
     assert sections["Protected files"] == ["#4: `.github/workflows/x.yml`"]
 
 
-def test_protected_change_without_template_bump_stays_protected(report, tmp_path):
+def test_renovate_dependency_update_is_not_a_protected_change(report, tmp_path):
+    # Renovate bumps versions in protected manifests every week; `renovate.json` itself is protected.
     prs = [{**RENOVATE_PR, "number": 6}, {**RENOVATE_PR, "number": 7, "author": {"login": "someone"}}]
-    fake = Fake(prs=prs, files={6: [".github/workflows/standard-ci.yml"], 7: [".repo.yaml", ".github/workflows/a.yml"]},
-                patches={(7, ".repo.yaml"): TEMPLATE_PATCH})
-    sections = collect(report, fake, tmp_path, access="")
+    fake = Fake(prs=prs, files={6: ["package.json", "apps/web/package.json"], 7: [".repo.yaml", ".github/workflows/a.yml"]},
+                patches={(7, ".repo.yaml"): TEMPLATE_PATCH}, pr_commits={6: [renovate_commit("ccc3")]},
+                commit_files={"ccc3": ["package.json", "apps/web/package.json"]})
+    sections = collect(report, fake, tmp_path, access="", protected=["**/package.json", ".github/workflows/**", ".repo.yaml"])
     assert sections["Template updates"] == []
-    assert sections["Protected files"] == ["#6: `.github/workflows/standard-ci.yml`", "#7: `.github/workflows/a.yml`"]
+    assert sections["Protected files"] == ["#7: `.repo.yaml`, `.github/workflows/a.yml`"]
+
+
+def test_double_star_slash_matches_the_root(report):
+    changes = report.protected_changes({1: ["package.json", "apps/web/package.json", "package.json.bak"]},
+                                       ["**/package.json"])
+
+    assert changes == {1: ["package.json", "apps/web/package.json"]}
 
 
 def test_template_updates_alone_open_no_pr(report, tmp_path):
@@ -629,3 +644,40 @@ def test_merged_prs_query_reads_no_workflow_run(report):
     # `workflowRun` needs Actions read, which the report app does not have.
     assert "workflowRun" not in report.MERGED_PRS_QUERY
     assert "$endCursor" in report.MERGED_PRS_QUERY and "pageInfo" in report.MERGED_PRS_QUERY
+
+
+ALERT = {"security_vulnerability": {"package": {"name": "zod"}, "severity": "high",
+                                    "vulnerable_version_range": "< 4.6.6", "first_patched_version": {"identifier": "4.6.6"}}}
+
+
+def test_open_vulnerabilities_one_line_per_package_and_range(report):
+    unpatched = {"security_vulnerability": {"package": {"name": "x"}, "severity": "critical",
+                                            "vulnerable_version_range": "<= 1.0.0", "first_patched_version": None}}
+
+    assert report.open_vulnerabilities([ALERT, ALERT, unpatched]) == [
+        "high `zod` < 4.6.6, fixed in 4.6.6", "critical `x` <= 1.0.0, fixed in no fix yet"]
+
+
+def test_open_high_alerts_are_findings_without_activity(report, tmp_path):
+    fake = Fake()
+    fake.alerts = [ALERT]
+
+    sections = collect(report, fake, tmp_path, access="")
+
+    assert sections["Open vulnerabilities"] == ["high `zod` < 4.6.6, fixed in 4.6.6"]
+    call = next(c for c in fake.calls if "dependabot/alerts" in c)
+    assert "state=open" in call and "severity=high,critical" in call and "--paginate" in call
+
+
+def test_unreadable_alerts_name_the_permission(report, tmp_path):
+    fake = Fake()
+    fake.alerts = None
+
+    assert collect(report, fake, tmp_path, access="")["Open vulnerabilities"] == [report.ALERTS_NOT_READABLE]
+
+
+def test_alerts_not_listed_when_disabled_or_without_app(report, tmp_path):
+    for fake, app in ((Fake(vuln_enabled=False), True), (Fake(), False)):
+        sections = collect(report, fake, tmp_path, access="", app=app)
+        assert "Open vulnerabilities" not in sections
+        assert not any("dependabot/alerts" in c for c in fake.calls)

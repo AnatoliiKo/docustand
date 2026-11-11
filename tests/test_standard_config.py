@@ -75,7 +75,7 @@ def test_typescript_hooks_split_fast_and_typed_lint(render, tmp_path):
     pre_commit = hk.split('["pre-commit"]', 1)[1].split('["commit-msg"]', 1)[0]
     check = hk.split('  ["check"]', 1)[1]
     assert "...fastLint" in pre_commit and "...fastLint" not in check
-    for step in ('["typecheck"]', '["eslint"]', '["test"]', '["dependency-cruiser"]', '["knip"]'):
+    for step in ('["typecheck"]', '["eslint"]', '["test"]', '["dependency-cruiser"]', '["dependency-cruiser-standard"]', '["knip"]'):
         assert step in hk.split("local pushSteps", 1)[1], step
 
 

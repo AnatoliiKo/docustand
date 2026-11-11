@@ -29,6 +29,7 @@ The profile is the base layer of `nextjs` and `expo` ([ADR 0014](../docs/decisio
 | `.mise/data/size-limits.json` | standard | 300 non-empty lines for `.ts`, `.tsx`, `.mts`, `.cts` |
 | `.size-baseline.json` | project, protected | Files over the limit with their size |
 | `eslint-suppressions.json` | project, protected | Old ESLint violations |
+| `package.json`, `tsconfig*.json`, `vitest.config.*`, `vitest.workspace.*` at any depth | project, protected | The scripts the hooks run, the strictness of typecheck and the tests that run |
 
 The standard rules: `complexity` 10, `sonarjs/cognitive-complexity` 15, `max-depth` 4, `max-params` 4, `max-lines-per-function` 80 (`.tsx` 120).
 A project rule cannot weaken them: `eslint.config.mjs` applies them after `eslint.project.mjs`.
@@ -46,9 +47,11 @@ The parser options of `eslint.config.mjs` come before `eslint.project.mjs`, so a
 | pre-commit | `check-size` | `.mise/tasks/check-size` on changed files |
 | pre-push | `typecheck`, `test` | `npm run typecheck`, `npm run test` |
 | pre-push | `eslint` | `eslint` with type information on the changed files of the push |
+| pre-push | `dependency-cruiser-standard` | `depcruise --config .dependency-cruiser.standard.cjs .`: the standard `no-circular` that a project rule cannot replace |
 | pre-push | `dependency-cruiser` | `depcruise --config .dependency-cruiser.cjs .` |
 | pre-push | `knip` | `knip` |
 | pre-push | `steiger-<n>` | `steiger <part>` for each part of `architecture` with FSD; `npm run <script>` for a part with `script` |
+| CI, pull request and unchecked push | Build | `npm run --if-present build` |
 | CI, pull request | Duplication | `jscpd --config .jscpd.json .` |
 
 `mise run check` runs every step except `eslint-fast` on all files, so CI runs the full ESLint.

@@ -66,7 +66,7 @@ def test_ci_triggers_follow_answers(tmp_path):
 
 def test_ci_concurrency_and_permissions(workflow):
     assert workflow["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
-    assert workflow["permissions"] == {"contents": "read", "pull-requests": "read"}
+    assert workflow["permissions"] == {"contents": "read", "pull-requests": "read", "checks": "read"}
     checkout = next(s for s in steps(workflow) if s.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["fetch-depth"] == 0
 
@@ -252,6 +252,11 @@ def test_renovate_groups_non_major_updates_weekly(renovate):
     assert max(groups) < rules.index(WEEKLY_RULE)
     assert renovate["platformAutomerge"] is False
     assert not any(r.get("automerge") for r in rules)
+
+
+def test_renovate_refreshes_lock_file_weekly(renovate):
+    # Transitive dependencies change only in the lock file; their vulnerability alerts stay open otherwise.
+    assert renovate["lockFileMaintenance"] == {"enabled": True, "schedule": WEEKLY_RULE["schedule"]}
 
 
 COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerge": False,
@@ -487,22 +492,69 @@ def test_ci_logs_git_version(workflow):
 SHA_A = "a" * 40
 
 
-def merged_pr(tmp_path, answer, code=0, sha=SHA_A, repo="owner/repo"):
+HEAD_B = "b" * 40
+GREEN = json.dumps({"check_runs": [{"name": "check", "status": "completed", "conclusion": "success"}]})
+
+
+def merged_pr(tmp_path, answer, code=0, sha=SHA_A, repo="owner/repo", checks=GREEN):
+    """Run ci-merged-pr with a fake `gh` that answers the pulls and the check-runs requests."""
     fake = tmp_path / "gh"
     (tmp_path / "answer.json").write_text(answer)
-    fake.write_text(f'#!/bin/sh\necho "$*" > "{tmp_path}/args"\ncat "{tmp_path}/answer.json"\nexit {code}\n')
+    (tmp_path / "checks.json").write_text(checks)
+    fake.write_text(f"""#!/bin/sh
+echo "$*" >> "{tmp_path}/args"
+case "$*" in
+  *check-runs*) cat "{tmp_path}/checks.json" ;;
+  *) cat "{tmp_path}/answer.json"; exit {code} ;;
+esac
+""")
     fake.chmod(0o755)
     return run_script("ci-merged-pr", repo, sha, env={"GH": str(fake)})
 
 
-def test_merged_pr_true_for_merged_pull_request(tmp_path):
-    code, out = merged_pr(tmp_path, json.dumps([{"number": 7, "merged_at": "2026-11-06T10:00:00Z"}]))
+def merged(head=HEAD_B):
+    return json.dumps([{"number": 7, "merged_at": "2026-11-06T10:00:00Z", "head": {"sha": head}}])
+
+
+def test_merged_pr_true_for_merged_pull_request_with_green_check(tmp_path):
+    code, out = merged_pr(tmp_path, merged())
 
     assert code == 0 and out.splitlines()[0] == "true"
-    assert (tmp_path / "args").read_text().strip() == f"api repos/owner/repo/commits/{SHA_A}/pulls"
+    assert (tmp_path / "args").read_text().splitlines() == [
+        f"api repos/owner/repo/commits/{SHA_A}/pulls",
+        f"api repos/owner/repo/commits/{HEAD_B}/check-runs?check_name=check&per_page=100"]
 
 
-@pytest.mark.parametrize("answer", ["[]", json.dumps([{"number": 8, "merged_at": None}]), "not json", "{}"])
+@pytest.mark.parametrize("runs", [
+    [],
+    [{"status": "in_progress", "conclusion": None}],
+    [{"status": "completed", "conclusion": "failure"}],
+    [{"status": "completed", "conclusion": "cancelled"}],
+    [{"status": "completed", "conclusion": "success"}, {"status": "completed", "conclusion": "failure"}],
+])
+def test_merged_pr_false_without_green_check(tmp_path, runs):
+    # A pull request merged before its CI finished, or with red CI, was not checked.
+    code, out = merged_pr(tmp_path, merged(), checks=json.dumps({"check_runs": runs}))
+
+    assert code == 0 and out.splitlines()[0] == "false"
+
+
+@pytest.mark.parametrize("checks", ["not json", "[]", "{}"])
+def test_merged_pr_false_for_unreadable_checks(tmp_path, checks):
+    code, out = merged_pr(tmp_path, merged(), checks=checks)
+
+    assert code == 0 and out.splitlines()[0] == "false"
+
+
+def test_merged_pr_false_for_invalid_head(tmp_path):
+    code, out = merged_pr(tmp_path, merged(head="HEAD; rm -rf /"))
+
+    assert code == 0 and out.splitlines()[0] == "false"
+    assert len((tmp_path / "args").read_text().splitlines()) == 1
+
+
+@pytest.mark.parametrize("answer", ["[]", json.dumps([{"number": 8, "merged_at": None, "head": {"sha": HEAD_B}}]),
+                                    "not json", "{}"])
 def test_merged_pr_false_without_merged_pull_request(tmp_path, answer):
     code, out = merged_pr(tmp_path, answer)
 
@@ -510,14 +562,14 @@ def test_merged_pr_false_without_merged_pull_request(tmp_path, answer):
 
 
 def test_merged_pr_false_when_api_fails(tmp_path):
-    code, out = merged_pr(tmp_path, json.dumps([{"merged_at": "x"}]), code=1)
+    code, out = merged_pr(tmp_path, merged(), code=1)
 
     assert code == 0 and out.splitlines()[0] == "false"
 
 
 @pytest.mark.parametrize("repo,sha", [("owner/repo;rm", SHA_A), ("owner/repo", "HEAD"), ("-x/y", SHA_A)])
 def test_merged_pr_false_for_invalid_input(tmp_path, repo, sha):
-    code, out = merged_pr(tmp_path, json.dumps([{"merged_at": "x"}]), repo=repo, sha=sha)
+    code, out = merged_pr(tmp_path, merged(), repo=repo, sha=sha)
 
     assert code == 0 and out.splitlines()[0] == "false"
     assert not (tmp_path / "args").exists()
@@ -547,3 +599,17 @@ def test_ci_typescript_installs_dependencies_and_checks_duplication(tmp_path, wo
     assert "jscpd --config .jscpd.json" in duplication["run"]
     assert "Node dependencies" not in [s.get("name") for s in steps(workflow)]
     assert "Duplication" not in [s.get("name") for s in steps(workflow)]
+
+
+def test_ci_builds_typescript_after_checks(render, tmp_path):
+    ts = yaml.safe_load((render(tmp_path / "ts", project_name="demo", stack=["typescript"])
+                         / ".github/workflows/standard-ci.yml").read_text())
+    plain = yaml.safe_load((render(tmp_path / "plain", project_name="demo")
+                            / ".github/workflows/standard-ci.yml").read_text())
+    names = [s.get("name") for s in steps(ts)]
+    build = next(s for s in steps(ts) if s.get("name") == "Build")
+
+    assert names.index("Build") == names.index("Checks") + 1
+    assert build["run"] == "npm run --if-present build"
+    assert build["if"] == next(s for s in steps(ts) if s.get("name") == "Checks")["if"]
+    assert "Build" not in [s.get("name") for s in steps(plain)]

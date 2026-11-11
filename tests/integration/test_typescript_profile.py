@@ -126,8 +126,8 @@ def test_clean_typescript_project_passes(ts):
     result = check(ts)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    for step in ("prettier", "eslint", "typecheck", "test", "dependency-cruiser", "knip", "steiger-1",
-                 "check-size"):
+    for step in ("prettier", "eslint", "typecheck", "test", "dependency-cruiser", "dependency-cruiser-standard",
+                 "knip", "steiger-1", "check-size"):
         assert step in result.stdout + result.stderr, step
 
 
@@ -268,6 +268,20 @@ def test_fails_on_cycle(ts):
     write(root, "src/main.ts", MAIN + 'export { a } from "./a.js";\n')
 
     assert_step_fails(check(ts), "dependency-cruiser")
+
+
+def test_project_cruiser_rule_cannot_weaken_no_circular(ts):
+    root = ts[0]
+    write(root, ".dependency-cruiser.cjs", """module.exports = {
+  extends: "./.dependency-cruiser.standard.cjs",
+  forbidden: [{ name: "no-circular", severity: "warn", from: {}, to: { circular: true } }],
+};
+""")
+    write(root, "src/a.ts", 'import { b } from "./b.js";\n\nexport const a = (): number => b() + 1;\n')
+    write(root, "src/b.ts", 'import { a } from "./a.js";\n\nexport const b = (): number => (typeof a === "function" ? 1 : 0);\n')
+    write(root, "src/main.ts", MAIN + 'export { a } from "./a.js";\n')
+
+    assert_step_fails(check(ts), "dependency-cruiser-standard")
 
 
 def test_fails_on_unused_file(ts):

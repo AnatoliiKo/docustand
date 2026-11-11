@@ -13,8 +13,9 @@ concurrency:
 
 permissions:
   contents: read
-  # ci-merged-pr reads the pull requests of the pushed commit.
+  # ci-merged-pr reads the pull requests of the pushed commit and the checks of their heads.
   pull-requests: read
+  checks: read
 
 jobs:
   check:
@@ -46,7 +47,7 @@ jobs:
 {%- endraw %}
 {%- endif %}
 {%- raw %}
-      # A commit of a merged pull request was checked in the pull request.
+      # A commit of a merged pull request with a green `check` run was checked in the pull request.
       - name: Merged pull request (push)
         id: merged
         if: ${{ github.event_name == 'push' }}
@@ -68,6 +69,16 @@ jobs:
 {%- endif %}
 {%- raw %}
         run: mise run check
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+      # Typecheck does not run the bundler or the build tsconfig; a broken build would surface at release.
+      - name: Build
+        if: ${{ github.event_name != 'push' || steps.merged.outputs.merged != 'true' }}
+        run: npm run --if-present build
+{%- endraw %}
+{%- endif %}
+{%- raw %}
       # The base is the pull request base, or the previous tip of the pushed branch.
       - name: Baseline growth (pull request)
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}

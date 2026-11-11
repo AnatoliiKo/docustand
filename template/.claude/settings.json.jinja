@@ -23,8 +23,9 @@
 {%- if 'typescript' in stack -%}
 {#- Project-owned check configs are protected too: section 9 of the specification. -#}
 {%- set protected = protected + ["eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json",
-  ".dependency-cruiser.standard.cjs", ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "tsconfig.json",
-  "steiger.config.*"] -%}
+  ".dependency-cruiser.standard.cjs", ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "steiger.config.*",
+  "**/package.json", "**/tsconfig*.json", "**/vitest.config.*", "**/vitest.workspace.*"] -%}
+{#- Scripts in package.json decide what the hooks run, tsconfig how strict typecheck is, vitest which tests run. -#}
 {%- endif -%}
 {
   "autoMemoryEnabled": false,
