@@ -11,12 +11,14 @@ _skip_if_exists:
   - CLAUDE.md
   - docs/operations.md
   # Project-owned and protected (ADR 0017): exclusions of project data from the spelling check.
-  - typos.toml
+  - .config/typos.toml
   # TypeScript profile: project rules and the measured duplication threshold.
-  - eslint.project.mjs
-  - .dependency-cruiser.cjs
-  - knip.json
-  - .jscpd.json
+  - .config/eslint.project.mjs
+  - .config/dependency-cruiser.cjs
+  - .config/knip.json
+  - .config/jscpd.json
+  # The project's old ESLint violations; the template only starts the file.
+  - .baselines/eslint-suppressions.json
 
 project_name:
   type: str

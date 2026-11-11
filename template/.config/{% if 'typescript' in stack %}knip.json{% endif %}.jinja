@@ -7,6 +7,6 @@
 {%- endfor -%}
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": [".dependency-cruiser.standard.cjs", "commitlint.config.mjs"{% if fsd %}, "steiger.config.*"{% endif %}],
+  "ignore": [".config/dependency-cruiser.cjs", ".config/dependency-cruiser.standard.cjs", ".config/commitlint.config.mjs"{% if fsd %}, "steiger.config.*"{% endif %}],
   "ignoreDependencies": ["prettier", "dependency-cruiser"{% if fsd %}, "steiger", "@feature-sliced/steiger-plugin"{% endif %}]
 }

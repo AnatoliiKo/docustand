@@ -7,11 +7,11 @@ The Copier template owns these files; `copier update` replaces them, and `.claud
 | File | Role |
 |---|---|
 | `.mise/conf.d/standard.toml` | Standard tools with pinned versions, the `check` task, `postinstall = "hk install --mise"` |
-| `hk.pkl` | Steps per tier: `pre-commit`, `commit-msg`, `pre-push`, `check` |
+| `.config/hk.pkl` | Steps per tier: `pre-commit`, `commit-msg`, `pre-push`, `check` |
 | `.mise/tasks/*` | Check scripts: `check-md-placement`, `check-agents-md`, `check-tasks-format`, `check-repo-yaml`, `check-env-example`, `check-comments`, `check-baseline`, `detect-stack`, `pr-ready` and the profile scripts |
 | `.github/workflows/standard-*.yml` | CI runs `mise run check`; the report workflow |
 | `.claude/settings.json`, `.claude/hooks/*` | Guard hooks against bypasses, `ask` and `deny` rules |
-| `commitlint.config.mjs`, `typos.toml`, `.rumdl.toml`, `lychee.toml`, profile configs such as `.tflint.hcl` | Tool configs as copies, no `extends` |
+| `.config/commitlint.config.mjs`, `.config/typos.toml`, `.config/rumdl.toml`, `.config/lychee.toml`, profile configs such as `.tflint.hcl` | Tool configs as copies, no `extends` |
 
 The project owns `mise.toml` (its own tools and tasks) and its own workflows; the template never writes them.
 
@@ -34,7 +34,7 @@ A deviation from a standard file is an edit of that file plus an entry in `overr
 
 ```yaml
 overrides:
-  - file: .rumdl.toml
+  - file: .config/rumdl.toml
     reason: generated API docs have no top-level heading
 ```
 
@@ -46,7 +46,7 @@ A deviation every project needs belongs in the docustand template instead.
 
 1. Run each new tool over the whole project; count findings per rule.
 2. Safe autofix, one tool per commit; read the diff. Never run a deleting autofix unattended.
-3. The rest goes into the tool's baseline (PHPStan baseline, `eslint-suppressions.json`, dependency-cruiser known violations, `.size-baseline.json`). New violations fail, old ones are listed.
+3. The rest goes into the tool's baseline (PHPStan baseline, `.baselines/eslint-suppressions.json`, dependency-cruiser known violations, `.baselines/size.json`). New violations fail, old ones are listed.
 4. A rule that cannot be met: one path and one rule, with a reason. Never switch the rule off or lower it to a warning.
 5. `check-baseline` in CI fails when a baseline file has more entries than at the base ref. A baseline file absent at the base is allowed only when `.repo.yaml` did not exist at the base or `_commit` changed, or `stack` changed and the file belongs to an added profile; the scheduled report lists new baseline files.
 

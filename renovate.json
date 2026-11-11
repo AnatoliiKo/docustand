@@ -23,7 +23,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/^template/hk\\.pkl\\.jinja$/"],
+      "managerFilePatterns": ["/^template/\\.config/hk\\.pkl\\.jinja$/"],
       "matchStrings": [
         "releases/download/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/hk@",
         "/hk@(?<currentValue>\\d+\\.\\d+\\.\\d+)#"

@@ -15,14 +15,12 @@ HOOKS = REPO_ROOT / "template" / ".claude" / "hooks"
 PR_MSG = 'Run the "Before a PR" steps from AGENTS.md and mise run pr-ready first.'
 
 PROTECTED = [
-    ".repo.yaml", "renovate.json", "mise.toml", ".mise/conf.d/**", "hk.pkl",
+    ".repo.yaml", ".github/renovate.json", "mise.toml", ".mise/conf.d/**",
     ".github/workflows/**", ".claude/settings.json", ".claude/hooks/**",
-    ".mise/tasks/**", ".mise/data/**", ".github/repo.schema.json",
-    "commitlint.config.mjs", "typos.toml", ".rumdl.toml", "lychee.toml", ".size-baseline.json", ".betterleaksignore",
+    ".mise/tasks/**", ".mise/data/**", ".github/repo.schema.json", ".baselines/**", ".config/**",
 ]
 TYPESCRIPT_PROTECTED = [
-    "eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json", ".dependency-cruiser.standard.cjs",
-    ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "steiger.config.*",
+    "eslint.config.mjs", "steiger.config.*",
     "**/package.json", "**/tsconfig*.json", "**/vitest.config.*", "**/vitest.workspace.*",
 ]
 
@@ -288,7 +286,7 @@ def test_allows_safe_wrapper_forms(command):
 
 # --- guard_bash: writes to protected files ----------------------------------
 
-ASK_FIXTURE = [".repo.yaml", "hk.pkl", ".size-baseline.json", ".mise/tasks/**"]
+ASK_FIXTURE = [".repo.yaml", ".config/hk.pkl", ".baselines/size.json", ".mise/tasks/**"]
 
 
 @pytest.fixture
@@ -318,13 +316,13 @@ def decision(result):
     "sed -i 's/a/b/' .repo.yaml",
     "sed -i '' 's/a/b/' .repo.yaml",
     "sed -Ei.bak -e 's/a/b/' .repo.yaml",
-    "sed --in-place 's/a/b/' hk.pkl",
+    "sed --in-place 's/a/b/' .config/hk.pkl",
     "perl -pi -e 's/a/b/' .repo.yaml",
-    "echo x >> .size-baseline.json",
+    "echo x >> .baselines/size.json",
     "echo x > .repo.yaml",
     "echo x>.repo.yaml",
-    "cat a 2> hk.pkl",
-    "cat a &> hk.pkl",
+    "cat a 2> .config/hk.pkl",
+    "cat a &> .config/hk.pkl",
     "echo x >| .repo.yaml",
     "exec 3<> .repo.yaml",
     "cat > .repo.yaml <<EOF\nlevel: base\nEOF\n",
@@ -337,10 +335,10 @@ def decision(result):
     "cp a b -t .mise/tasks",
     "cp --target-directory=.mise/tasks a",
     "cp sub/.repo.yaml .",
-    "mv x hk.pkl",
-    "mv hk.pkl hk.pkl.old",
+    "mv x .config/hk.pkl",
+    "mv .config/hk.pkl .config/hk.pkl.old",
     "bash -c 'echo x > .repo.yaml'",
-    "git status && echo x >> .size-baseline.json",
+    "git status && echo x >> .baselines/size.json",
 ])
 def test_asks_on_protected_write(project, command):
     assert decision(bash_in(project, command)) == "ask", command
@@ -359,7 +357,7 @@ def test_nesting_depth_eight():
     "cp -r tasks .mise/",
     "echo x > .REPO.yaml",
     "cp x .Mise/Tasks/check",
-    "sed -i 's/a/b/' ./sub/../HK.pkl",
+    "sed -i 's/a/b/' ./sub/../.CONFIG/HK.pkl",
 ])
 def test_asks_on_protected_directory_and_case(project, command):
     assert decision(bash_in(project, command)) == "ask", command
@@ -368,7 +366,7 @@ def test_asks_on_protected_directory_and_case(project, command):
 @pytest.mark.parametrize("command", [
     "echo x > .repo.yaml; echo $'it\\'s'",
     "cp x .mise/tasks/check; echo \"unterminated",
-    "sed -i s/a/b/ hk.pkl 'unterminated",
+    "sed -i s/a/b/ .config/hk.pkl 'unterminated",
 ])
 def test_asks_on_unparsable_protected_write(project, command):
     assert decision(bash_in(project, command)) == "ask", command

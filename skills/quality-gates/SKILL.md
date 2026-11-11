@@ -26,7 +26,7 @@ Read [references/wiring.md](references/wiring.md) (standard files, tiers, overri
 
 - `.repo.yaml`: `level`, `stack`, `architecture`, `overrides`, `_commit` (template version).
 - `mise run detect-stack`: compare its `stack` with `.repo.yaml`; a mismatch is a finding.
-- `hk.pkl`, `.mise/conf.d/standard.toml`, the project `mise.toml`, `.github/workflows/`.
+- `.config/hk.pkl`, `.mise/conf.d/standard.toml`, the project `mise.toml`, `.github/workflows/`.
 - Tools outside the standard: husky, lefthook, pre-commit, `package.json` scripts, a `Makefile`, other workflows.
 - Branch protection: `gh api repos/{owner}/{repo}/branches/<branch>/protection` (read-only; 404 means CI only reports).
 - `git status` and the branch. Uncommitted changes belong to someone else: never stash, reset or commit them.
@@ -60,7 +60,7 @@ For a gap, the order is:
 
 1. The stack profile already has the tool: the answer `stack` is missing it; change it with `copier update -a .repo.yaml --defaults --data 'stack=[...]'`.
 2. No profile for the stack: propose tools by the rule «use existing solutions first» in `AGENTS.md`, 2–3 options with registry data as of today, the recommended one marked. A new profile is a change of docustand (profile, template, test), not of the project.
-3. A project-only check: a task in the project `mise.toml` and a step in `hk.pkl` with an entry in `overrides`.
+3. A project-only check: a task in the project `mise.toml` and a step in `.config/hk.pkl` with an entry in `overrides`.
 
 Check that each proposed tool is maintained and look up its latest release (`gh release view -R <repo>`).
 Show the table, then the «not adopting» list with reasons:
@@ -106,7 +106,7 @@ Short, in the owner's language:
 
 | Mistake | Instead |
 |---|---|
-| Writing `hk.pkl` or a CI workflow by hand | Template files; `copier update` brings changes |
+| Writing `.config/hk.pkl` or a CI workflow by hand | Template files; `copier update` brings changes |
 | Editing a standard file to get green | Fix the cause; a real deviation needs `overrides` and the owner's yes |
 | Choosing tools from memory | Profile first; otherwise registry data as of today and the owner's choice |
 | Assuming a check enforces because it exists | Run it, read the exit code and the CI wiring |

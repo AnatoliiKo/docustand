@@ -60,11 +60,11 @@ A push of a commit from a merged pull request whose `check` run passed runs only
 
 Files owned by the standard are the paths with an `ask` rule in `.claude/settings.json`:
 
-- `.mise/conf.d/standard.toml`, `hk.pkl`, `.mise/tasks/*`, `.mise/data/*`
+- `.mise/conf.d/standard.toml`, `.config/hk.pkl`, `.mise/tasks/*`, `.mise/data/*`
 - `.claude/settings.json`, `.claude/hooks/*`
 - `.github/workflows/standard-*.yml`, `.github/repo.schema.json`
-- `.repo.yaml`, `renovate.json`
-- `commitlint.config.mjs`, `typos.toml`, `.rumdl.toml`, `lychee.toml`, and `.tflint.hcl` with the Terraform stack
+- `.repo.yaml`, `.github/renovate.json`
+- `.config/commitlint.config.mjs`, `.config/typos.toml`, `.config/rumdl.toml`, `.config/lychee.toml`, and `.tflint.hcl` with the Terraform stack
 
 The `ask` list also guards the project's `mise.toml` and its own workflows, but the template never creates or changes them.
 
@@ -86,7 +86,7 @@ Stack profiles in this release:
 
 - The Terraform profile runs without secrets: `init -backend=false`, no `plan`.
 - The TypeScript profile is in [`profiles/typescript.md`](profiles/typescript.md).
-- Every stack has `check-size`: a file over the size limit of its profile fails unless `.size-baseline.json` records it.
+- Every stack has `check-size`: a file over the size limit of its profile fails unless `.baselines/size.json` records it.
 - A new stack needs a profile first.
 
 ## Update
@@ -94,7 +94,7 @@ Stack profiles in this release:
 - Renovate with the `copier` manager opens a pull request that runs `copier update` to the new template version.
 - The template version is `_commit` in `.repo.yaml`.
 - Copier reapplies local changes. Conflicts are visible in the pull request.
-- `.repo.yaml` differs from the Copier default `.copier-answers.yml`, so `renovate.json` lists it in `managerFilePatterns`.
+- `.repo.yaml` differs from the Copier default `.copier-answers.yml`, so `.github/renovate.json` lists it in `managerFilePatterns`.
 - The template contains no `_tasks`, migrations or `_jinja_extensions`, so it needs no `--trust`.
 
 Resolve conflicts in a template update pull request:
@@ -127,7 +127,7 @@ Detach is a `repo-init` step, not a separate command.
 2. Remove the `pipx:copier` line from `.mise/conf.d/standard.toml`.
 3. Remove the plugin and its marketplace from `.claude/settings.json`.
 4. Remove the docustand line from `AGENTS.md`.
-5. Remove the `copier` manager and the standard-file `ignorePaths` from `renovate.json`.
+5. Remove the `copier` manager and the standard-file `ignorePaths` from `.github/renovate.json`.
 6. Replace the `AGENTS.md` rule about changing answers with `copier update` by "Edit `.repo.yaml` by hand; the change needs the owner's approval."
 7. Full level only: delete the scheduled Claude task and its line in `docs/access.md`.
 

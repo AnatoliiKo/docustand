@@ -3,6 +3,18 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.5.0 — 2026-11-11
+
+### Changed
+
+- Standard configs move from the root to `.config/`: `hk.pkl`, `lychee.toml`, `typos.toml`, `rumdl.toml`, `commitlint.config.mjs`, and for TypeScript `eslint.project.mjs`, `dependency-cruiser.cjs`, `dependency-cruiser.standard.cjs`, `knip.json`, `jscpd.json`; `renovate.json` moves to `.github/`, see ADR 0022.
+- Baselines move to `.baselines/`: `size.json`, `betterleaks.ignore`, `eslint-suppressions.json`.
+- The update is manual: move the project files first, see `skills/repo-init/references/maintenance.md`, «Update across 0.5.0».
+
+### Added
+
+- `check-root` names the new place of a moved file; `check-root --since BASE` in CI fails a pull request that lost the content of a project config.
+
 ## 0.4.1 — 2026-11-11
 
 ### Fixed

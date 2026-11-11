@@ -1,29 +1,23 @@
 {%- set protected = [
   ".repo.yaml",
-  "renovate.json",
+  ".github/renovate.json",
   "mise.toml",
   ".mise/conf.d/**",
-  "hk.pkl",
   ".github/workflows/**",
   ".claude/settings.json",
   ".claude/hooks/**",
   ".mise/tasks/**",
   ".mise/data/**",
   ".github/repo.schema.json",
-  "commitlint.config.mjs",
-  "typos.toml",
-  ".rumdl.toml",
-  "lychee.toml",
-  ".size-baseline.json",
-  ".betterleaksignore",
+  ".baselines/**",
+  ".config/**",
 ] -%}
 {%- if 'terraform' in stack -%}
 {%- set protected = protected + [".tflint.hcl"] -%}
 {%- endif -%}
 {%- if 'typescript' in stack -%}
 {#- Project-owned check configs are protected too: section 9 of the specification. -#}
-{%- set protected = protected + ["eslint.config.mjs", "eslint.project.mjs", "eslint-suppressions.json",
-  ".dependency-cruiser.standard.cjs", ".dependency-cruiser.cjs", "knip.json", ".jscpd.json", "steiger.config.*",
+{%- set protected = protected + ["eslint.config.mjs", "steiger.config.*",
   "**/package.json", "**/tsconfig*.json", "**/vitest.config.*", "**/vitest.workspace.*"] -%}
 {#- Scripts in package.json decide what the hooks run, tsconfig how strict typecheck is, vitest which tests run. -#}
 {%- endif -%}

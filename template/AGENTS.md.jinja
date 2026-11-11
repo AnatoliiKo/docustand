@@ -16,7 +16,8 @@ Rules for agents and contributors. `CLAUDE.md` imports this file.
 {%- endif %}
 | `docs/temp/` | Temporary files of skills and agents; not in git |
 | `.repo.yaml` | Project properties and Copier answers |
-| `.baselines/` | Old violations of new rules, each entry with an `until` date; entries only shrink |
+| `.config/` | Configs of the standard tools and project configs that need no root place |
+| `.baselines/` | Known old violations: size, secrets scan, ESLint suppressions, ADRs, comments; entries only shrink |
 
 Any other `.md` file fails the check unless its path is in `md_exceptions` in `.repo.yaml`.
 A root file or folder outside `.mise/data/root-files.txt` fails `check-root` unless it is in `root_files` in `.repo.yaml`.
@@ -28,7 +29,7 @@ Profiles: {% for item in stack %}`{{ item }}`{% if not loop.last %}, {% endif %}
 {%- else -%}
 No stack profile is set.
 {%- endif %}
-Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Commands: `mise tasks`. Hooks: `hk.pkl`. Environment variables: `.env.example`.
+Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Commands: `mise tasks`. Hooks: `.config/hk.pkl`. Environment variables: `.env.example`.
 
 ## Architecture
 
@@ -51,7 +52,7 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 - Start a change with a task in `docs/tasks.md`.
 - Write tests with the code.
 - Run `mise run check` before a commit.
-- Never weaken a check. Do not add entries to baselines or suppressions, add exceptions, lower thresholds or edit check configs, `hk.pkl`, `mise.toml`, `.github/workflows/` or `.claude/` to make a check pass. Fix the cause.
+- Never weaken a check. Do not add entries to baselines or suppressions, add exceptions, lower thresholds or edit check configs, `.config/hk.pkl`, `mise.toml`, `.github/workflows/` or `.claude/` to make a check pass. Fix the cause.
 - A deviation from a file of the standard needs an entry with a reason in `overrides` in `.repo.yaml`, approved by the owner.
 - Never use `--no-verify`, `git commit -n`, or variables that disable hk steps.
 - Change answers in `.repo.yaml` only with `copier update -a .repo.yaml --defaults --data <key>=<value>`.

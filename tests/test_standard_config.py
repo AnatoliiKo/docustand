@@ -7,7 +7,7 @@ import yaml
 from conftest import REPO_ROOT
 
 STANDARD = REPO_ROOT / "template/.mise/conf.d/standard.toml.jinja"
-HK_PKL = REPO_ROOT / "template/hk.pkl.jinja"
+HK_PKL = REPO_ROOT / "template/.config/hk.pkl.jinja"
 EXACT = re.compile(r'^"?[\w:@/.-]+"? = "\d+(\.\d+)+"$')
 
 
@@ -35,7 +35,7 @@ def test_terraform_tools_only_for_terraform_stack(render, tmp_path):
     assert {"terraform", "tflint"} <= set(tf_tools)
     assert not (plain / ".mise/tasks/tf-validate").exists()
     assert (tf / ".mise/tasks/tf-validate").exists()
-    assert "tflint" not in (plain / "hk.pkl").read_text()
+    assert "tflint" not in (plain / ".config/hk.pkl").read_text()
 
 
 def test_hk_package_matches_hk_tool():
@@ -46,8 +46,8 @@ def test_hk_package_matches_hk_tool():
 
 
 TYPESCRIPT_FILES = [
-    "eslint.config.mjs", "eslint.project.mjs", ".dependency-cruiser.standard.cjs", ".dependency-cruiser.cjs",
-    "knip.json", ".jscpd.json",
+    "eslint.config.mjs", ".config/eslint.project.mjs", ".config/dependency-cruiser.standard.cjs", ".config/dependency-cruiser.cjs",
+    ".config/knip.json", ".config/jscpd.json",
 ]
 
 
@@ -64,12 +64,12 @@ def test_typescript_files_only_for_typescript_stack(render, tmp_path):
     tools = tomllib.loads((ts / ".mise/conf.d/standard.toml").read_text())["tools"]
     assert tools["npm:jscpd"] == "5.4.2" and "node" in tools
     assert "npm:jscpd" not in tomllib.loads((plain / ".mise/conf.d/standard.toml").read_text())["tools"]
-    assert "eslint" not in (plain / "hk.pkl").read_text()
+    assert "eslint" not in (plain / ".config/hk.pkl").read_text()
     assert "node_modules/" in (ts / ".gitignore").read_text().splitlines()
 
 
 def test_typescript_hooks_split_fast_and_typed_lint(render, tmp_path):
-    hk = (render(tmp_path, project_name="demo", stack=["typescript"]) / "hk.pkl").read_text()
+    hk = (render(tmp_path, project_name="demo", stack=["typescript"]) / ".config/hk.pkl").read_text()
 
     assert '["eslint-fast"]' in hk and '["ESLINT_NO_TYPES"] = "1"' in hk
     pre_commit = hk.split('["pre-commit"]', 1)[1].split('["commit-msg"]', 1)[0]
@@ -84,24 +84,24 @@ def test_steiger_step_per_fsd_part(render, tmp_path):
                  architecture={"apps/web/src": "FSD", "apps/server": "layers"})
     plain = render(tmp_path / "plain", project_name="demo", stack=["typescript"])
 
-    hk = (fsd / "hk.pkl").read_text()
+    hk = (fsd / ".config/hk.pkl").read_text()
     assert '["steiger-1"]' in hk and 'List(bin("steiger"), "apps/web/src")' in hk
     assert "apps/server" not in hk
-    assert "steiger" in json.loads((fsd / "knip.json").read_text())["ignoreDependencies"]
-    assert "steiger" not in (plain / "hk.pkl").read_text()
-    assert "steiger" not in json.loads((plain / "knip.json").read_text())["ignoreDependencies"]
+    assert "steiger" in json.loads((fsd / ".config/knip.json").read_text())["ignoreDependencies"]
+    assert "steiger" not in (plain / ".config/hk.pkl").read_text()
+    assert "steiger" not in json.loads((plain / ".config/knip.json").read_text())["ignoreDependencies"]
 
 
 def test_steiger_part_with_project_script(render, tmp_path):
     dest = render(tmp_path, project_name="demo", stack=["typescript"],
                   architecture={"apps/web/src": {"style": "fsd", "script": "lint:fsd"}, "lib": "FSD"})
 
-    hk = (dest / "hk.pkl").read_text()
+    hk = (dest / ".config/hk.pkl").read_text()
     web = hk.split('["steiger-1"]', 1)[1].split('["steiger-2"]', 1)[0]
     assert 'glob = List("apps/web/src/**")' in web
     assert 'List("npm", "run", "--silent", "lint:fsd")' in web and 'bin("steiger")' not in web
     assert 'List(bin("steiger"), "lib")' in hk.split('["steiger-2"]', 1)[1]
-    assert "steiger" in json.loads((dest / "knip.json").read_text())["ignoreDependencies"]
+    assert "steiger" in json.loads((dest / ".config/knip.json").read_text())["ignoreDependencies"]
     assert "- `apps/web/src`: `fsd`, checked by the script `lint:fsd`." in (dest / "AGENTS.md").read_text()
 
 
@@ -110,16 +110,16 @@ def test_typos_config_is_project_owned_and_protected(render, tmp_path):
     dest = render(tmp_path, project_name="demo")
     ask = json.loads((dest / ".claude/settings.json").read_text())["permissions"]["ask"]
 
-    assert "typos.toml" in copier["_skip_if_exists"]
-    assert "Edit(/typos.toml)" in ask and "Edit(/.betterleaksignore)" in ask
+    assert ".config/typos.toml" in copier["_skip_if_exists"]
+    assert "Edit(/.config/**)" in ask and "Edit(/.baselines/**)" in ask
 
 
 def test_project_files_of_typescript_are_written_once(render, tmp_path):
     copier = yaml.safe_load((REPO_ROOT / "copier.yml").read_text())
 
-    for name in ("eslint.project.mjs", ".dependency-cruiser.cjs", "knip.json", ".jscpd.json"):
+    for name in (".config/eslint.project.mjs", ".config/dependency-cruiser.cjs", ".config/knip.json", ".config/jscpd.json"):
         assert name in copier["_skip_if_exists"], name
-    for name in ("eslint.config.mjs", ".dependency-cruiser.standard.cjs"):
+    for name in ("eslint.config.mjs", ".config/dependency-cruiser.standard.cjs"):
         assert name not in copier["_skip_if_exists"], name
 
 

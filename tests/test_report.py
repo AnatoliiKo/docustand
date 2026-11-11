@@ -322,7 +322,7 @@ def test_renamed_baseline_file_listed(report, tmp_path, monkeypatch):
 def test_baseline_files_come_from_check_baseline(report, tmp_path, monkeypatch):
     (tmp_path / ".repo.yaml").write_text("stack: [terraform]\n")
     monkeypatch.setitem(report.check_baseline().PROFILE_BASELINES, "terraform", ["x.baseline"])
-    assert report.baseline_files(tmp_path) == [".size-baseline.json", ".betterleaksignore", ".baselines/adr.json",
+    assert report.baseline_files(tmp_path) == [".baselines/size.json", ".baselines/betterleaks.ignore", ".baselines/adr.json",
                                                 ".baselines/comments.json", "x.baseline"]
 
 
@@ -351,7 +351,7 @@ def renovate_commit(sha):
 
 
 def test_template_update_is_its_own_section(report, tmp_path):
-    fake = Fake(prs=[RENOVATE_PR], files={4: [".repo.yaml", "hk.pkl", ".github/workflows/standard-ci.yml"]},
+    fake = Fake(prs=[RENOVATE_PR], files={4: [".repo.yaml", ".config/hk.pkl", ".github/workflows/standard-ci.yml"]},
                 patches={(4, ".repo.yaml"): TEMPLATE_PATCH}, pr_commits={4: [renovate_commit("aaa1")]})
     sections = collect(report, fake, tmp_path, access="")
     assert sections["Template updates"] == ["#4: `v0.2.0`"]
@@ -370,7 +370,7 @@ def test_other_author_on_template_update_stays_protected(report, tmp_path):
 
 
 def test_renovate_dependency_update_is_not_a_protected_change(report, tmp_path):
-    # Renovate bumps versions in protected manifests every week; `renovate.json` itself is protected.
+    # Renovate bumps versions in protected manifests every week; `.github/renovate.json` itself is protected.
     prs = [{**RENOVATE_PR, "number": 6}, {**RENOVATE_PR, "number": 7, "author": {"login": "someone"}}]
     fake = Fake(prs=prs, files={6: ["package.json", "apps/web/package.json"], 7: [".repo.yaml", ".github/workflows/a.yml"]},
                 patches={(7, ".repo.yaml"): TEMPLATE_PATCH}, pr_commits={6: [renovate_commit("ccc3")]},
@@ -491,7 +491,7 @@ def test_report_commit_author_is_the_app_bot(report, tmp_path, git_repo, monkeyp
 
 def test_one_backlog_line_per_kind(report):
     lines = report.backlog_lines({
-        "Protected files": ["#12: `hk.pkl`", "#14: `.claude/settings.json`, `mise.toml`"],
+        "Protected files": ["#12: `.config/hk.pkl`", "#14: `.claude/settings.json`, `mise.toml`"],
         "Red merges": ["#7"],
         "Tokens": [],
     })
@@ -506,8 +506,8 @@ ALL_FINDINGS = {
     "Vulnerability alerts": ["Vulnerability alerts are not enabled or not readable"],
     "Red merges": ["#7", "#9"],
     "Skip-Check": ["`ddddddd fix: z (urgent)`"],
-    "Protected files": ["#12: `hk.pkl`"],
-    "New baseline files": ["#14: `.size-baseline.json`"],
+    "Protected files": ["#12: `.config/hk.pkl`"],
+    "New baseline files": ["#14: `.baselines/size.json`"],
     "Stack": ["`laravel` is in the code but not in `stack` of .repo.yaml"],
     "Contract": ["drift (api)"],
 }
@@ -567,8 +567,8 @@ def test_untrusted_text_cannot_mention(report, tmp_path):
 def test_typescript_report_lists_project_check_configs(render, tmp_path, report):
     project = render(tmp_path, project_name="demo", stack=["typescript"])
     protected = report.load_protected(project)
-    configs = ["eslint.project.mjs", "knip.json", ".dependency-cruiser.cjs", "steiger.config.ts",
-               ".size-baseline.json", "eslint-suppressions.json", ".jscpd.json"]
+    configs = [".config/eslint.project.mjs", ".config/knip.json", ".config/dependency-cruiser.cjs", "steiger.config.ts",
+               ".baselines/size.json", ".baselines/eslint-suppressions.json", ".config/jscpd.json"]
 
     changes = report.protected_changes({5: [*configs, "src/a.ts"]}, protected)
 
@@ -616,7 +616,7 @@ def test_external_links_check_only_tracked_markdown(render, tmp_path):
     step = next(s for s in jobs["fresh-install"]["steps"] if s.get("name") == "External links")
 
     assert step["run"].startswith("git ls-files -z '*.md' | xargs -0 ")
-    assert step["run"].endswith("lychee --config lychee.toml --no-progress")
+    assert step["run"].endswith("lychee --config .config/lychee.toml --no-progress")
 
 
 def test_merged_prs_reads_graphql_pages(report):

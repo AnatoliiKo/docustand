@@ -36,7 +36,7 @@ def write(repo: Path, rel: str, text: str) -> None:
 
 
 def baseline(repo: Path) -> dict:
-    path = repo / ".size-baseline.json"
+    path = repo / ".baselines/size.json"
     return json.loads(path.read_text()) if path.exists() else {}
 
 
@@ -101,7 +101,7 @@ def test_write_baseline_records_tracked_files_over_limit(repo):
 
     assert code == 0
     assert baseline(repo) == {"big.ts": 5, "src/huge.tsx": 9}
-    assert (repo / ".size-baseline.json").read_text().endswith("}\n")
+    assert (repo / ".baselines/size.json").read_text().endswith("}\n")
 
 
 def test_baselined_file_may_not_grow(repo):
@@ -113,7 +113,7 @@ def test_baselined_file_may_not_grow(repo):
     code, out = check(repo, "big.ts")
 
     assert code == 1
-    assert "big.ts:1: grew from 5 to 6 non-empty lines (baseline in .size-baseline.json)" in out
+    assert "big.ts:1: grew from 5 to 6 non-empty lines (baseline in .baselines/size.json)" in out
     assert baseline(repo) == {"big.ts": 5}
 
 
@@ -129,7 +129,7 @@ def test_shrunk_file_lowers_and_stages_entry(repo):
 
     assert code == 0, out
     assert baseline(repo) == {"big.ts": 5}
-    assert ".size-baseline.json" in staged(repo)
+    assert ".baselines/size.json" in staged(repo)
 
 
 def test_file_under_limit_leaves_baseline(repo):
@@ -154,7 +154,7 @@ def test_staged_rename_moves_entry(repo):
 
     assert code == 0, out
     assert baseline(repo) == {"features/big.ts": 6}
-    assert ".size-baseline.json" in staged(repo)
+    assert ".baselines/size.json" in staged(repo)
 
 
 def test_staged_rename_still_may_not_grow(repo):
@@ -188,18 +188,18 @@ def test_ci_never_writes(repo):
     write(repo, "big.ts", lines(7))
     commit_all(repo)
     check(repo, "--write-baseline")
-    before = (repo / ".size-baseline.json").read_text()
+    before = (repo / ".baselines/size.json").read_text()
     write(repo, "big.ts", lines(5))
 
     assert check(repo, "big.ts", ci=True)[0] == 0
-    assert (repo / ".size-baseline.json").read_text() == before
+    assert (repo / ".baselines/size.json").read_text() == before
 
 
 def test_invalid_baseline_fails(repo):
-    write(repo, ".size-baseline.json", "{not json")
+    write(repo, ".baselines/size.json", "{not json")
     write(repo, "a.ts", lines(1))
 
     code, out = check(repo, "a.ts")
 
     assert code == 1
-    assert ".size-baseline.json:1:" in out
+    assert ".baselines/size.json:1:" in out

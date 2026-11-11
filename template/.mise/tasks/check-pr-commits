@@ -7,7 +7,7 @@
 
 Cloud sessions commit without hk, so CI lints each commit message of the range.
 Commits by `renovate[bot]` are skipped: Renovate sets their format.
-`COMMITLINT` overrides the command (default `commitlint`, config from the repo root).
+`COMMITLINT` overrides the command (default `commitlint --config .config/commitlint.config.mjs`).
 """
 import os
 import shlex
@@ -41,7 +41,7 @@ def main(argv: list[str]) -> int:
         print(log.stderr.strip())
         return 1
 
-    command = shlex.split(os.environ.get("COMMITLINT", "commitlint"))
+    command = shlex.split(os.environ.get("COMMITLINT", "commitlint --config .config/commitlint.config.mjs"))
     failed = False
     for entry in log.stdout.splitlines():
         sha, _, author = entry.partition(" ")

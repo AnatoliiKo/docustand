@@ -151,7 +151,7 @@ def test_betterleaks_ignore_keeps_known_findings_only(project):
        "--report-path", str(report), "notes.txt")
     fingerprints = [item["Fingerprint"] for item in json.loads(report.read_text())]
     assert fingerprints
-    write(root, ".betterleaksignore", "".join(f"{f}\n" for f in fingerprints))
+    write(root, ".baselines/betterleaks.ignore", "".join(f"{f}\n" for f in fingerprints))
 
     assert "betterleaks" not in failed_steps(check(project))
     write(root, "more.txt", AWS_KEYS)

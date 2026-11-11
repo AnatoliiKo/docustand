@@ -63,7 +63,7 @@ def detach_4_agents_md(root: Path) -> None:
 
 def detach_5_renovate(root: Path) -> None:
     """Remove the `copier` manager block and the standard-file `ignorePaths`."""
-    path = root / "renovate.json"
+    path = root / ".github/renovate.json"
     data = json.loads(path.read_text())
     data.pop("copier", None)
     remaining = [p for p in data.get("ignorePaths", []) if p not in RENOVATE_IGNORED]
@@ -124,7 +124,7 @@ def test_detached_project_passes_without_docustand(detached):
     assert update.stdout == "", f"`copier update` is still mentioned in:\n{update.stdout}"
     assert HAND_EDIT_RULE in (root / "AGENTS.md").read_text()
 
-    renovate = json.loads((root / "renovate.json").read_text())
+    renovate = json.loads((root / ".github/renovate.json").read_text())
     assert "copier" not in renovate
     assert not RENOVATE_IGNORED & set(renovate.get("ignorePaths", []))
 

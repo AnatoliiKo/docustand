@@ -27,11 +27,11 @@ tflint = "0.65.0"
 
 [hooks]
 {%- if 'typescript' in stack %}
-# `mise install` also installs the git hooks of `hk.pkl` and the Node dependencies:
+# `mise install` also installs the git hooks of `.config/hk.pkl` and the Node dependencies:
 # the hooks run the tools from `node_modules/.bin/`, so a fresh clone needs them before a commit.
 postinstall = "hk install --mise && if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; elif [ -f package-lock.json ]; then npm ci; fi"
 {%- else %}
-# `mise install` also installs the git hooks of `hk.pkl`.
+# `mise install` also installs the git hooks of `.config/hk.pkl`.
 postinstall = "hk install --mise"
 {%- endif %}
 

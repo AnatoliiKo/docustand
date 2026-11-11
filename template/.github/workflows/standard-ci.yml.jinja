@@ -96,6 +96,12 @@ jobs:
           else
             mise run check-baseline -- "$BASE_SHA"
           fi
+      # A template update deletes a moved project file; the content must arrive at the new path.
+      - name: Moved files (pull request)
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: mise run check-root -- --since "$BASE_SHA"
       - name: ADR history (pull request)
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
@@ -122,12 +128,12 @@ jobs:
 {%- endraw %}
 {%- if 'typescript' in stack %}
 {%- raw %}
-      # The threshold in `.jscpd.json` is the measured duplication; check-baseline keeps it from rising.
+      # The threshold in `.config/jscpd.json` is the measured duplication; check-baseline keeps it from rising.
       - name: Duplication
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: |
-          test -f .jscpd.json || { echo ".jscpd.json is missing"; exit 1; }
-          jscpd --config .jscpd.json --no-tips .
+          test -f .config/jscpd.json || { echo ".config/jscpd.json is missing"; exit 1; }
+          jscpd --config .config/jscpd.json --no-tips .
 {%- endraw %}
 {%- endif %}
 {%- raw %}

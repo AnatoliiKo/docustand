@@ -487,7 +487,7 @@ def test_gitignore_tracked_follows_answers():
     assert ".github/workflows/standard-report.yml" not in script.tracked({"report_schedule": "off"})
     assert "docs/operations.md" in script.tracked({"deployed": True})
     assert ".tflint.hcl" in script.tracked({"stack": ["terraform"]})
-    assert "knip.json" not in script.tracked({"stack": ["terraform"]})
+    assert ".config/knip.json" not in script.tracked({"stack": ["terraform"]})
 
 
 def test_gitignore_rule_ignoring_standard_data_fails(project):
@@ -517,7 +517,7 @@ def test_gitignore_rule_ignoring_standard_task_fails(project):
     code, out = run(dest, "check-gitignore-block")
 
     assert code == 1
-    for rel in [".mise/tasks/check-size", ".mise/tasks/tf-validate", "hk.pkl", ".repo.yaml"]:
+    for rel in [".mise/tasks/check-size", ".mise/tasks/tf-validate", ".config/hk.pkl", ".repo.yaml"]:
         assert f"`{rel}` is ignored" in out
 
 

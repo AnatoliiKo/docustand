@@ -32,7 +32,7 @@ OWN_FILES = {
     ".github/workflows/tests.yml": TESTS_YML,
     ".github/workflows/ci.yml": CI_YML,
     ".tflint.hcl": TFLINT,
-    "renovate.json": RENOVATE,
+    ".github/renovate.json": RENOVATE,
 }
 
 
@@ -82,9 +82,9 @@ def test_conflicting_standard_files_kept(tmp_path, existing):
     _, (_, step2, _, _) = migrate(tmp_path, existing)
     listed = step2.stdout.split()
     assert (existing / ".tflint.hcl").read_bytes() == TFLINT.encode()
-    assert (existing / "renovate.json").read_bytes() == RENOVATE.encode()
+    assert (existing / ".github/renovate.json").read_bytes() == RENOVATE.encode()
     assert ".tflint.hcl" in listed
-    assert "renovate.json" in listed
+    assert ".github/renovate.json" in listed
     skip_if_exists = {
         "README.md", "docs/architecture.md", "docs/tasks.md", "docs/access.md",
         "docs/operations.md", ".gitignore", "CLAUDE.md",

@@ -171,7 +171,7 @@ def test_fails_on_complexity(ts):
 
 def test_project_rule_cannot_weaken_complexity(ts):
     root = ts[0]
-    write(root, "eslint.project.mjs", 'export default [{ rules: { complexity: ["error", 50] } }];\n')
+    write(root, ".config/eslint.project.mjs", 'export default [{ rules: { complexity: ["error", 50] } }];\n')
     write(root, "src/pick.ts", branches(12))
 
     result = eslint(ts, "src/pick.ts")
@@ -187,19 +187,19 @@ def test_project_rule_cannot_weaken_complexity(ts):
 ])
 def test_project_global_ignores_are_dropped(ts, ignore):
     root = ts[0]
-    write(root, "eslint.project.mjs", f"export default [{ignore}];\n")
+    write(root, ".config/eslint.project.mjs", f"export default [{ignore}];\n")
     write(root, "src/pick.ts", branches(12))
 
     result = eslint(ts, "src/pick.ts")
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "Maximum allowed is 10" in result.stdout
-    assert "global ignores of eslint.project.mjs are dropped" in result.stderr
+    assert "global ignores of .config/eslint.project.mjs are dropped" in result.stderr
 
 
 def test_project_ignores_with_files_still_apply(ts):
     root = ts[0]
-    write(root, "eslint.project.mjs", 'export default [{ files: ["src/**"], ignores: ["src/pick.ts"], '
+    write(root, ".config/eslint.project.mjs", 'export default [{ files: ["src/**"], ignores: ["src/pick.ts"], '
           'rules: { "no-var": "error" } }];\n')
     write(root, "src/pick.ts", "export var x = 1;\n")
     write(root, "src/other.ts", "export var y = 1;\n")
@@ -228,7 +228,7 @@ def test_project_parser_options_refine_the_standard_parser(ts):
     write(root, "tool.config.ts", "export const tool = 1;\n")
     assert "was not found by the project service" in eslint(ts, "tool.config.ts").stdout
 
-    write(root, "eslint.project.mjs", "export default [{ files: [\"**/*.ts\"], languageOptions: { parserOptions: "
+    write(root, ".config/eslint.project.mjs", "export default [{ files: [\"**/*.ts\"], languageOptions: { parserOptions: "
           "{ projectService: { allowDefaultProject: [\"tool.config.ts\"] } } } }];\n")
     result = eslint(ts, "tool.config.ts")
 
@@ -238,7 +238,7 @@ def test_project_parser_options_refine_the_standard_parser(ts):
 
 def test_typed_rules_run_before_push_not_before_commit(ts):
     root = ts[0]
-    write(root, "eslint.project.mjs", 'import tseslint from "typescript-eslint";\n\n'
+    write(root, ".config/eslint.project.mjs", 'import tseslint from "typescript-eslint";\n\n'
           "export default [...tseslint.configs.recommendedTypeChecked];\n")
     write(root, "src/job.ts", "export async function job(): Promise<void> {}\n\n"
           "export function start(): void {\n  job();\n}\n")
@@ -272,7 +272,7 @@ def test_fails_on_cycle(ts):
 
 def test_project_cruiser_rule_cannot_weaken_no_circular(ts):
     root = ts[0]
-    write(root, ".dependency-cruiser.cjs", """module.exports = {
+    write(root, ".config/dependency-cruiser.cjs", """module.exports = {
   extends: "./.dependency-cruiser.standard.cjs",
   forbidden: [{ name: "no-circular", severity: "warn", from: {}, to: { circular: true } }],
 };
@@ -310,13 +310,13 @@ def test_fails_on_large_file(ts):
 
 def test_duplication_check_fails_over_threshold(ts):
     root, env = ts
-    assert sh(root, env, "mise", "x", "--", "jscpd", "--config", ".jscpd.json", "--no-tips", ".").returncode == 0
+    assert sh(root, env, "mise", "x", "--", "jscpd", "--config", ".config/jscpd.json", "--no-tips", ".").returncode == 0
     body = "".join(f"  total += values[{i}] * {i + 3} - offset;\n" for i in range(12))
     for name in ("a", "b"):
         write(root, f"src/dup_{name}.ts", f"export function sum_{name}(values: number[], offset: number): number {{\n"
               f"  let total = 0;\n{body}  return total;\n}}\n")
 
-    result = sh(root, env, "mise", "x", "--", "jscpd", "--config", ".jscpd.json", "--no-tips", ".")
+    result = sh(root, env, "mise", "x", "--", "jscpd", "--config", ".config/jscpd.json", "--no-tips", ".")
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "over threshold" in result.stdout + result.stderr
@@ -354,5 +354,5 @@ def test_size_baseline_follows_a_rename(ts):
     local = {k: v for k, v in env.items() if k not in ("CI", "GITHUB_ACTIONS")}
     sh(root, local, "mise", "x", "--", "hk", "run", "pre-commit", check=True)
 
-    assert json.loads((root / ".size-baseline.json").read_text()) == {"src/moved/big.ts": 320}
-    assert ".size-baseline.json" in sh(root, env, "git", "diff", "--cached", "--name-only", check=True).stdout
+    assert json.loads((root / ".baselines/size.json").read_text()) == {"src/moved/big.ts": 320}
+    assert ".baselines/size.json" in sh(root, env, "git", "diff", "--cached", "--name-only", check=True).stdout

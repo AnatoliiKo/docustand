@@ -26,7 +26,7 @@ Existing architecture configs: `.dependency-cruiser.js`, `deptrac.yaml`, Steiger
 
 ## Existing checks and configs
 
-Linters, formatters and their configs, git hooks (husky, lefthook, pre-commit, hk), CI workflows and the commands they run, `mise.toml`, `.tool-versions`, `renovate.json`, Dependabot config.
+Linters, formatters and their configs, git hooks (husky, lefthook, pre-commit, hk), CI workflows and the commands they run, `mise.toml`, `.tool-versions`, `.github/renovate.json`, Dependabot config.
 For a migration, `merge_existing.py conflicts` later lists the exact files that differ from the template (migration.md).
 
 ## GitHub

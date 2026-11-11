@@ -48,15 +48,15 @@ TRACKED = [
     ".mise/tasks/check-md-placement", ".mise/tasks/check-pr-body", ".mise/tasks/check-pr-commits",
     ".mise/tasks/check-repo-yaml", ".mise/tasks/check-root", ".mise/tasks/check-size", ".mise/tasks/check-tasks-format",
     ".mise/tasks/ci-merged-pr", ".mise/tasks/detect-stack", ".mise/tasks/pr-ready",
-    ".mise/tasks/report", ".repo.yaml", ".rumdl.toml", ".worktreeinclude", "AGENTS.md", "CLAUDE.md",
-    "README.md", "commitlint.config.mjs", "docs/access.md", "docs/architecture.md",
-    "docs/decisions/0000-adopt-repository-standard.md", "docs/tasks.md", "hk.pkl", "lychee.toml",
-    "renovate.json", "typos.toml",
+    ".mise/tasks/report", ".repo.yaml", ".config/rumdl.toml", ".worktreeinclude", "AGENTS.md", "CLAUDE.md",
+    "README.md", ".config/commitlint.config.mjs", "docs/access.md", "docs/architecture.md",
+    "docs/decisions/0000-adopt-repository-standard.md", "docs/tasks.md", ".config/hk.pkl", ".config/lychee.toml",
+    ".github/renovate.json", ".config/typos.toml",
 ]
 TERRAFORM_TRACKED = [".mise/tasks/tf-validate", ".tflint.hcl"]
 TYPESCRIPT_TRACKED = [
-    ".dependency-cruiser.cjs", ".dependency-cruiser.standard.cjs", ".jscpd.json",
-    "eslint.config.mjs", "eslint.project.mjs", "knip.json",
+    ".config/dependency-cruiser.cjs", ".config/dependency-cruiser.standard.cjs", ".config/jscpd.json",
+    "eslint.config.mjs", ".config/eslint.project.mjs", ".config/knip.json", ".baselines/eslint-suppressions.json",
 ]
 DEPLOYED_TRACKED = ["docs/operations.md"]
 REPORT_TRACKED = [".github/workflows/standard-report.yml"]

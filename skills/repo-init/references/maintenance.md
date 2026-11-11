@@ -24,6 +24,26 @@ A repeated run is safe: it reads `.repo.yaml` and asks only questions that have 
    - the report secrets `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` exist when `report_schedule` is not `off` (`gh secret list`); a repository with only `REPORT_APP_ID` gets `REPORT_APP_CLIENT_ID` (SKILL.md section 6 step 3), then the owner deletes `REPORT_APP_ID` after a green report run.
 6. Report the differences found and what changed.
 
+## Update across 0.5.0
+
+0.5.0 moves the standard configs from the root to `.config/` and the baselines to `.baselines/`.
+`copier update` deletes a moved file and writes the template default at the new path, so the project files move first, in their own commit:
+
+```bash
+mkdir -p .config .baselines
+git mv typos.toml .config/typos.toml
+git mv eslint.project.mjs .config/eslint.project.mjs
+git mv .dependency-cruiser.cjs .config/dependency-cruiser.cjs
+git mv knip.json .config/knip.json
+git mv .jscpd.json .config/jscpd.json
+git mv .size-baseline.json .baselines/size.json
+git mv .betterleaksignore .baselines/betterleaks.ignore
+git mv eslint-suppressions.json .baselines/eslint-suppressions.json
+```
+
+Only the files that exist move. Then `copier update`; in `.config/dependency-cruiser.cjs` set `extends` to `./dependency-cruiser.standard.cjs`; project scripts that name a moved file follow it.
+`check-root` names every file still in the root, and in CI `check-root --since` fails a Renovate pull request that dropped the content of a project file.
+
 ## Changing an answer
 
 Level, stack, report schedule, branches, `md_exceptions`, `overrides` and every other answer change only through Copier, never by editing `.repo.yaml`:
@@ -50,7 +70,7 @@ Edit the files textually and minimally: remove the lines named below and keep th
 2. `.mise/conf.d/standard.toml`: delete the line that starts with `"pipx:copier"`.
 3. `.claude/settings.json`: delete the `"docustand@docustand": true` entry from `enabledPlugins` and the `"docustand"` entry from `extraKnownMarketplaces`. Fix the commas so the JSON stays valid.
 4. `AGENTS.md`: delete the line `If docustand is installed: /docustand:pr-ready.` and the blank line before it; two blank lines in a row fail the Markdown lint.
-5. `renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty. Fix the commas so the JSON stays valid.
+5. `.github/renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty. Fix the commas so the JSON stays valid.
 6. `AGENTS.md`: replace the rule that starts with ``- Change answers in `.repo.yaml` only with `copier update` `` with ``- Edit `.repo.yaml` by hand; the change needs the owner's approval.``
 7. Full level only: delete the scheduled Claude task of the reports and its row in `docs/access.md`. At the base level the task does not exist.
 

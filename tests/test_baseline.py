@@ -232,6 +232,7 @@ def baseline_change(tmp_path, git_repo, name: str, before: str | None, after: st
     """Commit `name` with `before`, change it to `after` (None deletes), run the check."""
     repo = git_repo(tmp_path / "repo")
     commit_repo_yaml(repo, "stack: [typescript]\n", "chore: answers")
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
     if before is not None:
         (repo / name).write_text(before)
         git(repo, "add", name)
@@ -253,21 +254,21 @@ def suppressions(**counts: int) -> str:
 def test_typescript_profile_lists_its_baselines():
     module = load_module()
 
-    assert module.PROFILE_BASELINES["typescript"] == ["eslint-suppressions.json", ".jscpd.json"]
-    assert module.BASE_BASELINES == [".size-baseline.json", ".betterleaksignore", ".baselines/adr.json",
+    assert module.PROFILE_BASELINES["typescript"] == [".baselines/eslint-suppressions.json", ".config/jscpd.json"]
+    assert module.BASE_BASELINES == [".baselines/size.json", ".baselines/betterleaks.ignore", ".baselines/adr.json",
                                      ".baselines/comments.json"]
 
 
 def test_eslint_suppressions_count_sums_counts(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json",
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/eslint-suppressions.json",
                                 suppressions(a=2, b=1), suppressions(a=1, c=3))
 
     assert code == 1
-    assert "eslint-suppressions.json:1: baseline grew from 3 to 4 suppressions" in out
+    assert ".baselines/eslint-suppressions.json:1: baseline grew from 3 to 4 suppressions" in out
 
 
 def test_eslint_suppressions_may_move_between_files(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json",
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/eslint-suppressions.json",
                                 suppressions(a=2, b=1), suppressions(c=3))
 
     assert code == 0, out
@@ -275,43 +276,43 @@ def test_eslint_suppressions_may_move_between_files(tmp_path, git_repo):
 
 def test_betterleaks_ignore_may_not_grow(tmp_path, git_repo):
     before = "a.test.ts:generic-password:3\n"
-    code, out = baseline_change(tmp_path, git_repo, ".betterleaksignore", before,
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/betterleaks.ignore", before,
                                 before + "b.test.ts:generic-password:7\n")
 
     assert code == 1
-    assert ".betterleaksignore:1: baseline grew from 1 to 2 entries" in out
+    assert ".baselines/betterleaks.ignore:1: baseline grew from 1 to 2 entries" in out
 
 
 def test_betterleaks_ignore_entry_may_move(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, ".betterleaksignore",
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/betterleaks.ignore",
                                 "a.test.ts:generic-password:3\n", "a.test.ts:generic-password:5\n")
 
     assert code == 0, out
 
 
 def test_size_baseline_value_may_not_grow(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, ".size-baseline.json",
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/size.json",
                                 json.dumps({"a.ts": 400, "b.ts": 350}), json.dumps({"a.ts": 401, "b.ts": 300}))
 
     assert code == 1
-    assert ".size-baseline.json:1: a.ts grew from 400 to 401 lines" in out
+    assert ".baselines/size.json:1: a.ts grew from 400 to 401 lines" in out
 
 
 def test_size_baseline_rename_passes_and_new_entry_fails(tmp_path, git_repo):
     before = json.dumps({"old/a.ts": 400})
 
-    code, out = baseline_change(tmp_path, git_repo, ".size-baseline.json", before,
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/size.json", before,
                                 json.dumps({"new/a.ts": 400}))
     assert code == 0, out
 
-    code, out = baseline_change(tmp_path / "2", git_repo, ".size-baseline.json", before,
+    code, out = baseline_change(tmp_path / "2", git_repo, ".baselines/size.json", before,
                                 json.dumps({"old/a.ts": 400, "b.ts": 310}))
     assert code == 1
     assert "baseline grew from 1 to 2 entries" in out
 
 
 def test_size_baseline_swap_for_bigger_file_fails(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, ".size-baseline.json",
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/size.json",
                                 json.dumps({"a.ts": 310}), json.dumps({"b.ts": 900}))
 
     assert code == 1
@@ -319,30 +320,30 @@ def test_size_baseline_swap_for_bigger_file_fails(tmp_path, git_repo):
 
 
 def test_jscpd_threshold_may_not_rise(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, ".jscpd.json",
+    code, out = baseline_change(tmp_path, git_repo, ".config/jscpd.json",
                                 json.dumps({"threshold": 2.5}), json.dumps({"threshold": 3}))
 
     assert code == 1
-    assert ".jscpd.json:1: threshold grew from 2.5 to 3" in out
+    assert ".config/jscpd.json:1: threshold grew from 2.5 to 3" in out
 
-    code, out = baseline_change(tmp_path / "2", git_repo, ".jscpd.json",
+    code, out = baseline_change(tmp_path / "2", git_repo, ".config/jscpd.json",
                                 json.dumps({"threshold": 2.5}), json.dumps({"threshold": 1}))
     assert code == 0, out
 
 
 @pytest.mark.parametrize("after", [None, json.dumps({"format": ["typescript"]})])
 def test_jscpd_threshold_may_not_disappear(tmp_path, git_repo, after):
-    code, out = baseline_change(tmp_path, git_repo, ".jscpd.json", json.dumps({"threshold": 2}), after)
+    code, out = baseline_change(tmp_path, git_repo, ".config/jscpd.json", json.dumps({"threshold": 2}), after)
 
     assert code == 1
-    assert ".jscpd.json:1: threshold removed" in out
+    assert ".config/jscpd.json:1: threshold removed" in out
 
 
 def test_invalid_json_baseline_fails(tmp_path, git_repo):
-    code, out = baseline_change(tmp_path, git_repo, "eslint-suppressions.json", suppressions(a=1), "{x")
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/eslint-suppressions.json", suppressions(a=1), "{x")
 
     assert code == 1
-    assert "eslint-suppressions.json:1: invalid JSON" in out and "Traceback" not in out
+    assert ".baselines/eslint-suppressions.json:1: invalid JSON" in out and "Traceback" not in out
 
 
 @pytest.mark.parametrize("before,after,grew", [

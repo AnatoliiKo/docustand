@@ -16,8 +16,8 @@ as raw text. A missing, non-mapping or invalid current `.repo.yaml` allows nothi
 With `--file` the files are not tied to profiles, so any `stack` change allows them.
 Otherwise a new file counts as growth. Every new baseline file is printed with the
 reason. Entries are the non-empty lines of a text file; JSON baselines compare:
-`eslint-suppressions.json` the sum of the counts; `.size-baseline.json` the number of
-entries, the sum of the lines and each kept entry, so a rename passes; `.jscpd.json` the
+`.baselines/eslint-suppressions.json` the sum of the counts; `.baselines/size.json` the number of
+entries, the sum of the lines and each kept entry, so a rename passes; `.config/jscpd.json` the
 `threshold`, which may not rise or disappear; a `.baselines/` file each entry, whose number
 may not rise, whose `until` may not move later, and which may not be added.
 """
@@ -30,10 +30,12 @@ from pathlib import Path
 import yaml
 
 # Baseline files of every repository, and per profile.
-BASE_BASELINES: list[str] = [".size-baseline.json", ".betterleaksignore", ".baselines/adr.json", ".baselines/comments.json"]
+BASE_BASELINES: list[str] = [".baselines/size.json", ".baselines/betterleaks.ignore", ".baselines/adr.json", ".baselines/comments.json"]
+# Baselines of the standard checks with an `until` date per entry.
+DATED = {".baselines/adr.json", ".baselines/comments.json"}
 PROFILE_BASELINES: dict[str, list[str]] = {
     "terraform": [],
-    "typescript": ["eslint-suppressions.json", ".jscpd.json"],
+    "typescript": [".baselines/eslint-suppressions.json", ".config/jscpd.json"],
 }
 
 
@@ -133,10 +135,10 @@ def dated_growth(before: str | None, after: str | None) -> list[str]:
 
 def growth(name: str, before: str | None, after: str | None) -> list[str]:
     """Messages for every way the baseline `name` grew between the two texts."""
-    kind = Path(name).name
-    if Path(name).parent.name == ".baselines":
+    kind = Path(name).as_posix()
+    if kind in DATED:
         return dated_growth(before, after)
-    if kind not in ("eslint-suppressions.json", ".size-baseline.json", ".jscpd.json"):
+    if kind not in (".baselines/eslint-suppressions.json", ".baselines/size.json", ".config/jscpd.json"):
         old, new = count(before or ""), count(after or "")
         return [f"baseline grew from {old} to {new} entries"] if new > old else []
     try:
@@ -144,10 +146,10 @@ def growth(name: str, before: str | None, after: str | None) -> list[str]:
         new = json.loads(after) if after else {}
     except ValueError as err:
         return [f"invalid JSON: {err}"]
-    if kind == "eslint-suppressions.json":
+    if kind == ".baselines/eslint-suppressions.json":
         old, new = suppressions(old), suppressions(new)
         return [f"baseline grew from {old} to {new} suppressions"] if new > old else []
-    if kind == ".jscpd.json":
+    if kind == ".config/jscpd.json":
         was = old.get("threshold") if isinstance(old, dict) else None
         now = new.get("threshold") if isinstance(new, dict) else None
         if was is None:

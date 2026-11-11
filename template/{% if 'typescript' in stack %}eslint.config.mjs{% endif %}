@@ -4,7 +4,7 @@
 import { defineConfig } from 'eslint/config';
 import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
-import project from './eslint.project.mjs';
+import project from './.config/eslint.project.mjs';
 
 // The pre-commit hook sets ESLINT_NO_TYPES=1: rules with type information exceed its 5 s budget.
 const typed = process.env.ESLINT_NO_TYPES !== '1';
@@ -21,7 +21,7 @@ const projectConfig = [project].flat(Infinity);
 const dropped = projectConfig.filter(isGlobalIgnore);
 if (dropped.length > 0) {
   console.warn(
-    `global ignores of eslint.project.mjs are dropped (${dropped.length}); add them to eslint.config.mjs`,
+    `global ignores of .config/eslint.project.mjs are dropped (${dropped.length}); add them to eslint.config.mjs`,
   );
 }
 

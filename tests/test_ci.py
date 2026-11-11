@@ -33,7 +33,7 @@ def workflow(rendered):
 
 @pytest.fixture(scope="module")
 def renovate(rendered):
-    return json.loads((rendered / "renovate.json").read_text())
+    return json.loads((rendered / ".github/renovate.json").read_text())
 
 
 def events(workflow):
@@ -140,7 +140,7 @@ def test_ci_later_steps_run_after_failure(workflow):
     later = steps(workflow)[steps(workflow).index(next(s for s in steps(workflow)
                                                        if s.get("run") == "mise run check")) + 1:]
 
-    assert len(later) == 6
+    assert len(later) == 7
     for step in later:
         assert step["if"].startswith("${{ !cancelled() && ")
 
@@ -315,7 +315,7 @@ def test_docustand_renovate_matches_template_files():
 
 def test_docustand_renovate_is_template_plus_documented_extras():
     root_text = (REPO_ROOT / "renovate.json").read_text()
-    template_text = (REPO_ROOT / "template/renovate.json").read_text()
+    template_text = (REPO_ROOT / "template/.github/renovate.json").read_text()
     root = json.loads(root_text)
     template = json.loads(template_text)
 
@@ -343,10 +343,10 @@ def test_docustand_renovate_is_template_plus_documented_extras():
 def test_docustand_renovate_bumps_hk_in_template_pkl():
     root = json.loads((REPO_ROOT / "renovate.json").read_text())
     manager = root["customManagers"][0]
-    pkl = (REPO_ROOT / "template/hk.pkl.jinja").read_text()
+    pkl = (REPO_ROOT / "template/.config/hk.pkl.jinja").read_text()
     pattern = manager["managerFilePatterns"][0]
 
-    assert re.search(pattern[1:-1], "template/hk.pkl.jinja")
+    assert re.search(pattern[1:-1], "template/.config/hk.pkl.jinja")
     for expression in manager["matchStrings"]:
         assert re.findall(expression.replace("(?<", "(?P<"), pkl), expression
     assert manager["depNameTemplate"] == "jdx/hk"
@@ -596,7 +596,7 @@ def test_ci_typescript_installs_dependencies_and_checks_duplication(tmp_path, wo
     assert "pnpm install --frozen-lockfile" in install and "npm ci" in install
     duplication = next(s for s in steps(ts) if s.get("name") == "Duplication")
     assert duplication["if"] == PR_IF
-    assert "jscpd --config .jscpd.json" in duplication["run"]
+    assert "jscpd --config .config/jscpd.json" in duplication["run"]
     assert "Node dependencies" not in [s.get("name") for s in steps(workflow)]
     assert "Duplication" not in [s.get("name") for s in steps(workflow)]
 

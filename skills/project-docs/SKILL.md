@@ -104,7 +104,7 @@ Run `mise run check`: `check-md-placement` fails on every `.md` left outside the
 The template already brings `check-md-placement`, `check-agents-md`, `check-tasks-format`, rumdl, typos and lychee (`--offline` before push, online on schedule).
 Propose to the owner, then wire through `quality-gates`:
 
-- `check-doc-refs.mjs` as a check. Options: add it to the docustand template (every project gets it, no override), or a project task in `mise.toml` plus an `hk.pkl` step with an entry in `overrides`;
+- `check-doc-refs.mjs` as a check. Options: add it to the docustand template (every project gets it, no override), or a project task in `mise.toml` plus an `.config/hk.pkl` step with an entry in `overrides`;
 - a test per mirrored list from A2 that compares the list with the code, or generation of the list from code.
 
 ## Common mistakes

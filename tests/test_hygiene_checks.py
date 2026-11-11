@@ -230,3 +230,44 @@ def test_status_line_added_with_a_blank_line_passes(tmp_path, git_repo):
     write(repo, "docs/decisions/0000-adopt.md", without.replace("# 0001. Use X\n\n", "# 0001. Use X\n\nStatus: accepted\n\n"))
 
     assert run(repo, "check-adr-history", base) == (0, "")
+
+
+def test_root_names_the_new_place_of_a_moved_file(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, ".mise/data/root-files.txt", ".mise\n")
+    write(repo, ".dependency-cruiser.cjs", "module.exports = {};\n")
+    write(repo, ".size-baseline.json", "{}\n")
+    git(repo, "add", "-A")
+
+    code, out = run(repo, "check-root")
+
+    assert code == 1
+    assert ".size-baseline.json: moved to .baselines/size.json; run `git mv .size-baseline.json .baselines/size.json`" in out
+    assert "then set `extends` to `./dependency-cruiser.standard.cjs`" in out
+
+
+def moved_repo(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, ".mise/data/root-files.txt", ".mise\n.config\n")
+    write(repo, "typos.toml", "[files]\nextend-exclude = [\"fixtures/\"]\n")
+    return repo, commit(repo)
+
+
+def test_since_fails_when_an_update_drops_project_content(tmp_path, git_repo):
+    repo, base = moved_repo(tmp_path, git_repo)
+    (repo / "typos.toml").unlink()
+    write(repo, ".config/typos.toml", "[files]\nextend-exclude = []\n")
+    git(repo, "add", "-A")
+
+    code, out = run(repo, "check-root", "--since", base)
+
+    assert code == 1 and f"git checkout {base} -- typos.toml && git mv -f typos.toml .config/typos.toml" in out
+
+
+def test_since_passes_after_a_move(tmp_path, git_repo):
+    repo, base = moved_repo(tmp_path, git_repo)
+    (repo / ".config").mkdir()
+    git(repo, "mv", "typos.toml", ".config/typos.toml")
+    write(repo, ".config/typos.toml", (repo / ".config/typos.toml").read_text() + "[default]\n")
+
+    assert run(repo, "check-root", "--since", base) == (0, "")
