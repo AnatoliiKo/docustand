@@ -4,8 +4,8 @@
 
 - Goal: first pilot on a repository with code; results go to `docs/pilot-log.md`.
 - Done when: the success criteria of section 12 of the specification pass in `cinema-ops`.
-- Stopped at: all criteria pass except the Renovate update: Renovate opened no `copier update` PR in `cinema-ops` for `v0.3.4`–`v0.3.11`; summary in `docs/pilot-log.md`, 2026-11-11.
-- Next: the owner checks that the Renovate app has access to `cinema-ops`; then the next docustand release opens a Renovate PR there.
+- Stopped at: all criteria pass except the Renovate update; the Renovate app had no access to `cinema-ops`, access granted on 2026-11-11, first Renovate PR 103 opened; summary in `docs/pilot-log.md`.
+- Next: the next docustand release opens a `copier update` PR in `cinema-ops`; merge it by README section `Update`.
 - Refs: `docs/temp/pilot-cinema-ops-plan.md`, `cinema-ops` PR 83–102.
 
 ## Backlog
