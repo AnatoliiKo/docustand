@@ -51,6 +51,12 @@ jobs:
           REPORT_SCHEDULE: {% endraw %}{{ report_schedule }}{% raw %}
           REPORT_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+{%- endraw %}
+{%- if 'typescript' in stack %}
+          # The push of the `report` branch runs the pre-push hook: type-aware ESLint needs more than 2 GB.
+          NODE_OPTIONS: --max-old-space-size=4096
+{%- endif %}
+{%- raw %}
         run: |
           git checkout "$DEFAULT_BRANCH"
           gh auth setup-git

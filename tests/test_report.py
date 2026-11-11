@@ -580,6 +580,20 @@ def test_fresh_install_raises_node_heap_for_typescript(render, tmp_path):
     assert "env" not in fresh_install_check(plain)
 
 
+def report_step(project):
+    jobs = yaml.safe_load((project / ".github/workflows/standard-report.yml").read_text())["jobs"]
+    return next(s for s in jobs["report"]["steps"] if s.get("name") == "Report")
+
+
+def test_report_push_raises_node_heap_for_typescript(render, tmp_path):
+    ts = render(tmp_path / "ts", project_name="demo", report_schedule="weekly", stack=["typescript"])
+    plain = render(tmp_path / "plain", project_name="demo", report_schedule="weekly")
+
+    assert report_step(ts)["env"]["NODE_OPTIONS"] == "--max-old-space-size=4096"
+    assert report_step(ts)["env"]["DEFAULT_BRANCH"] == "${{ github.event.repository.default_branch }}"
+    assert "NODE_OPTIONS" not in report_step(plain)["env"]
+
+
 def test_external_links_check_only_tracked_markdown(render, tmp_path):
     project = render(tmp_path, project_name="demo", report_schedule="weekly")
     jobs = yaml.safe_load((project / ".github/workflows/standard-report.yml").read_text())["jobs"]
