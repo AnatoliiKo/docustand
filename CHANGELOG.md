@@ -3,6 +3,19 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.13 — 2026-11-11
+
+### Fixed
+
+- `standard-ci` skips the checks of a push only when the merged pull request has a completed, successful `check` run on its head: `cinema-ops` PR 105 was merged 5 min before its CI finished, and the push ran no checks.
+- The TypeScript profile runs `.dependency-cruiser.standard.cjs` as its own hook step: a project rule named `no-circular` or a wider `exclude` replaced the standard rule through `extends`.
+
+### Added
+
+- Renovate refreshes the lock file every Monday, and the report lists open high and critical vulnerability alerts; the report app needs Dependabot alerts read, see ADR 0019.
+- The TypeScript profile protects `package.json`, `tsconfig*.json`, `vitest.config.*` and `vitest.workspace.*` at any depth, see ADR 0020; the report skips Renovate commits in every Renovate pull request.
+- `standard-ci` runs `npm run --if-present build` for TypeScript after the checks.
+
 ## 0.3.12 — 2026-11-11
 
 ### Changed
