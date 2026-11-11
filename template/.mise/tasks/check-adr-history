@@ -40,7 +40,8 @@ def main(argv: list[str]) -> int:
             errors.append(f"{path}: an accepted ADR is a record and stays; mark it `Status: deprecated` instead")
             continue
         diff = git("diff", "-U0", base, *head, "--", path).splitlines()
-        edits = [d for d in diff if d[:1] in "+-" and not d.startswith(("+++", "---"))]
+        # A blank line around an added `Status:` line is layout, not content.
+        edits = [d for d in diff if d[:1] in "+-" and not d.startswith(("+++", "---")) and d[1:].strip()]
         if any(not d[1:].startswith("Status:") for d in edits):
             errors.append(f"{path}: an accepted ADR changes only its `Status:` line; write a new ADR that supersedes it")
     for error in errors:

@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.1 — 2026-11-11
+
+### Fixed
+
+- `check-adr-history` ignores blank lines: the `Status:` line that 0.4.0 adds to ADR 0000 comes with a blank line, and the update of `cinema-ops` failed the check.
+
 ## 0.4.0 — 2026-11-11
 
 ### Added

@@ -220,3 +220,13 @@ def test_history_baseline_only_shrinks_and_expires(tmp_path, git_repo):
     write(repo, ".baselines/comments.json", json.dumps({"src/a.ts": {"count": 5, "until": PAST}}))
     code, out = run(repo, "check-comments")
     assert code == 1 and f"expired on {PAST}" in out
+
+
+def test_status_line_added_with_a_blank_line_passes(tmp_path, git_repo):
+    without = GOOD.replace("Date: 2026-01-01\nStatus: accepted\n", "")
+    repo = adr_repo(tmp_path, git_repo, **{"0000-adopt": without})
+    base = commit(repo)
+
+    write(repo, "docs/decisions/0000-adopt.md", without.replace("# 0001. Use X\n\n", "# 0001. Use X\n\nStatus: accepted\n\n"))
+
+    assert run(repo, "check-adr-history", base) == (0, "")
