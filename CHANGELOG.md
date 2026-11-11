@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.11 — 2026-11-11
+
+### Fixed
+
+- Template `standard-report.yml` gives the step Report of a TypeScript repository a 4 GB Node heap: the push of the `report` branch runs the pre-push hook, and type-aware ESLint ran out of the 2 GB heap.
+
 ## 0.3.10 — 2026-11-11
 
 ### Fixed
