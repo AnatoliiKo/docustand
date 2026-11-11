@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.12 — 2026-11-11
+
+### Changed
+
+- Template `renovate.json` groups minor, patch, pin and digest updates into one weekly pull request `non-major dependencies` on Monday and drops the auto-merge of patches, see ADR 0018: one CI run a week instead of one per dependency.
+- Vulnerability fixes and `copier` updates of the template stay outside the group and the schedule.
+
 ## 0.3.11 — 2026-11-11
 
 ### Fixed
