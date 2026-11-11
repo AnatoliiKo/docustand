@@ -1,0 +1,47 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail on a tracked root file or folder outside the allowed list"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: check-root
+
+The allowed root entries are `.mise/data/root-files.txt` of the standard and
+`root_files` of `.repo.yaml`. `*` matches within one name. A folder counts by its
+name. Only entries known to git are checked.
+"""
+import fnmatch
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+STANDARD = Path(".mise/data/root-files.txt")
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True).stdout
+
+
+def allowed(root: Path) -> list[str]:
+    path = root / STANDARD
+    patterns = [] if not path.is_file() else [
+        line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")]
+    answers = root / ".repo.yaml"
+    config = yaml.safe_load(answers.read_text()) if answers.is_file() else None
+    return patterns + [str(p) for p in ((config or {}).get("root_files") or [])]
+
+
+def main() -> int:
+    root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    patterns = allowed(root)
+    entries = sorted({name.split("/", 1)[0] for name in git(root, "ls-files", "-z").split("\0") if name})
+    extra = [e for e in entries if not any(fnmatch.fnmatchcase(e, p) for p in patterns)]
+    for entry in extra:
+        print(f"{entry}: not allowed in the repository root; move it, or add it to root_files in .repo.yaml")
+    return 1 if extra else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

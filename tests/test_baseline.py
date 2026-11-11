@@ -254,7 +254,8 @@ def test_typescript_profile_lists_its_baselines():
     module = load_module()
 
     assert module.PROFILE_BASELINES["typescript"] == ["eslint-suppressions.json", ".jscpd.json"]
-    assert module.BASE_BASELINES == [".size-baseline.json", ".betterleaksignore"]
+    assert module.BASE_BASELINES == [".size-baseline.json", ".betterleaksignore", ".baselines/adr.json",
+                                     ".baselines/comments.json"]
 
 
 def test_eslint_suppressions_count_sums_counts(tmp_path, git_repo):
@@ -342,3 +343,16 @@ def test_invalid_json_baseline_fails(tmp_path, git_repo):
 
     assert code == 1
     assert "eslint-suppressions.json:1: invalid JSON" in out and "Traceback" not in out
+
+
+@pytest.mark.parametrize("before,after,grew", [
+    ({"a.md": {"lines": 90, "until": "2027-01-31"}}, {"a.md": {"lines": 85, "until": "2027-01-31"}}, False),
+    ({"a.md": {"lines": 90, "until": "2027-01-31"}}, {}, False),
+    ({"a.md": {"lines": 90, "until": "2027-01-31"}}, {"a.md": {"lines": 91, "until": "2027-01-31"}}, True),
+    ({"a.md": {"lines": 90, "until": "2027-01-31"}}, {"a.md": {"lines": 90, "until": "2027-02-01"}}, True),
+    ({}, {"b.ts": {"count": 1, "until": "2027-01-31"}}, True),
+])
+def test_dated_baseline_entries_only_shrink(before, after, grew):
+    found = load_module().growth(".baselines/adr.json", json.dumps(before), json.dumps(after))
+
+    assert bool(found) is grew, found

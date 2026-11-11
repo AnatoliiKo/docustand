@@ -3,6 +3,20 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.0 — 2026-11-11
+
+### Added
+
+- `check-root`: tracked root entries come from `.mise/data/root-files.txt` and the new answer `root_files`, see ADR 0021.
+- `check-adr`: `Status:`, the four sections, 80 lines at most and `Supersedes:` links; `check-adr-history` in CI keeps accepted ADRs unchanged except `Status:`.
+- `check-comments` fails on dates, addenda, decision attribution and change history in comments.
+- `.baselines/adr.json` and `.baselines/comments.json` hold old violations with an `until` date; `check-baseline` keeps them shrinking.
+
+### Changed
+
+- The template ADR 0000 has a `Status:` line; `AGENTS.md` states the comment, ADR and root rules.
+- A project with a source folder in the root, an old ADR or a history comment needs `root_files` and `--write-baseline` on this update: see `skills/repo-init/references/migration.md` step 10.
+
 ## 0.3.13 — 2026-11-11
 
 ### Fixed

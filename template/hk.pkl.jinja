@@ -55,6 +55,15 @@ local commitSteps = new Mapping<String, Step> {
     "check-comments",
     List("**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.php", "**/*.tf", "**/*.py", "**/*.sh")
   )
+  // Any added or removed path can be a new root entry; the allowed list is in `.mise/data/root-files.txt`.
+  ["check-root"] {
+    glob = List("**/*", ".repo.yaml")
+    check = ".mise/tasks/check-root"
+  }
+  ["check-adr"] {
+    glob = List("docs/decisions/*.md", ".baselines/adr.json")
+    check = ".mise/tasks/check-adr"
+  }
 }
 
 {%- endraw %}

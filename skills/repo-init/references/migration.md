@@ -47,13 +47,14 @@ The template meets existing files. The order below keeps every existing line; it
    `overrides` changes through `copier update -a .repo.yaml --defaults --data 'overrides=[...]'`, after `git status --porcelain` prints nothing.
 8. Own `CLAUDE.md`: its rules move into `AGENTS.md` sections in step 5; `CLAUDE.md` becomes the line `@AGENTS.md`.
 9. Old findings of the new checks: safe autofix one tool per commit, the rest into the tool's baseline (quality-gates). External data such as fixtures goes into `extend-exclude` of `typos.toml`; known `betterleaks` findings without a secret go into `.betterleaksignore` as fingerprints from `betterleaks dir --report-format json` ([ADR 0017](../../../docs/decisions/0017-project-spelling-config-and-secret-baseline.md)). The profile file lists its baselines and the merge of own configs (for example `profiles/typescript.md`, «Baselines» and «Migration notes»).
-10. Prove that each check fails on a violation (quality-gates, «Prove every gate fails»).
-11. `mise run check` exits 0. Delete `docs/temp/rendered`.
-12. GitHub steps (SKILL.md section 6).
+10. Root entries, ADRs and history comments: own source folders and files go into `root_files` (`copier update -a .repo.yaml --defaults --data 'root_files=[apps, packages]'`), stray root files move or go; `mise run check-adr -- --write-baseline` and `mise run check-comments -- --write-baseline` record the old violations in `.baselines/` with `until` 90 days ahead. Each baseline gets a cleanup task in `docs/tasks.md` with the entry count as its `Done when`.
+11. Prove that each check fails on a violation (quality-gates, «Prove every gate fails»).
+12. `mise run check` exits 0. Delete `docs/temp/rendered`.
+13. GitHub steps (SKILL.md section 6).
 
 ## 3. Comment cleanup
 
-1. `mise run check` already fails on comment mechanics (`check-comments`): bare `TODO`, «added by», `@author`, linter disables without a reason. Fix each finding.
+1. `mise run check` already fails on comment mechanics and history (`check-comments`): bare `TODO`, «added by», `@author`, linter disables without a reason, dates, addenda, decision attribution, change history. Fix each finding; history findings may wait in `.baselines/comments.json` until its `until` date.
 2. Remove comments that restate the code, commented-out code, names and dates. Keep comments that state why, type annotations and public API documentation.
 3. Large deletions go to the owner as a list before the commit.
 

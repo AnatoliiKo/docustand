@@ -89,7 +89,7 @@ def ts_base(tmp_path_factory):
     env = mise_env(tmp_path_factory.getbasetemp())
     dest = tmp_path_factory.mktemp("ts") / "project"
     rendered = run_copier(dest, project_name="demo", stack=["typescript"],
-                          architecture={"web/src": "fsd"})
+                          architecture={"web/src": "fsd"}, root_files=["src", "web"])
     if rendered.returncode != 0:
         pytest.fail(f"copier failed:\n{rendered.stderr}")
     init_git_repo(dest)

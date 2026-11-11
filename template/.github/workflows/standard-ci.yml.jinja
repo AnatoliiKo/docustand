@@ -96,6 +96,11 @@ jobs:
           else
             mise run check-baseline -- "$BASE_SHA"
           fi
+      - name: ADR history (pull request)
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: mise run check-adr-history -- "$BASE_SHA" HEAD
       # Cloud sessions commit without hk, so every commit of the pull request is linted here.
       - name: Commit messages
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}

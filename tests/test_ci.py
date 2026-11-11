@@ -140,7 +140,7 @@ def test_ci_later_steps_run_after_failure(workflow):
     later = steps(workflow)[steps(workflow).index(next(s for s in steps(workflow)
                                                        if s.get("run") == "mise run check")) + 1:]
 
-    assert len(later) == 5
+    assert len(later) == 6
     for step in later:
         assert step["if"].startswith("${{ !cancelled() && ")
 

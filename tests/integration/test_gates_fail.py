@@ -177,6 +177,26 @@ def test_fails_on_md_placement(project):
     assert_step_fails(check(project), "check-md-placement")
 
 
+def test_fails_on_root_file(project):
+    root, env = project
+    write(root, "notes.txt", "draft\n")
+    sh(root, env, "git", "add", "notes.txt", check=True)
+
+    assert_step_fails(check(project), "check-root")
+
+
+def test_fails_on_adr_without_sections(project):
+    write(project[0], "docs/decisions/0001-use-x.md", "# 0001. Use X\n\nStatus: accepted\n\n## Context\n\n- c\n")
+
+    assert_step_fails(check(project), "check-adr")
+
+
+def test_fails_on_date_in_comment(project):
+    write(project[0], "scripts/run.sh", "#!/bin/sh\n# Changed on 2026-01-31.\necho ok\n")
+
+    assert_step_fails(check(project), "check-comments")
+
+
 def test_fails_on_conflict_markers(project):
     # Markers a conflicting `copier update` leaves in a Markdown file.
     write(project[0], "docs/notes.md", "# Notes\n\n<<<<<<< before updating\nold\n=======\nnew\n>>>>>>> after updating\n")

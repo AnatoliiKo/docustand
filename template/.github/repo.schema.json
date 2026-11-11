@@ -28,6 +28,7 @@
     "contract": {"type": ["object", "null"]},
     "required_ci_branches": {"type": "array", "items": {"type": "string"}, "minItems": 1},
     "md_exceptions": {"type": "array", "items": {"type": "string"}},
+    "root_files": {"type": "array", "items": {"type": "string"}},
     "report_schedule": {"enum": ["off", "monthly", "weekly", "twice-weekly"]},
     "deployed": {"type": "boolean"},
     "overrides": {

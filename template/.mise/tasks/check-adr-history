@@ -1,0 +1,52 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when an accepted ADR changes beyond its Status line or disappears"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-adr-history BASE [HEAD]
+
+An ADR that is not `proposed` at BASE is a record: between BASE and HEAD (default the
+working tree) only its `Status:` line may change, and it may not be deleted. A new
+decision is a new ADR with a `Supersedes:` line. A rename is a change of the record.
+"""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+DIR = "docs/decisions/"
+PROPOSED = re.compile(r"^Status: proposed\b", re.M)
+NAME = re.compile(r"docs/decisions/\d{4}-[a-z0-9-]+\.md")
+
+
+def git(*args: str) -> str:
+    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
+
+
+def main(argv: list[str]) -> int:
+    if not 1 <= len(argv) <= 2:
+        print("usage: check-adr-history BASE [HEAD]", file=sys.stderr)
+        return 2
+    base, head = argv[0], argv[1:]
+    changed = git("diff", "--no-renames", "--name-status", base, *head, "--", DIR).splitlines()
+    errors = []
+    for line in changed:
+        status, path = line.split("\t", 1)
+        if status == "A" or not NAME.fullmatch(path):
+            continue
+        if PROPOSED.search(git("show", f"{base}:{path}")):
+            continue
+        if status == "D":
+            errors.append(f"{path}: an accepted ADR is a record and stays; mark it `Status: deprecated` instead")
+            continue
+        diff = git("diff", "-U0", base, *head, "--", path).splitlines()
+        edits = [d for d in diff if d[:1] in "+-" and not d.startswith(("+++", "---"))]
+        if any(not d[1:].startswith("Status:") for d in edits):
+            errors.append(f"{path}: an accepted ADR changes only its `Status:` line; write a new ADR that supersedes it")
+    for error in errors:
+        print(error)
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

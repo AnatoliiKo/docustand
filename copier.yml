@@ -75,6 +75,11 @@ md_exceptions:
   help: Markdown files exempt from checks
   default: []
 
+root_files:
+  type: yaml
+  help: Project files and folders allowed in the repository root besides the standard ones
+  default: []
+
 report_schedule:
   type: str
   help: Report schedule
