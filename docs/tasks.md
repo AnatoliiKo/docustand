@@ -4,9 +4,9 @@
 
 - Goal: first pilot on a repository with code; results go to `docs/pilot-log.md`.
 - Done when: the success criteria of section 12 of the specification pass in `cinema-ops`.
-- Stopped at: Task 4 merged: `v0.3.5` in PR 84, code comments in English in PR 85–93.
-- Next: Task 5, documentation translation, after the owner answers the documentation language, `CLAUDE.local.md`, `docs/vendor/` and `md_exceptions`.
-- Refs: `docs/temp/pilot-cinema-ops-plan.md`.
+- Stopped at: all criteria pass except the Renovate update: Renovate opened no `copier update` PR in `cinema-ops` for `v0.3.4`–`v0.3.11`; summary in `docs/pilot-log.md`, 2026-11-11.
+- Next: the owner checks that the Renovate app has access to `cinema-ops`; then the next docustand release opens a Renovate PR there.
+- Refs: `docs/temp/pilot-cinema-ops-plan.md`, `cinema-ops` PR 83–102.
 
 ## Backlog
 
