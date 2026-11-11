@@ -233,18 +233,29 @@ def test_renovate_min_age_at_least_3_days(renovate):
 
     assert unit in ("days", "day", "weeks", "week")
     assert int(count) * (7 if unit.startswith("week") else 1) >= 3
-    assert renovate["vulnerabilityAlerts"] == {"enabled": True, "minimumReleaseAge": None}
+    assert renovate["vulnerabilityAlerts"] == {"enabled": True, "minimumReleaseAge": None,
+                                               "groupName": None, "schedule": ["at any time"]}
     assert renovate["extends"] == ["config:recommended"]
     assert renovate["semanticCommits"] == "enabled"
 
 
-def test_renovate_merges_itself(renovate):
+WEEKLY_RULE = {"matchUpdateTypes": ["minor", "patch", "pin", "digest"], "groupName": "non-major dependencies",
+               "schedule": ["* 0-5 * * 1"]}
+
+
+def test_renovate_groups_non_major_updates_weekly(renovate):
+    # One pull request a week runs one CI check instead of one per dependency.
+    rules = renovate["packageRules"]
+    groups = [rules.index(r) for r in rules if r.get("groupName") in ("github actions", "mise tools")]
+
+    assert WEEKLY_RULE in rules
+    assert max(groups) < rules.index(WEEKLY_RULE)
     assert renovate["platformAutomerge"] is False
-    rule = next(r for r in renovate["packageRules"] if r.get("automerge"))
-    assert rule["matchUpdateTypes"] == ["patch"]
+    assert not any(r.get("automerge") for r in rules)
 
 
-COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerge": False}
+COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerge": False,
+               "groupName": None, "schedule": ["at any time"]}
 
 
 @pytest.mark.parametrize("source", ["rendered", "root"])
@@ -252,10 +263,8 @@ def test_renovate_copier_updates_wait_for_review(renovate, source):
     # Git tags carry no release date, so the age check would hold copier updates forever.
     config = renovate if source == "rendered" else json.loads((REPO_ROOT / "renovate.json").read_text())
     rules = config["packageRules"]
-    patch = rules.index({"matchUpdateTypes": ["patch"], "automerge": True})
-
     assert COPIER_RULE in rules
-    assert rules.index(COPIER_RULE) > patch
+    assert rules.index(COPIER_RULE) > rules.index(WEEKLY_RULE)
 
 
 SHORTHAND_RULES = [

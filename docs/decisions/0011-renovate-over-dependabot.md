@@ -1,7 +1,7 @@
 # 0011. Renovate over Dependabot
 
 Date: 2026-11-05
-Status: accepted
+Status: accepted; the auto-merge of patches is replaced by [ADR 0018](0018-weekly-grouped-dependency-updates.md)
 
 ## Context
 

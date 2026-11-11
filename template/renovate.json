@@ -2,17 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "minimumReleaseAge": "3 days",
-  "vulnerabilityAlerts": {"enabled": true, "minimumReleaseAge": null},
+  "vulnerabilityAlerts": {"enabled": true, "minimumReleaseAge": null, "groupName": null, "schedule": ["at any time"]},
   "copier": {"managerFilePatterns": ["/(^|/)\\.repo\\.yaml$/"]},
   "semanticCommits": "enabled",
   "ignorePaths": [".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"],
   "platformAutomerge": false,
   "packageRules": [
-    {"matchUpdateTypes": ["patch"], "automerge": true},
-    {"matchManagers": ["copier"], "minimumReleaseAge": null, "automerge": false},
-    {"matchManagers": ["copier"], "matchDepNames": ["/^gh:/"], "overridePackageName": "{{{replace '^gh:' 'https://github.com/' depName}}}"},
-    {"matchManagers": ["copier"], "matchDepNames": ["/^gl:/"], "overridePackageName": "{{{replace '^gl:' 'https://gitlab.com/' depName}}}"},
     {"matchManagers": ["github-actions"], "groupName": "github actions"},
-    {"matchManagers": ["mise"], "groupName": "mise tools"}
+    {"matchManagers": ["mise"], "groupName": "mise tools"},
+    {"matchUpdateTypes": ["minor", "patch", "pin", "digest"], "groupName": "non-major dependencies", "schedule": ["* 0-5 * * 1"]},
+    {"matchManagers": ["copier"], "minimumReleaseAge": null, "automerge": false, "groupName": null, "schedule": ["at any time"]},
+    {"matchManagers": ["copier"], "matchDepNames": ["/^gh:/"], "overridePackageName": "{{{replace '^gh:' 'https://github.com/' depName}}}"},
+    {"matchManagers": ["copier"], "matchDepNames": ["/^gl:/"], "overridePackageName": "{{{replace '^gl:' 'https://gitlab.com/' depName}}}"}
   ]
 }
