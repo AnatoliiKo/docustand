@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.10 — 2026-11-11
+
+### Fixed
+
+- Template `report` task reads merged PRs and their check results with a GraphQL query instead of `gh pr list --json statusCheckRollup`: `gh` also reads the workflow run of each check, which needs Actions read; the report app keeps Checks and Commit statuses read only.
+
 ## 0.3.9 — 2026-11-10
 
 ### Fixed
