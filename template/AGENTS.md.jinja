@@ -19,7 +19,7 @@ Rules for agents and contributors. `CLAUDE.md` imports this file.
 | `.config/` | Configs of the standard tools and project configs that need no root place |
 | `.baselines/` | Known old violations: size, secrets scan, ESLint suppressions, ADRs, comments; entries only shrink |
 
-Any other `.md` file fails the check unless its path is in `md_exceptions` in `.repo.yaml`.
+Any other `.md` file, in `docs/` too, fails the check unless its path is in `md_exceptions` in `.repo.yaml`. A generated document names its generator in its first lines, and a test or a check keeps it current.
 A root file or folder outside `.mise/data/root-files.txt` fails `check-root` unless it is in `root_files` in `.repo.yaml`.
 
 ## Stack
@@ -101,7 +101,7 @@ If docustand is installed: /docustand:pr-ready.
 ## Comments
 
 - Write only a reason, a constraint or non-obvious behaviour, in 1-2 lines. Retelling code is not allowed.
-- JSDoc and docstrings document the exported public API only.
+- JSDoc and docstrings document the exported public API only; an internal declaration takes a line comment. `check-comments` fails on JSDoc above an internal declaration.
 - An ADR reference is one line: `// ADR 0023`. Retelling an ADR in code is not allowed.
 - Not allowed: commented-out code, names, dates, "addendum", decision attribution, change history, "added by". `check-comments` fails on dates, addenda, decision attribution and history phrases.
 - Use `TODO(#issue)` or `TODO(docs/tasks.md)`.

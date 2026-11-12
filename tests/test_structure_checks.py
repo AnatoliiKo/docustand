@@ -104,7 +104,7 @@ def test_md_exception_glob_spans_directories(project):
 
 def test_md_path_with_space(project):
     dest = project()
-    write(dest, "docs/my notes.md", "x\n")
+    write(dest, "docs/runbooks/my notes.md", "x\n")
     assert run(dest, "check-md-placement")[0] == 0
 
     write(dest, "src/my notes.md", "x\n")
@@ -132,7 +132,7 @@ def test_md_allowed_locations(project):
     dest = project()
     for rel in ["CHANGELOG.md", "docs/runbooks/a/b.md", "openspec/specs/x/spec.md",
                 ".github/pull_request_template.md", ".claude/commands/x/y.md",
-                ".claude/skills/s/SKILL.md", "docs/guide.md"]:
+                ".claude/skills/s/SKILL.md", "docs/architecture.md"]:
         write(dest, rel, "x\n")
 
     code, out = run(dest, "check-md-placement")

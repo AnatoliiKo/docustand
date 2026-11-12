@@ -53,6 +53,14 @@ Then adjust the paths that the move changes:
 `check-root` names every file still in the root.
 In CI `check-root --since` fails a pull request in which a project file kept under 80 % of its lines at the new path.
 
+## Update across 0.6.0
+
+0.6.0 narrows `docs/` to the standard documents and checks internal JSDoc.
+Before the update:
+
+1. Every other `docs/*.md` is removed or listed: `copier update -a .repo.yaml --defaults --data 'md_exceptions=[docs/<name>.md]'` (the list keeps its existing entries).
+2. After the update, `mise run check-comments` lists JSDoc on internal declarations; convert them to line comments, or record them with `mise run check-comments -- --write-baseline` when the project decides so.
+
 ## Changing an answer
 
 Level, stack, report schedule, branches, `md_exceptions`, `overrides` and every other answer change only through Copier, never by editing `.repo.yaml`:

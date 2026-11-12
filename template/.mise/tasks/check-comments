@@ -6,7 +6,7 @@
 """Usage: check-comments [--write-baseline] [PATH ...]
 
 History rules (dates, addenda, owner decisions, change history) hold for new code; the
-per-file counts of old code are in `.baselines/comments.json`
+per-file counts of old code, with JSDoc on internal declarations, are in `.baselines/comments.json`
 ({"src/a.ts": {"count": 3, "until": "2027-01-31"}}): a count may only shrink, and an expired
 entry fails. `--write-baseline` records every file with history comments, `until` 90 days ahead.
 
@@ -54,6 +54,33 @@ HISTORY = [
      "decision attribution in a comment"),
     (re.compile(r"\b(?:previously|formerly|used to be)\b", re.I), "change history in a comment"),
 ]
+# JSDoc documents the exported API; an internal declaration takes a line comment.
+# A block with a tag (`@type`, `@param`) stays: in JavaScript it carries types.
+JSDOC_SUFFIXES = {".ts", ".tsx", ".js", ".mjs"}
+INTERNAL_DECLARATION = re.compile(
+    r"(?:declare\s+)?(?:async\s+)?(?:function\b|const\b|let\b|var\b|class\b|abstract\s+class\b|type\b|interface\b|enum\b)")
+PRIVATE_MEMBER = re.compile(r"\s+(?:static\s+)?(?:readonly\s+)?(?:async\s+)?(?:#|private\s)")
+JSDOC_MESSAGE = "JSDoc on an internal declaration; use a line comment"
+
+
+def internal_jsdoc(lines: list[str]) -> list[int]:
+    """Line numbers of JSDoc blocks without tags above a non-exported declaration or a private member."""
+    found, i = [], 0
+    while i < len(lines):
+        if not lines[i].lstrip().startswith("/**"):
+            i += 1
+            continue
+        end = i
+        while end < len(lines) - 1 and "*/" not in lines[end]:
+            end += 1
+        following = lines[end + 1] if end + 1 < len(lines) else ""
+        tagged = any("@" in line for line in lines[i:end + 1])
+        if not tagged and (INTERNAL_DECLARATION.match(following) or PRIVATE_MEMBER.match(following)):
+            found.append(i + 1)
+        i = end + 1
+    return found
+
+
 # A quoted value is an example of a format, not history: `2026-01-31`, «2026-01-31», "2026-01-31".
 # A date in a test describes test data.
 TEST_FILE = re.compile(r"(?:^|/)(?:tests?|fixtures|__tests__)/|\.(?:test|spec)\.[^/]+$")
@@ -177,6 +204,8 @@ def main(argv: list[str]) -> int:
             prose = QUOTED.sub("", text)
             history += [(number, message) for pattern, message in HISTORY
                         if pattern.search(prose) and not (message == HISTORY[0][1] and TEST_FILE.search(path))]
+        if full.suffix in JSDOC_SUFFIXES:
+            history += [(number, JSDOC_MESSAGE) for number in internal_jsdoc(source.splitlines())]
         if write:
             if history:
                 recorded[path] = len(history)

@@ -283,3 +283,58 @@ def test_since_allows_a_few_lines_edited_by_the_move(tmp_path, git_repo):
     write(repo, ".config/eslint.project.mjs", (repo / ".config/eslint.project.mjs").read_text().replace("rule0 = 0", "rule0 = 1"))
 
     assert run(repo, "check-root", "--since", base) == (0, "")
+
+
+def test_jsdoc_on_internal_declarations_fails(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, "src/a.ts", "\n".join([
+        "/** Module overview. */",
+        "",
+        "/** Public API. */",
+        "export function a() {}",
+        "/** Internal helper. */",
+        "function b() {}",
+        "/** @type {number} */",
+        "const c = 1;",
+        "class D {",
+        "  /** Private state. */",
+        "  #e = 1;",
+        "  /** Public member. */",
+        "  f() {}",
+        "}",
+    ]) + "\n")
+    git(repo, "add", "-A")
+
+    code, out = run(repo, "check-comments")
+
+    assert code == 1
+    assert out.splitlines() == [
+        "src/a.ts:5: JSDoc on an internal declaration; use a line comment",
+        "src/a.ts:10: JSDoc on an internal declaration; use a line comment",
+    ]
+
+
+def test_md_placement_allows_only_the_standard_docs(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, ".repo.yaml", "md_exceptions: [docs/reference.md]\n")
+    for rel in ("docs/architecture.md", "docs/operations.md", "docs/reference.md", "docs/journal.md"):
+        write(repo, rel, "# x\n")
+    git(repo, "add", "-A")
+
+    code, out = run(repo, "check-md-placement")
+
+    assert code == 1 and "docs/journal.md" in out and "reference" not in out and "architecture" not in out
+
+
+def test_baselined_adr_may_be_rewritten_when_it_leaves_the_baseline(tmp_path, git_repo):
+    old = "# 0001. Old\n\nDate: 2026-01-01. Status: plan\n\nold text\n"
+    repo = adr_repo(tmp_path, git_repo, **{"0001-old": old})
+    write(repo, ".baselines/adr.json", json.dumps({"docs/decisions/0001-old.md": {"lines": 5, "until": FUTURE}}))
+    base = commit(repo)
+
+    write(repo, "docs/decisions/0001-old.md", GOOD.replace("# 0001. Use X", "# 0001. Old"))
+    code, out = run(repo, "check-adr-history", base)
+    assert code == 1 and "changes only its `Status:` line" in out
+
+    write(repo, ".baselines/adr.json", "{}")
+    assert run(repo, "check-adr-history", base) == (0, "")

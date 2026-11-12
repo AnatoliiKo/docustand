@@ -410,13 +410,13 @@ def test_pre_commit_budget(project):
 
 
 def test_path_with_space(project):
-    write(project[0], "docs/my notes.md", "# My notes\n\nThis is te" + "h plan.\n")
+    write(project[0], "docs/runbooks/my notes.md", "# My notes\n\nThis is te" + "h plan.\n")
 
     result = check(project)
 
     assert_step_fails(result, "typos")
     assert failed_steps(result) == {"typos"}, result.stdout + result.stderr
-    assert "docs/my notes.md" in result.stdout + result.stderr
+    assert "docs/runbooks/my notes.md" in result.stdout + result.stderr
 
 
 def test_project_without_stack_passes(tmp_path_factory):

@@ -3,6 +3,17 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.6.0 — 2026-11-12
+
+### Changed
+
+- `check-md-placement` allows in `docs/` only `architecture.md`, `tasks.md`, `access.md` and `operations.md`; another document needs an entry in `md_exceptions`, see ADR 0024.
+- `check-comments` fails on a JSDoc block without tags above a non-exported declaration or a private member; the findings use the comments baseline.
+
+### Added
+
+- `check-adr-history` lets an ADR of `.baselines/adr.json` be rewritten when the same change drops its baseline entry.
+
 ## 0.5.2 — 2026-11-12
 
 ### Changed
