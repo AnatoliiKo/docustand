@@ -12,6 +12,7 @@
     {"matchManagers": ["github-actions"], "groupName": "github actions"},
     {"matchManagers": ["mise"], "groupName": "mise tools"},
     {"matchUpdateTypes": ["minor", "patch", "pin", "digest"], "groupName": "non-major dependencies", "schedule": ["* 0-5 * * 1"]},
+    {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": true},
     {"matchManagers": ["copier"], "minimumReleaseAge": null, "automerge": false, "groupName": null, "schedule": ["at any time"]},
     {"matchManagers": ["copier"], "matchDepNames": ["/^gh:/"], "overridePackageName": "{{{replace '^gh:' 'https://github.com/' depName}}}"},
     {"matchManagers": ["copier"], "matchDepNames": ["/^gl:/"], "overridePackageName": "{{{replace '^gl:' 'https://gitlab.com/' depName}}}"}

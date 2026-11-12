@@ -259,6 +259,18 @@ def test_renovate_refreshes_lock_file_weekly(renovate):
     assert renovate["lockFileMaintenance"] == {"enabled": True, "schedule": WEEKLY_RULE["schedule"]}
 
 
+MAJOR_RULE = {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": True}
+
+
+def test_renovate_major_updates_wait_for_dashboard_approval(renovate):
+    # A major update can break the build or the runtime; its pull request opens only after approval.
+    rules = renovate["packageRules"]
+    assert MAJOR_RULE in rules
+    assert rules.index(MAJOR_RULE) > rules.index(WEEKLY_RULE)
+    assert renovate["extends"] == ["config:recommended"]
+    assert "dependencyDashboardApproval" not in renovate["vulnerabilityAlerts"]
+
+
 COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerge": False,
                "groupName": None, "schedule": ["at any time"]}
 

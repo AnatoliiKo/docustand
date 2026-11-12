@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.5.2 — 2026-11-12
+
+### Changed
+
+- Renovate opens a pull request for a major update only after approval in the Dependency Dashboard issue, see ADR 0023.
+
 ## 0.5.1 — 2026-11-12
 
 ### Fixed
