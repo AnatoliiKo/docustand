@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.5.1 — 2026-11-12
+
+### Fixed
+
+- `check-root --since` accepts a project file that keeps 80 % of its lines at the new path: the move itself edits paths such as `tsconfigRootDir`, and the update of `cinema-ops` failed the check.
+- The «Update across 0.5.0» procedure restores the project files after `copier update`: a commit that only moves them fails the hooks of 0.4.x.
+
 ## 0.5.0 — 2026-11-11
 
 ### Changed

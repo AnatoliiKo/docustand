@@ -27,22 +27,31 @@ A repeated run is safe: it reads `.repo.yaml` and asks only questions that have 
 ## Update across 0.5.0
 
 0.5.0 moves the standard configs from the root to `.config/` and the baselines to `.baselines/`.
-`copier update` deletes a moved file and writes the template default at the new path, so the project files move first, in their own commit:
+`copier update` deletes a moved project file and writes the template default at the new path.
+A commit that only moves the files fails the hooks of the old version, so the project files return after the update, in the same commit:
 
 ```bash
-mkdir -p .config .baselines
-git mv typos.toml .config/typos.toml
-git mv eslint.project.mjs .config/eslint.project.mjs
-git mv .dependency-cruiser.cjs .config/dependency-cruiser.cjs
-git mv knip.json .config/knip.json
-git mv .jscpd.json .config/jscpd.json
-git mv .size-baseline.json .baselines/size.json
-git mv .betterleaksignore .baselines/betterleaks.ignore
-git mv eslint-suppressions.json .baselines/eslint-suppressions.json
+copier update -a .repo.yaml --defaults --vcs-ref v0.5.1
+r() { [ -n "$(git ls-files "$1")" ] || return 0; git checkout HEAD -- "$1" && git mv -f "$1" "$2"; }
+r typos.toml .config/typos.toml
+r eslint.project.mjs .config/eslint.project.mjs
+r .dependency-cruiser.cjs .config/dependency-cruiser.cjs
+r knip.json .config/knip.json
+r .jscpd.json .config/jscpd.json
+r .size-baseline.json .baselines/size.json
+r .betterleaksignore .baselines/betterleaks.ignore
+r eslint-suppressions.json .baselines/eslint-suppressions.json
 ```
 
-Only the files that exist move. Then `copier update`; in `.config/dependency-cruiser.cjs` set `extends` to `./dependency-cruiser.standard.cjs`; project scripts that name a moved file follow it.
-`check-root` names every file still in the root, and in CI `check-root --since` fails a Renovate pull request that dropped the content of a project file.
+Then adjust the paths that the move changes:
+
+- `.config/dependency-cruiser.cjs`: `extends` is `./dependency-cruiser.standard.cjs`.
+- `.config/knip.json`: `ignore` names `.config/dependency-cruiser.cjs`, `.config/dependency-cruiser.standard.cjs` and `.config/commitlint.config.mjs`.
+- `.config/eslint.project.mjs`: a path built from `import.meta.dirname`, such as `tsconfigRootDir`, goes one folder up with `dirname(import.meta.dirname)`.
+- Project scripts that name a moved file follow it; `eslint` gets `--suppressions-location .baselines/eslint-suppressions.json`.
+
+`check-root` names every file still in the root.
+In CI `check-root --since` fails a pull request in which a project file kept under 80 % of its lines at the new path.
 
 ## Changing an answer
 

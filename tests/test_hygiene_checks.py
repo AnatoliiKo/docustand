@@ -271,3 +271,15 @@ def test_since_passes_after_a_move(tmp_path, git_repo):
     write(repo, ".config/typos.toml", (repo / ".config/typos.toml").read_text() + "[default]\n")
 
     assert run(repo, "check-root", "--since", base) == (0, "")
+
+
+def test_since_allows_a_few_lines_edited_by_the_move(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, ".mise/data/root-files.txt", ".mise\n.config\n")
+    write(repo, "eslint.project.mjs", "".join(f"const rule{i} = {i};\n" for i in range(10)))
+    base = commit(repo)
+    (repo / ".config").mkdir()
+    git(repo, "mv", "eslint.project.mjs", ".config/eslint.project.mjs")
+    write(repo, ".config/eslint.project.mjs", (repo / ".config/eslint.project.mjs").read_text().replace("rule0 = 0", "rule0 = 1"))
+
+    assert run(repo, "check-root", "--since", base) == (0, "")

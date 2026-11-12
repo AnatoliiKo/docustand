@@ -51,8 +51,12 @@ def allowed(root: Path) -> list[str]:
     return patterns + [str(p) for p in ((config or {}).get("root_files") or [])]
 
 
+# A template default shares almost no lines with a project file; a move may still edit a few lines.
+KEPT_SHARE = 0.8
+
+
 def lost_moves(root: Path, base: str) -> list[str]:
-    """Old paths of MOVED present at BASE whose lines are not all at their new path now."""
+    """Old paths of PROJECT_OWNED present at BASE with under KEPT_SHARE of their lines at the new path."""
     lost = []
     for old in PROJECT_OWNED:
         new = MOVED[old]
@@ -64,7 +68,7 @@ def lost_moves(root: Path, base: str) -> list[str]:
         # A line naming a moved file changes with the move itself, such as `extends` of dependency-cruiser.
         kept = [line for line in before.stdout.splitlines()
                 if line.strip() and not any(Path(name).name.lstrip(".") in line for name in MOVED)]
-        if any(line not in now for line in kept):
+        if kept and sum(line in now for line in kept) < KEPT_SHARE * len(kept):
             lost.append(old)
     return lost
 
