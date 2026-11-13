@@ -19,3 +19,4 @@
 ## Backlog
 
 - Migrate the `infrastructure` project to the repository standard — second pilot project, results go to `docs/pilot-log.md`.
+- Review changes to protected files in #2 — they change how checks run outside a template update.
