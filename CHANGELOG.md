@@ -3,6 +3,17 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.9.0 — 2026-11-13
+
+### Added
+
+- `AGENTS.md` has the section `Review checklist`: one line per rule that no check enforces, see ADR 0029.
+- The plugin skill `pr-ready` runs the checks, has the read-only agent `reviewer` check the branch diff against the checklist and drafts the PR description.
+
+### Changed
+
+- `Before a PR` in `AGENTS.md` refers to the review checklist instead of listing the review steps.
+
 ## 0.8.1 — 2026-11-13
 
 ### Changed

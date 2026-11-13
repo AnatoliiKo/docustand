@@ -21,7 +21,7 @@ MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 SKILLS = sorted((REPO_ROOT / "skills").glob("*/SKILL.md"))
 AGENTS = sorted((REPO_ROOT / "agents").glob("*.md"))
 FIRST_VERSION = "0.1.0"
-EXPECTED_SKILLS = {"repo-init", "project-docs", "quality-gates"}
+EXPECTED_SKILLS = {"repo-init", "project-docs", "quality-gates", "pr-ready"}
 WRITE_TOOLS = {"Bash", "Edit", "Write", "NotebookEdit"}
 REMOVED_PATHS = ("docs/status", "docs/superpowers", "docs/plans")
 # Names per the plugin and marketplace references of Claude Code.
@@ -126,6 +126,31 @@ def test_inventory_agent_is_read_only_and_cheap():
     assert tools(data["tools"]) == {"Read", "Grep", "Glob"}
     assert data.get("model") == "haiku"
     assert INVENTORY_TABLE in (REPO_ROOT / "agents" / "inventory.md").read_text()
+
+
+def test_reviewer_agent_is_read_only_and_strong():
+    path = REPO_ROOT / "agents" / "reviewer.md"
+    data = frontmatter(path)
+    assert tools(data["tools"]) == {"Read", "Grep", "Glob"}
+    assert data.get("model") == "opus"
+    text = path.read_text()
+    assert "`Review checklist`" in text
+    assert "| # | Severity | Rule | Location | Finding | Fix |" in text
+
+
+def test_pr_ready_skill_keeps_review_independent():
+    text = (REPO_ROOT / "skills" / "pr-ready" / "SKILL.md").read_text()
+    for fact in ("docustand:reviewer", "never this conversation", "docs/temp/pr-review/diff.patch",
+                 "mise run pr-ready", "mise run check-pr-body", "owner's yes"):
+        assert fact in text, fact
+
+
+def test_template_names_only_existing_skills():
+    template = REPO_ROOT / "template"
+    named = {m for p in template.rglob("*") if p.is_file()
+             for m in re.findall(r"/docustand:([a-z0-9-]+)", p.read_text(errors="ignore"))}
+    assert named, "the template names no skill"
+    assert named <= {p.parent.name for p in SKILLS}
 
 
 @pytest.mark.parametrize("removed", REMOVED_PATHS)

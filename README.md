@@ -33,7 +33,10 @@ With the plugin:
 
 ```text
 /docustand:repo-init
+/docustand:pr-ready
 ```
+
+`pr-ready` runs the checks and has the agent `reviewer` check the branch diff against the `Review checklist` section of `AGENTS.md` before a pull request.
 
 Without the plugin:
 

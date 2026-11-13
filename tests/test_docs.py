@@ -14,7 +14,7 @@ CLAUDE.local.md
 
 SECTIONS = [
     "Structure", "Stack", "Architecture", "Working rules", "Text rules",
-    "Before a PR", "Comments", "Use existing solutions first",
+    "Before a PR", "Review checklist", "Comments", "Use existing solutions first",
 ]
 NO_TRAILERS = (
     'Commit messages and PR descriptions contain no Co-Authored-By, '
@@ -41,6 +41,7 @@ def test_agents_md_limit(render, tmp_path):
     before_pr = text.split("## Before a PR", 1)[1].split("\n## ", 1)[0]
     assert "mise run check" in before_pr
     assert "mise run pr-ready" in before_pr
+    assert "review checklist" in before_pr
     assert NO_TRAILERS in text
 
 
@@ -176,3 +177,18 @@ def test_access_has_no_report_rows_when_reports_off(render, tmp_path):
 
     assert REPORT_APP_ROW not in text
     assert CLAUDE_TASK_ROW not in text
+
+
+def test_review_checklist_lists_rules_without_a_check(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+    text = (dest / "AGENTS.md").read_text()
+    checklist = text.split("## Review checklist", 1)[1].split("\n## ", 1)[0]
+    items = [line for line in checklist.splitlines() if line.startswith("- ")]
+
+    # One line per hygiene rule that no check enforces: a reviewer reads them all.
+    for fragment in ("fact stays in one place", "names its generator", "5 % of a package",
+                     "no implementation details", "repeats no framework facility",
+                     "abstraction for the future", "keep every assertion", "states its reason",
+                     "number in `Done when`"):
+        assert sum(fragment in item for item in items) == 1, fragment
+    assert "docustand" not in checklist, "a detached repository keeps the checklist"

@@ -7,7 +7,7 @@
 | `copier.yml`, `template/` | Copier template: questions, answers file `.repo.yaml`, files rendered into a project |
 | `scripts/merge_existing.py` | Lists conflicts and merges the `.gitignore` block when the template meets an existing repository |
 | `profiles/` | Stack profiles that `repo-init` reads to choose checks and answers |
-| Plugin (`.claude-plugin/`, `skills/`, `agents/`) | Claude Code plugin and marketplace manifests; skills `repo-init`, `project-docs`, `quality-gates`; agent `inventory` |
+| Plugin (`.claude-plugin/`, `skills/`, `agents/`) | Claude Code plugin and marketplace manifests; skills `repo-init`, `project-docs`, `quality-gates`, `pr-ready`; agents `inventory`, `reviewer` |
 | `tests/` | Unit tests render the template and run the check scripts; `tests/integration/` runs `hk` in a rendered repository |
 | `docs/decisions/` | ADRs of the standard |
 | `mise.toml`, `.github/renovate.json` | docustand's own tools and Renovate settings; `.github/renovate.json` extends the template file, see `overrides` in `.repo.yaml` |

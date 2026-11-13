@@ -43,7 +43,6 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 ## Working rules
 
 - Start a change with a task in `docs/tasks.md`.
-- Write tests with the code.
 - Run `mise run check` before a commit.
 - Never weaken a check. Do not add entries to baselines or suppressions, add exceptions, lower thresholds or edit check configs, `.config/hk.pkl`, `mise.toml`, `.github/workflows/` or `.claude/` to make a check pass. Fix the cause.
 - A deviation from a file of the standard needs an entry with a reason in `overrides` in `.repo.yaml`, approved by the owner.
@@ -83,13 +82,22 @@ The heading starts with a verb, with repositories in parentheses (none in a sing
 ## Before a PR
 
 1. Run `mise run check`.
-2. Update the docs affected by the diff and `docs/tasks.md`.
-3. Remove comments that restate code or carry no reason.
-4. Record a decision with alternatives and every new dependency in an ADR.
-5. Run `mise run pr-ready`: it runs `mise run check` and stores the HEAD hash for the PR hook.
-6. Write the PR description in the format above.
+2. Check the diff against the review checklist: the rules that no check enforces.
+3. Run `mise run pr-ready`: it runs `mise run check` and stores the HEAD hash for the PR hook.
+4. Write the PR description in the format above.
 
 If docustand is installed: /docustand:pr-ready.
+
+## Review checklist
+
+- The docs affected by the diff and `docs/tasks.md` are updated; a fact stays in one place; a generated document names its generator.
+- Comments follow `Comments`; comment lines stay under 5 % of a package.
+- An ADR records each decision with alternatives and each new dependency, holds no implementation details, and a rewritten ADR keeps its decision.
+- The code follows `Use existing solutions first` and repeats no framework facility, installed package or generator.
+- No class or component mixes duties; no wrapper over one call, interface with one implementation or abstraction for the future without a reason.
+- Tests come with the code and keep every assertion.
+- A new exception (ignore entry, disabled rule, allowed word) states its reason.
+- A cleanup task states a number in `Done when`.
 
 ## Comments
 
