@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run --script
-#MISE description="Print true when a merged pull request contains the commit, else false"
+#MISE description="Print true when a merged pull request with green CI contains the commit, else false"
 # /// script
 # requires-python = ">=3.13"
 # ///
@@ -8,7 +8,9 @@
 `standard-ci` calls it on a push to a required branch: a commit of a merged pull
 request was already checked in the pull request, so CI skips `mise run check`.
 Only a pull request with `merged_at` counts: an open pull request whose head is the
-pushed commit was not merged. Any error prints false, so CI runs every check.
+pushed commit was not merged. Its head must carry a completed, successful `check`
+run: without branch protection a pull request can be merged with red or running CI.
+Any error prints false, so CI runs every check.
 `GH` overrides the command (default `gh`).
 """
 import json
@@ -26,7 +28,8 @@ def merged(repo: str, sha: str) -> bool:
     if not REPO.fullmatch(repo) or not SHA.fullmatch(sha):
         print(f"invalid repository or commit: {repo} {sha}", file=sys.stderr)
         return False
-    command = [*shlex.split(os.environ.get("GH", "gh")), "api", f"repos/{repo}/commits/{sha}/pulls"]
+    gh = shlex.split(os.environ.get("GH", "gh"))
+    command = [*gh, "api", f"repos/{repo}/commits/{sha}/pulls"]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as err:
@@ -40,7 +43,25 @@ def merged(repo: str, sha: str) -> bool:
     except json.JSONDecodeError:
         print("unexpected answer of the pulls API", file=sys.stderr)
         return False
-    return isinstance(pulls, list) and any(isinstance(p, dict) and p.get("merged_at") for p in pulls)
+    if not isinstance(pulls, list):
+        return False
+    heads = [((p.get("head") or {}).get("sha") or "") for p in pulls if isinstance(p, dict) and p.get("merged_at")]
+    return any(SHA.fullmatch(head) and green(repo, head, gh) for head in heads)
+
+
+def green(repo: str, sha: str, gh: list[str]) -> bool:
+    """True when every latest `check` run of the commit completed with success."""
+    command = [*gh, "api", f"repos/{repo}/commits/{sha}/check-runs?check_name=check&per_page=100"]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        runs = json.loads(result.stdout).get("check_runs") if result.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, AttributeError) as err:
+        print(f"cannot read the checks of {sha}: {err}", file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        print(result.stderr.strip(), file=sys.stderr)
+        return False
+    return bool(runs) and all(r.get("status") == "completed" and r.get("conclusion") == "success" for r in runs)
 
 
 def main(argv: list[str]) -> int:

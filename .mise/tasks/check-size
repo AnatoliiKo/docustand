@@ -6,7 +6,7 @@
 """Usage: check-size [--write-baseline] [FILE ...]
 
 Limits come from `.mise/data/size-limits.json` ({".ts": 300}) and count non-empty
-lines. A file over its limit fails unless `.size-baseline.json` records it; a recorded
+lines. A file over its limit fails unless `.baselines/size.json` records it; a recorded
 file may not grow. Outside CI the script keeps the baseline current and stages it:
 an entry follows a staged rename, drops to the new size when the file shrinks, and
 disappears when the file falls under the limit or is gone. `--write-baseline`
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 LIMITS = Path(".mise/data/size-limits.json")
-BASELINE = Path(".size-baseline.json")
+BASELINE = Path(".baselines/size.json")
 
 
 def git(root: Path, *args: str) -> str:
@@ -42,6 +42,7 @@ def renames(root: Path) -> dict[str, str]:
 
 
 def save(root: Path, entries: dict[str, int]) -> None:
+    (root / BASELINE).parent.mkdir(exist_ok=True)
     (root / BASELINE).write_text(json.dumps(dict(sorted(entries.items())), indent=2) + "\n")
     git(root, "add", "--", str(BASELINE))
 

@@ -1,5 +1,5 @@
 # Managed by Copier while the project follows the template; change answers with copier update -a .repo.yaml --defaults --data.
-_commit: v0.3.0
+_commit: v0.7.1
 _src_path: gh:AnatoliiKo/docustand
 architecture: {}
 contract: null
@@ -11,14 +11,15 @@ md_exceptions:
 - agents/*.md
 - profiles/*.md
 - template/**/*.md*
+- docs/pilot-log.md
 overrides:
--   file: .rumdl.toml
+-   file: .config/rumdl.toml
     reason: template/CLAUDE.md, template/docs/tasks.md and template/.github/pull_request_template.md
         have no top-level heading by design. rumdl uses the nested template/.rumdl.toml
-        for template/**, so per-file-ignores of the root config do not reach them;
-        the three files are excluded instead. Their rendered copies are linted by
-        the integration test test_clean_project_passes.
--   file: renovate.json
+        for template/**, so per-file-ignores of `.config/rumdl.toml` do not reach
+        them; the three files are excluded instead. Their rendered copies are linted
+        by the integration test test_clean_project_passes.
+-   file: .github/renovate.json
     reason: 'Renovate must also bump the pinned versions in the template sources:
         the template/**/*.jinja files (GitHub Actions, mise tools, the hk package
         URLs in template/hk.pkl.jinja). The root file is the template''s renovate.json
@@ -29,6 +30,16 @@ project_name: docustand
 report_schedule: weekly
 required_ci_branches:
 - main
+root_files:
+- .claude-plugin
+- agents
+- copier.yml
+- profiles
+- pytest.ini
+- scripts
+- skills
+- template
+- tests
 stack: []
 system: null
 team: solo

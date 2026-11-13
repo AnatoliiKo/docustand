@@ -9,21 +9,17 @@
   "permissions": {
     "ask": [
       "Edit(/.repo.yaml)",
-      "Edit(/renovate.json)",
+      "Edit(/.github/renovate.json)",
       "Edit(/mise.toml)",
       "Edit(/.mise/conf.d/**)",
-      "Edit(/hk.pkl)",
       "Edit(/.github/workflows/**)",
       "Edit(/.claude/settings.json)",
       "Edit(/.claude/hooks/**)",
       "Edit(/.mise/tasks/**)",
       "Edit(/.mise/data/**)",
       "Edit(/.github/repo.schema.json)",
-      "Edit(/commitlint.config.mjs)",
-      "Edit(/typos.toml)",
-      "Edit(/.rumdl.toml)",
-      "Edit(/lychee.toml)",
-      "Edit(/.size-baseline.json)"
+      "Edit(/.baselines/**)",
+      "Edit(/.config/**)"
     ],
     "deny": [
       "mcp__github__merge_pull_request",

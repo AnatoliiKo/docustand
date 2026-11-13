@@ -8,11 +8,13 @@ Rules for agents and contributors. `CLAUDE.md` imports this file.
 |---|---|
 | `README.md` | Setup, commands, links to the other documents |
 | `docs/architecture.md` | System map, data flows, glossary, architecture methodology |
-| `docs/decisions/` | ADRs, one decision per file, one page at most |
+| `docs/decisions/` | ADRs, one decision per file, 80 lines at most |
 | `docs/tasks.md` | `In progress` and `Backlog` in the format below |
 | `docs/access.md` | Required accesses, owners, secret locations, expiry dates |
 | `docs/temp/` | Temporary files of skills and agents; not in git |
 | `.repo.yaml` | Project properties and Copier answers |
+| `.config/` | Configs of the standard tools and project configs that need no root place |
+| `.baselines/` | Known old violations: size, secrets scan, ESLint suppressions, ADRs, comments; entries only shrink |
 | `docs/pilot-log.md` | Pilot log: caught defects, false positives, maintenance time |
 | `copier.yml`, `template/` | Copier template rendered into other repositories |
 | `scripts/` | Python tools: `merge_existing.py` migrates existing repositories |
@@ -21,14 +23,15 @@ Rules for agents and contributors. `CLAUDE.md` imports this file.
 | `skills/`, `agents/` | Plugin skills (`SKILL.md` and `references/`) and agents |
 | `tests/` | Pytest suite; `tests/integration/` renders the template and runs the gates |
 
-Any other `.md` file fails the check unless its path is in `md_exceptions` in `.repo.yaml`.
+Any other `.md` file, in `docs/` too, fails the check unless its path is in `md_exceptions` in `.repo.yaml`. A generated document names its generator in its first lines, and a test or a check keeps it current.
+A root file or folder outside `.mise/data/root-files.txt` fails `check-root` unless it is in `root_files` in `.repo.yaml`.
 
 ## Stack
 
 Python 3.13 with `uv`, Copier, hk, pkl. No stack profile is set.
 Plugin development: `claude --plugin-dir ~/Dev/docustand`, see `README.md` section `Development`; `/plugin` rewrites `.claude/settings.json`.
 Tests: `mise run test`; integration tests: `mise run test -- -m integration`.
-Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Commands: `mise tasks`. Hooks: `hk.pkl`. Environment variables: `.env.example`.
+Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Commands: `mise tasks`. Hooks: `.config/hk.pkl`. Environment variables: `.env.example`.
 
 ## Architecture
 
@@ -42,7 +45,7 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 - Start a change with a task in `docs/tasks.md`.
 - Write tests with the code.
 - Run `mise run check` before a commit.
-- Never weaken a check. Do not add entries to baselines or suppressions, add exceptions, lower thresholds or edit check configs, `hk.pkl`, `mise.toml`, `.github/workflows/` or `.claude/` to make a check pass. Fix the cause.
+- Never weaken a check. Do not add entries to baselines or suppressions, add exceptions, lower thresholds or edit check configs, `.config/hk.pkl`, `mise.toml`, `.github/workflows/` or `.claude/` to make a check pass. Fix the cause.
 - A deviation from a file of the standard needs an entry with a reason in `overrides` in `.repo.yaml`, approved by the owner.
 - Never use `--no-verify`, `git commit -n`, or variables that disable hk steps.
 - Change answers in `.repo.yaml` only with `copier update -a .repo.yaml --defaults --data <key>=<value>`.
@@ -59,7 +62,7 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 - Commit messages follow Conventional Commits: `type(scope): what changed`, 72 characters at most. Put the reason in the body when it is not obvious.
 - Commit messages and PR descriptions contain no Co-Authored-By, Claude-Session or "Generated with" lines.
 - PR description: What (1-3 items), Why (1-2 sentences), How verified (commands and results). 20 lines at most. Link a task or ADR instead of retelling it.
-- ADR: Context, Decision, Rejected, Consequences. One page at most. A new decision is a new file that links the old one.
+- ADR: a `Status:` line, then Context, Decision, Rejected, Consequences; 80 lines at most; no implementation details, they belong in the code or `docs/architecture.md`. An accepted ADR changes only its `Status:` line. A new decision is a new file with a `Supersedes:` line, and the old one gets `Status: superseded by ADR NNNN`. `check-adr` and `check-adr-history` enforce it.
 - Task format in `docs/tasks.md`:
 
 ```markdown
@@ -90,9 +93,10 @@ If docustand is installed: /docustand:pr-ready.
 
 ## Comments
 
-- Write why, not what, in 1-2 lines.
-- Allowed: type annotations for static analysis and documentation of the public API.
-- Not allowed: retelling code, commented-out code, names, dates, "added by".
+- Write only a reason, a constraint or non-obvious behaviour, in 1-2 lines. Retelling code is not allowed.
+- JSDoc and docstrings document the exported public API only; an internal declaration takes a line comment. `check-comments` fails on JSDoc above an internal declaration.
+- An ADR reference is one line: `// ADR 0023`. Retelling an ADR in code is not allowed.
+- Not allowed: commented-out code, names, dates, "addendum", decision attribution, change history, "added by". `check-comments` fails on dates, addenda, decision attribution and history phrases.
 - Use `TODO(#issue)` or `TODO(docs/tasks.md)`.
 - Disable a linter rule only with a reason.
 

@@ -1,5 +1,7 @@
 # 0000. Adopt the repository standard
 
+Status: accepted
+
 ## Context
 
 The repository needs documents and checks that work for a person and for an agent without extra context. The standard comes from a Copier template and is pinned in `.repo.yaml`.

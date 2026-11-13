@@ -278,7 +278,7 @@ COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerg
 @pytest.mark.parametrize("source", ["rendered", "root"])
 def test_renovate_copier_updates_wait_for_review(renovate, source):
     # Git tags carry no release date, so the age check would hold copier updates forever.
-    config = renovate if source == "rendered" else json.loads((REPO_ROOT / "renovate.json").read_text())
+    config = renovate if source == "rendered" else json.loads((REPO_ROOT / ".github/renovate.json").read_text())
     rules = config["packageRules"]
     assert COPIER_RULE in rules
     assert rules.index(COPIER_RULE) > rules.index(WEEKLY_RULE)
@@ -295,7 +295,7 @@ SHORTHAND_RULES = [
 @pytest.mark.parametrize("source", ["rendered", "root"])
 def test_renovate_expands_copier_shorthand(renovate, source):
     # Renovate passes `gh:owner/repo` to git-tags unchanged, and the tag lookup returns no result.
-    config = renovate if source == "rendered" else json.loads((REPO_ROOT / "renovate.json").read_text())
+    config = renovate if source == "rendered" else json.loads((REPO_ROOT / ".github/renovate.json").read_text())
 
     for rule in SHORTHAND_RULES:
         assert rule in config["packageRules"]
@@ -312,7 +312,7 @@ def test_renovate_ignores_standard_files(renovate):
 
 
 def test_docustand_renovate_matches_template_files():
-    root = json.loads((REPO_ROOT / "renovate.json").read_text())
+    root = json.loads((REPO_ROOT / ".github/renovate.json").read_text())
     workflow = "template/.github/workflows/standard-ci.yml.jinja"
     mise = "template/.mise/conf.d/standard.toml.jinja"
 
@@ -326,7 +326,7 @@ def test_docustand_renovate_matches_template_files():
 
 
 def test_docustand_renovate_is_template_plus_documented_extras():
-    root_text = (REPO_ROOT / "renovate.json").read_text()
+    root_text = (REPO_ROOT / ".github/renovate.json").read_text()
     template_text = (REPO_ROOT / "template/.github/renovate.json").read_text()
     root = json.loads(root_text)
     template = json.loads(template_text)
@@ -349,11 +349,11 @@ def test_docustand_renovate_is_template_plus_documented_extras():
 
     # The deviation is recorded.
     answers = yaml.safe_load((REPO_ROOT / ".repo.yaml").read_text())
-    assert "renovate.json" in [o["file"] for o in answers["overrides"]]
+    assert ".github/renovate.json" in [o["file"] for o in answers["overrides"]]
 
 
 def test_docustand_renovate_bumps_hk_in_template_pkl():
-    root = json.loads((REPO_ROOT / "renovate.json").read_text())
+    root = json.loads((REPO_ROOT / ".github/renovate.json").read_text())
     manager = root["customManagers"][0]
     pkl = (REPO_ROOT / "template/.config/hk.pkl.jinja").read_text()
     pattern = manager["managerFilePatterns"][0]

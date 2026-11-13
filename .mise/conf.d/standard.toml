@@ -18,7 +18,7 @@ node = "26.13.0"
 "pipx:check-jsonschema" = "0.39.0"
 
 [hooks]
-# `mise install` also installs the git hooks of `hk.pkl`.
+# `mise install` also installs the git hooks of `.config/hk.pkl`.
 postinstall = "hk install --mise"
 
 [tasks.check]
