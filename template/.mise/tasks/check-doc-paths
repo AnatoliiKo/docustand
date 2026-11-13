@@ -1,0 +1,75 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when a Markdown document names a repository path that does not exist"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-doc-paths [FILE ...]
+
+A path is an inline code span that starts with a tracked root folder, such as
+`apps/server/src/main.ts` or `docs/decisions/`; a `:line` or `#anchor` suffix is
+ignored. A path that git ignores (a local secret, an import folder) or that ends a
+tracked path (`config/timing.ts` inside a module section) counts as existing.
+Spans with spaces, globs, placeholders (`<name>`, `…`) or URLs are not paths.
+Fenced code blocks are skipped: commands may name files they create.
+ADRs and `CHANGELOG.md` record the state of their date and are not checked.
+Without files every tracked Markdown file is checked.
+"""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+SKIPPED = re.compile(r"^(?:docs/decisions/|docs/temp/|CHANGELOG\.md$)")
+SPAN = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
+FENCE = re.compile(r"^\s*(```|~~~)")
+NOT_A_PATH = re.compile(r"\s|[*?\[\]{}<>$|\\…]|\.\.\.|://|^[@~-]")
+SUFFIX = re.compile(r"(?::\d+(?:-\d+)?|#[\w-]*)$")
+
+
+def git(*args: str) -> str:
+    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
+
+
+def ignored(path: str) -> bool:
+    """A folder pattern (`import/`) matches only the folder form of the path."""
+    return any(subprocess.run(["git", "check-ignore", "-q", "--no-index", form]).returncode == 0
+               for form in (path, path + "/"))
+
+
+def spans(text: str):
+    """(line, span) of each inline code span outside fenced code blocks."""
+    fence = ""
+    for number, line in enumerate(text.splitlines(), 1):
+        opening = FENCE.match(line)
+        if opening and (not fence or opening.group(1) == fence):
+            fence = "" if fence else opening.group(1)
+            continue
+        if not fence:
+            yield from ((number, match.group(1)) for match in SPAN.finditer(line))
+
+
+def main(argv: list[str]) -> int:
+    tracked = [p for p in git("ls-files", "-z").split("\0") if p]
+    files = set(tracked)
+    folders = {str(parent) for path in tracked for parent in Path(path).parents if str(parent) != "."}
+    roots = {path.split("/", 1)[0] for path in tracked if "/" in path}
+    documents = argv or [p for p in tracked if p.endswith(".md")]
+    missing = 0
+    for document in documents:
+        if SKIPPED.match(document) or not Path(document).is_file():
+            continue
+        for number, span in spans(Path(document).read_text()):
+            path = SUFFIX.sub("", span).removeprefix("./").rstrip("/")
+            if NOT_A_PATH.search(path) or "/" not in path or path.split("/", 1)[0] not in roots:
+                continue
+            if path in files or path in folders or Path(path).exists():
+                continue
+            if any(known.endswith("/" + path) for known in (*files, *folders)) or ignored(path):
+                continue
+            print(f"{document}:{number}: `{span}` does not exist")
+            missing += 1
+    return 1 if missing else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

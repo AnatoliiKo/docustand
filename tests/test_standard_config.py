@@ -11,6 +11,11 @@ HK_PKL = REPO_ROOT / "template/.config/hk.pkl.jinja"
 EXACT = re.compile(r'^"?[\w:@/.-]+"? = "\d+(\.\d+)+"$')
 
 
+
+def jsonc(path):
+    """JSON with whole-line `//` comments, as knip reads it."""
+    return json.loads("\n".join(l for l in path.read_text().splitlines() if not l.lstrip().startswith("//")))
+
 def tool_lines() -> list[str]:
     text = STANDARD.read_text()
     section = text.split("[tools]", 1)[1].split("\n[", 1)[0]
@@ -87,9 +92,9 @@ def test_steiger_step_per_fsd_part(render, tmp_path):
     hk = (fsd / ".config/hk.pkl").read_text()
     assert '["steiger-1"]' in hk and 'List(bin("steiger"), "apps/web/src")' in hk
     assert "apps/server" not in hk
-    assert "steiger" in json.loads((fsd / ".config/knip.json").read_text())["ignoreDependencies"]
+    assert "steiger" in jsonc(fsd / ".config/knip.json")["ignoreDependencies"]
     assert "steiger" not in (plain / ".config/hk.pkl").read_text()
-    assert "steiger" not in json.loads((plain / ".config/knip.json").read_text())["ignoreDependencies"]
+    assert "steiger" not in jsonc(plain / ".config/knip.json")["ignoreDependencies"]
 
 
 def test_steiger_part_with_project_script(render, tmp_path):
@@ -101,7 +106,7 @@ def test_steiger_part_with_project_script(render, tmp_path):
     assert 'glob = List("apps/web/src/**")' in web
     assert 'List("npm", "run", "--silent", "lint:fsd")' in web and 'bin("steiger")' not in web
     assert 'List(bin("steiger"), "lib")' in hk.split('["steiger-2"]', 1)[1]
-    assert "steiger" in json.loads((dest / ".config/knip.json").read_text())["ignoreDependencies"]
+    assert "steiger" in jsonc(dest / ".config/knip.json")["ignoreDependencies"]
     assert "- `apps/web/src`: `fsd`, checked by the script `lint:fsd`." in (dest / "AGENTS.md").read_text()
 
 

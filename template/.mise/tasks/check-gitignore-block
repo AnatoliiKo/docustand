@@ -44,7 +44,7 @@ TRACKED = [
     ".github/workflows/standard-ci.yml", ".gitignore", ".mise/conf.d/standard.toml",
     ".mise/data/root-files.txt", ".mise/data/size-limits.json", ".mise/data/task-verbs.txt",
     ".mise/tasks/check-adr", ".mise/tasks/check-adr-history", ".mise/tasks/check-agents-md", ".mise/tasks/check-baseline", ".mise/tasks/check-comments",
-    ".mise/tasks/check-env-example", ".mise/tasks/check-gitignore-block",
+    ".mise/tasks/check-doc-paths", ".mise/tasks/check-env-example", ".mise/tasks/check-gitignore-block",
     ".mise/tasks/check-md-placement", ".mise/tasks/check-pr-body", ".mise/tasks/check-pr-commits",
     ".mise/tasks/check-repo-yaml", ".mise/tasks/check-root", ".mise/tasks/check-size", ".mise/tasks/check-tasks-format",
     ".mise/tasks/ci-merged-pr", ".mise/tasks/detect-stack", ".mise/tasks/pr-ready",

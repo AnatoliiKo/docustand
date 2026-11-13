@@ -3,6 +3,18 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.7.0 — 2026-11-13
+
+### Added
+
+- `check-doc-paths` fails when a Markdown document names a repository path in backticks that does not exist; ADRs and `CHANGELOG.md` are not checked, see ADR 0025.
+
+### Changed
+
+- `check-comments` reports comments not in English and reads `.cjs`, `.mts`, `.cts`, `.jsx`, `.pkl`, `.ps1`, `.yml`, `.yaml`, `.toml`, Dockerfiles and ignore files; the findings use the comments baseline.
+- The template `.config/knip.json` states the reason of each entry in a comment; knip reads the file as JSONC.
+- A deployed project keeps the scheduled workflow note in `docs/operations.md` only; `README.md` renders `## Maintenance` without `docs/operations.md`.
+
 ## 0.6.0 — 2026-11-12
 
 ### Changed

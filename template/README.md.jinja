@@ -26,6 +26,7 @@ One sentence on what the project does.
 {%- if deployed %}
 | `docs/operations.md` | Deploy, rollback, backup restore, alerts |
 {%- endif %}
+{%- if not deployed %}
 
 ## Maintenance
 
@@ -33,4 +34,5 @@ One sentence on what the project does.
 GitHub disables scheduled workflows after 60 days without activity in public repositories. Re-enable the report workflow with `gh workflow enable standard-report.yml`.
 {%- else -%}
 Scheduled reports are off. Enable them by changing the `report_schedule` answer in `.repo.yaml` as `AGENTS.md` describes.
+{%- endif %}
 {%- endif %}

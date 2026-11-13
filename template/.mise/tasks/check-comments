@@ -1,11 +1,11 @@
 #!/usr/bin/env -S uv run --script
-#MISE description="Fail on comment mechanics and history: bare TODO, attribution, dates, addenda, reasonless disables"
+#MISE description="Fail on comment mechanics and history: bare TODO, attribution, dates, addenda, non-English text, reasonless disables"
 # /// script
 # requires-python = ">=3.13"
 # ///
 """Usage: check-comments [--write-baseline] [PATH ...]
 
-History rules (dates, addenda, owner decisions, change history) hold for new code; the
+History rules (dates, addenda, owner decisions, change history, non-English text) hold for new code; the
 per-file counts of old code, with JSDoc on internal declarations, are in `.baselines/comments.json`
 ({"src/a.ts": {"count": 3, "until": "2027-01-31"}}): a count may only shrink, and an expired
 entry fails. `--write-baseline` records every file with history comments, `until` 90 days ahead.
@@ -27,11 +27,19 @@ from datetime import date, timedelta
 from pathlib import Path
 
 C_LIKE = ("//", "/*")
+HASH = ("#",)
 STYLES = {
-    ".ts": C_LIKE, ".tsx": C_LIKE, ".js": C_LIKE, ".mjs": C_LIKE,
+    ".ts": C_LIKE, ".tsx": C_LIKE, ".mts": C_LIKE, ".cts": C_LIKE,
+    ".js": C_LIKE, ".jsx": C_LIKE, ".mjs": C_LIKE, ".cjs": C_LIKE, ".pkl": C_LIKE,
     ".php": ("//", "/*", "#"), ".tf": ("//", "/*", "#"),
-    ".py": ("#",), ".sh": ("#",),
+    ".py": HASH, ".sh": HASH, ".ps1": HASH, ".yml": HASH, ".yaml": HASH, ".toml": HASH,
 }
+# Files known by name: configs whose comments are engineering text too.
+NAMED = re.compile(r"(?:^|/)(?:Dockerfile[^/]*|[^/]+\.dockerfile|\.gitignore|\.dockerignore|\.prettierignore)$")
+
+
+def style_of(path: str) -> tuple[str, ...] | None:
+    return STYLES.get(Path(path).suffix) or (HASH if NAMED.search(path) else None)
 RULES = [
     (re.compile(r"\bTODO\b(?!\((?:#\d+|docs/tasks\.md)\))"), "TODO needs (#<n>) or (docs/tasks.md)"),
     (re.compile(r"\badded by\b", re.I), "'added by' attribution in a comment"),
@@ -54,6 +62,28 @@ HISTORY = [
      "decision attribution in a comment"),
     (re.compile(r"\b(?:previously|formerly|used to be)\b", re.I), "change history in a comment"),
 ]
+# Engineering text is English. A UI string in «…» may wrap to the next comment line, so a
+# comment block is read as one text; three Cyrillic words in a row outside quotes are prose.
+BLOCK_QUOTED = re.compile(r"«[^»]*»|`[^`\n]*`|\"[^\"\n]*\"")
+CYRILLIC_PROSE = re.compile(r"[А-Яа-яЁё]+(?:[\s,.;:()-]+[А-Яа-яЁё]+){2,}")
+LANGUAGE_MESSAGE = "comment not in English; quote a UI string in «»"
+
+
+def non_english(comments: list[tuple[int, str]]) -> list[int]:
+    """First line of each block of consecutive comment lines that holds Cyrillic prose."""
+    blocks: list[list[tuple[int, str]]] = []
+    for number, text in comments:
+        if blocks and blocks[-1][-1][0] + 1 == number:
+            blocks[-1].append((number, text))
+        else:
+            blocks.append([(number, text)])
+    found = []
+    for block in blocks:
+        text = "\n".join(part for _, part in block)
+        match = CYRILLIC_PROSE.search(BLOCK_QUOTED.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text))
+        if match:
+            found.append(block[0][0] + text.count("\n", 0, match.start()))
+    return found
 # JSDoc documents the exported API; an internal declaration takes a line comment.
 # A block with a tag (`@type`, `@param`) stays: in JavaScript it carries types.
 JSDOC_SUFFIXES = {".ts", ".tsx", ".js", ".mjs"}
@@ -184,7 +214,7 @@ def main(argv: list[str]) -> int:
     recorded: dict[str, int] = {}
     violations = 0
     for path in files:
-        starts = STYLES.get(Path(path).suffix)
+        starts = style_of(path)
         full = root / path
         if starts is None or not full.is_file():
             continue
@@ -204,6 +234,7 @@ def main(argv: list[str]) -> int:
             prose = QUOTED.sub("", text)
             history += [(number, message) for pattern, message in HISTORY
                         if pattern.search(prose) and not (message == HISTORY[0][1] and TEST_FILE.search(path))]
+        history += [(number, LANGUAGE_MESSAGE) for number in non_english(comments)]
         if full.suffix in JSDOC_SUFFIXES:
             history += [(number, JSDOC_MESSAGE) for number in internal_jsdoc(source.splitlines())]
         if write:

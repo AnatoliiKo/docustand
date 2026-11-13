@@ -98,15 +98,15 @@ def test_standard_adr_is_0000(render, tmp_path):
     assert adrs == ["0000-adopt-repository-standard.md"]
 
 
-def test_scheduled_workflow_note(render, tmp_path):
-    dest = render(tmp_path, project_name="demo", deployed=True)
+def test_scheduled_workflow_note_lives_in_one_document(render, tmp_path):
+    deployed = render(tmp_path / "deployed", project_name="demo", deployed=True)
+    plain = render(tmp_path / "plain", project_name="demo")
 
-    readme = (dest / "README.md").read_text()
-    maintenance = readme.split("## Maintenance", 1)[1]
-    ops = (dest / "docs" / "operations.md").read_text()
-    for text in (maintenance, ops):
-        assert SCHEDULE_NOTE in text
-        assert ENABLE_CMD in text
+    ops = (deployed / "docs" / "operations.md").read_text()
+    assert SCHEDULE_NOTE in ops and ENABLE_CMD in ops
+    assert "## Maintenance" not in (deployed / "README.md").read_text()
+    maintenance = (plain / "README.md").read_text().split("## Maintenance", 1)[1]
+    assert SCHEDULE_NOTE in maintenance and ENABLE_CMD in maintenance
 
 
 def test_operations_survives_recopy(render, tmp_path):

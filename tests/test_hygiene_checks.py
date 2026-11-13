@@ -205,6 +205,41 @@ def test_history_comments_fail_and_quoted_dates_pass(tmp_path, git_repo):
     assert all(line.startswith("src/a.ts:") for line in out.splitlines())
 
 
+def test_non_english_comment_fails_and_quoted_ui_strings_pass(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, "src/a.ts", "\n".join([
+        "// The «Найти название в",
+        "// письмах» (find in letters) icon searches the package name.",
+        "// Files go to KDM\\<фильм>\\ and keep the ООО name.",
+        "const a = 1;",
+        "",
+        "// Повторяем запрос один раз, потому что API теряет первый.",
+        "const b = 2;",
+    ]) + "\n")
+    git(repo, "add", "-A")
+
+    code, out = run(repo, "check-comments")
+
+    assert code == 1
+    assert out.splitlines() == ["src/a.ts:6: comment not in English; quote a UI string in «»"]
+
+
+def test_comments_of_configs_known_by_name_are_checked(tmp_path, git_repo):
+    repo = git_repo(tmp_path / "r")
+    write(repo, "deploy/Dockerfile", "# Сборка сервера для продакшена\nFROM node:26\n")
+    write(repo, ".gitignore", "# Windows agent build\ndist/\n")
+    write(repo, "tools/setup.ps1", "# Previously the VM was reset.\nexit 0\n")
+    write(repo, ".config/dependency-cruiser.cjs", "// The owner's decision: no cycles.\nmodule.exports = {};\n")
+    git(repo, "add", "-A")
+
+    code, out = run(repo, "check-comments")
+
+    assert code == 1
+    assert sorted(line.split(": ")[0] for line in out.splitlines()) == [
+        ".config/dependency-cruiser.cjs:1", "deploy/Dockerfile:1", "tools/setup.ps1:1",
+    ]
+
+
 def test_history_baseline_only_shrinks_and_expires(tmp_path, git_repo):
     repo = git_repo(tmp_path / "r")
     write(repo, "src/a.ts", "// ADR 0023, addendum.\n// ADR 0024, addendum.\n")

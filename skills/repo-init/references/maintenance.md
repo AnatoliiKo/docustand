@@ -61,6 +61,15 @@ Before the update:
 1. Every other `docs/*.md` is removed or listed: `copier update -a .repo.yaml --defaults --data 'md_exceptions=[docs/<name>.md]'` (the list keeps its existing entries).
 2. After the update, `mise run check-comments` lists JSDoc on internal declarations; convert them to line comments, or record them with `mise run check-comments -- --write-baseline` when the project decides so.
 
+## Update across 0.7.0
+
+0.7.0 checks the language of comments and the paths named in documents.
+After the update:
+
+1. `mise run check-comments` lists comments not in English and comments of newly read file types; translate them, or record them with `mise run check-comments -- --write-baseline` when the project decides so.
+2. `mise run check-doc-paths` lists document paths that do not exist; fix the documents. The check has no baseline: a stale path misleads the next reader.
+3. A deployed project keeps `## Maintenance` of `README.md` only when it differs from `docs/operations.md`; the template writes the note to `docs/operations.md` only.
+
 ## Changing an answer
 
 Level, stack, report schedule, branches, `md_exceptions`, `overrides` and every other answer change only through Copier, never by editing `.repo.yaml`:

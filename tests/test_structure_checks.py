@@ -10,7 +10,7 @@ from conftest import REPO_ROOT
 TASKS_DIR = ".mise/tasks"
 SCRIPTS = [
     "check-md-placement", "check-agents-md", "check-tasks-format",
-    "check-repo-yaml", "check-env-example", "check-gitignore-block",
+    "check-repo-yaml", "check-env-example", "check-gitignore-block", "check-doc-paths",
 ]
 VERBS = (
     "Add Fix Remove Move Update Create Replace Rename Migrate Document Enable "
@@ -66,7 +66,7 @@ def test_rendered_project_is_clean(project):
     dest = project()
 
     for name in ["check-md-placement", "check-agents-md", "check-tasks-format",
-                 "check-repo-yaml", "check-gitignore-block"]:
+                 "check-repo-yaml", "check-gitignore-block", "check-doc-paths"]:
         code, out = run(dest, name)
         assert code == 0, (name, out)
 
@@ -432,7 +432,7 @@ def test_path_outside_repo_is_skipped(project, tmp_path):
     outside.write_text("x\n")
 
     for script in ["check-md-placement", "check-agents-md", "check-tasks-format",
-                   "check-repo-yaml", "check-gitignore-block", "check-env-example"]:
+                   "check-repo-yaml", "check-gitignore-block", "check-env-example", "check-doc-paths"]:
         code, out = run(dest, script, "--stack", "nextjs", str(outside)) \
             if script == "check-env-example" else run(dest, script, str(outside))
         assert code == 0, (script, out)
@@ -550,3 +550,29 @@ def test_tasks_backlog_repos_without_system_fails(project):
 
     assert code == 1
     assert "docs/tasks.md:4:" in out
+
+
+# check-doc-paths
+
+def test_doc_path_to_a_missing_file_fails(project):
+    dest = project()
+    write(dest, "src/app/main.ts", "export {};\n")
+    write(dest, ".gitignore", (dest / ".gitignore").read_text() + "config/secret-token\nimport/\n")
+    write(dest, "docs/architecture.md", "\n".join([
+        "# Architecture",
+        "",
+        "- Entry: `src/app/main.ts:1`, folder `src/app/`, module `app/main.ts`.",
+        "- Secrets: `config/secret-token`; drops: `src/import/`, `src/<name>.ts`, `src/app/*.ts`.",
+        "- Removed: `src/app/old.ts`.",
+        "",
+        "```bash",
+        "touch src/app/new.ts",
+        "```",
+    ]) + "\n")
+    write(dest, "docs/decisions/0001-x.md", "Uses `src/app/gone.ts`.\n")
+    subprocess.run(["git", "add", "-A"], cwd=dest, check=True)
+
+    code, out = run(dest, "check-doc-paths")
+
+    assert code == 1
+    assert out.splitlines() == ["docs/architecture.md:5: `src/app/old.ts` does not exist"]

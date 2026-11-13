@@ -55,6 +55,11 @@ local commitSteps = new Mapping<String, Step> {
   }
   ["rumdl"] = Builtins.rumdl
   ["check-md-placement"] = script("check-md-placement", List("**/*.md", "**/*.MD"))
+  // A moved or deleted code file breaks a path in any document, so every document is checked.
+  ["check-doc-paths"] {
+    glob = List("**/*")
+    check = ".mise/tasks/check-doc-paths"
+  }
   ["check-agents-md"] = script("check-agents-md", "AGENTS.md")
   ["check-tasks-format"] = script("check-tasks-format", "docs/tasks.md")
   // The schema is an input too, so any change validates the whole `.repo.yaml`.
@@ -68,7 +73,10 @@ local commitSteps = new Mapping<String, Step> {
   ["check-size"] = script("check-size", "**/*")
   ["check-comments"] = script(
     "check-comments",
-    List("**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.php", "**/*.tf", "**/*.py", "**/*.sh")
+    List(
+      "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,pkl,php,tf,py,sh,ps1,yml,yaml,toml}",
+      "**/Dockerfile*", "**/*.dockerfile", "**/.gitignore", "**/.dockerignore", "**/.prettierignore"
+    )
   )
   // Any added or removed path can be a new root entry; the allowed list is in `.mise/data/root-files.txt`.
   ["check-root"] {

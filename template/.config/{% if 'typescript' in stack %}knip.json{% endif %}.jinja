@@ -5,8 +5,22 @@
 {%- set _ = fsd.append(part) -%}
 {%- endif -%}
 {%- endfor -%}
+// knip reads this file as JSONC: each entry states why knip cannot see the use.
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": [".config/dependency-cruiser.cjs", ".config/dependency-cruiser.standard.cjs", ".config/commitlint.config.mjs"{% if fsd %}, "steiger.config.*"{% endif %}],
-  "ignoreDependencies": ["prettier", "dependency-cruiser"{% if fsd %}, "steiger", "@feature-sliced/steiger-plugin"{% endif %}]
+  "ignore": [
+    // Loaded by the dependency-cruiser and commitlint binaries that hk runs with `--config`.
+    ".config/dependency-cruiser.cjs",
+    ".config/dependency-cruiser.standard.cjs",
+    ".config/commitlint.config.mjs"{% if fsd %},
+    // Loaded by the steiger binary; knip has no steiger plugin.
+    "steiger.config.*"{% endif %}
+  ],
+  "ignoreDependencies": [
+    // hk calls these binaries directly; a project without a package.json script for them has no import.
+    "prettier",
+    "dependency-cruiser"{% if fsd %},
+    "steiger",
+    "@feature-sliced/steiger-plugin"{% endif %}
+  ]
 }
