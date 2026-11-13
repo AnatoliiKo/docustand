@@ -37,8 +37,8 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 
 **Report schedule.**
 
-1. Weekly (recommended): bypasses, red merges and protected-file changes surface within a week. Costs: one scheduled workflow run a week.
-2. Monthly: fewer Actions minutes. Costs: findings arrive up to a month late.
+1. Weekly (recommended for a team): bypasses, red merges, protected-file changes and stale pull requests surface within a week. Costs: one scheduled workflow run a week.
+2. Monthly (enough for a solo repository that changes rarely): fewer Actions minutes. Costs: findings arrive up to a month late.
 3. Twice a week: the fastest feedback. Costs: twice the minutes of weekly.
 4. Off: no report workflow. Costs: on Free without branch protection, nothing counts bypasses any more.
 

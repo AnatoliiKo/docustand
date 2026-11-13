@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.8.0 — 2026-11-13
+
+### Added
+
+- The scheduled report lists pull requests without an update for 14 days and tasks in progress whose lines have not changed for 30 days, see ADR 0027.
+- The scheduled report lists the entry count of each non-empty `.baselines/` file for information and reports baseline entries that expire within 30 days.
+
 ## 0.7.1 — 2026-11-13
 
 ### Changed

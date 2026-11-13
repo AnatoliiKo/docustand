@@ -682,3 +682,56 @@ def test_alerts_not_listed_when_disabled_or_without_app(report, tmp_path):
         sections = collect(report, fake, tmp_path, access="", app=app)
         assert "Open vulnerabilities" not in sections
         assert not any("dependabot/alerts" in c for c in fake.calls)
+
+
+# Hygiene sections
+
+def test_baseline_status_counts_entries_and_lists_soon_expiring_ones(report, tmp_path):
+    folder = tmp_path / ".baselines"
+    folder.mkdir()
+    (folder / "comments.json").write_text(json.dumps({
+        "src/a.ts": {"count": 2, "until": "2026-11-20"}, "src/b.ts": {"count": 1, "until": "2027-06-01"}}))
+    (folder / "size.json").write_text("{}\n")
+    (folder / "betterleaks.ignore").write_text("# known\napp.test.ts:generic-password:3\n\n")
+
+    counts, expiring = report.baseline_status(tmp_path, NOW.date())
+
+    assert counts == ["`.baselines/betterleaks.ignore`: 1 entry", "`.baselines/comments.json`: 2 entries"]
+    assert expiring == ["`.baselines/comments.json`: `src/a.ts` until 2026-11-20"]
+
+
+def test_stale_prs_skip_recent_and_report_ones(report):
+    prs = [{"number": 1, "updatedAt": "2026-10-01T00:00:00Z", "headRefName": "wt/x"},
+           {"number": 2, "updatedAt": "2026-11-01T00:00:00Z", "headRefName": "wt/y"},
+           {"number": 3, "updatedAt": "2026-09-01T00:00:00Z", "headRefName": "report"}]
+
+    assert report.stale_prs(prs, NOW) == ["#1"]
+
+
+def test_stale_tasks_take_the_latest_line_of_each_task(report):
+    text = "\n".join([
+        "## In progress", "### Old task", "- Goal: x.", "### Fresh task", "- Goal: y.", "- Next: z.",
+        "## Backlog", "- Add a thing — reason.",
+    ])
+    old, fresh = date(2026, 9, 1), date(2026, 11, 1)
+    dates = [old, old, old, old, old, fresh, old, old]
+
+    assert report.stale_tasks(text, dates, NOW.date()) == ["`Old task`"]
+    assert report.stale_tasks(text, dates[:-1], NOW.date()) == []
+
+
+def test_collect_reports_hygiene_without_activity(report, tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "tasks.md").write_text("## In progress\n### Old task\n- Goal: x.\n")
+    monkeypatch.setattr(report, "blame_dates", lambda path: [date(2026, 9, 1)] * 3)
+    fake = Fake(open_prs=[{"number": 9, "updatedAt": "2026-10-01T00:00:00Z", "headRefName": "wt/x"}])
+
+    sections = collect(report, fake, tmp_path)
+
+    assert sections["Stale pull requests"] == ["#9"]
+    assert sections["Stale tasks"] == ["`Old task`"]
+    assert "Red merges" not in sections
+    assert report.backlog_lines(report.findings_only(sections))[1:] == [
+        "- Merge or close the pull requests #9 — they have had no update for 14 days.",
+        "- Update the tasks in progress `Old task` — their lines have not changed for 30 days.",
+    ]
