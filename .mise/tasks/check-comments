@@ -1,9 +1,14 @@
 #!/usr/bin/env -S uv run --script
-#MISE description="Fail on comment mechanics: bare TODO, added-by/@author, linter disables without a reason"
+#MISE description="Fail on comment mechanics and history: bare TODO, attribution, dates, addenda, non-English text, reasonless disables"
 # /// script
 # requires-python = ">=3.13"
 # ///
-"""Usage: check-comments [PATH ...]
+"""Usage: check-comments [--write-baseline] [PATH ...]
+
+History rules (dates, addenda, owner decisions, change history, non-English text) hold for new code; the
+per-file counts of old code, with JSDoc on internal declarations, are in `.baselines/comments.json`
+({"src/a.ts": {"count": 3, "until": "2027-01-31"}}): a count may only shrink, and an expired
+entry fails. `--write-baseline` records every file with history comments, `until` 90 days ahead.
 
 Comment text is matched against the rules. `.py` files use `tokenize`, so
 strings and docstrings are never comments; a file that fails to tokenize and
@@ -16,15 +21,25 @@ import re
 import io
 import subprocess
 import sys
+import json
 import tokenize
+from datetime import date, timedelta
 from pathlib import Path
 
 C_LIKE = ("//", "/*")
+HASH = ("#",)
 STYLES = {
-    ".ts": C_LIKE, ".tsx": C_LIKE, ".js": C_LIKE, ".mjs": C_LIKE,
+    ".ts": C_LIKE, ".tsx": C_LIKE, ".mts": C_LIKE, ".cts": C_LIKE,
+    ".js": C_LIKE, ".jsx": C_LIKE, ".mjs": C_LIKE, ".cjs": C_LIKE, ".pkl": C_LIKE,
     ".php": ("//", "/*", "#"), ".tf": ("//", "/*", "#"),
-    ".py": ("#",), ".sh": ("#",),
+    ".py": HASH, ".sh": HASH, ".ps1": HASH, ".yml": HASH, ".yaml": HASH, ".toml": HASH,
 }
+# Files known by name: configs whose comments are engineering text too.
+NAMED = re.compile(r"(?:^|/)(?:Dockerfile[^/]*|[^/]+\.dockerfile|\.gitignore|\.dockerignore|\.prettierignore)$")
+
+
+def style_of(path: str) -> tuple[str, ...] | None:
+    return STYLES.get(Path(path).suffix) or (HASH if NAMED.search(path) else None)
 RULES = [
     (re.compile(r"\bTODO\b(?!\((?:#\d+|docs/tasks\.md)\))"), "TODO needs (#<n>) or (docs/tasks.md)"),
     (re.compile(r"\badded by\b", re.I), "'added by' attribution in a comment"),
@@ -36,6 +51,83 @@ RULES = [
     (re.compile(r"\btflint-ignore(?:-file)?:(?!\s*[\w-]+(?:\s*,\s*[\w-]+)*\s+\S)"),
      "tflint-ignore without a reason after the rule"),
 ]
+
+
+# The reason stays in the code; the date, the decision and the history live in git and the ADRs.
+HISTORY = [
+    # A date inside a file name is part of the name.
+    (re.compile(r"(?<![\w./-])(?:19|20)\d{2}-\d{2}-\d{2}(?![\w-])"), "date in a comment"),
+    (re.compile(r"\baddend(?:um|a)\b|дополнени", re.I), "addendum in a comment; link the ADR in one line"),
+    (re.compile(r"\bowner'?s? decision\b|\bdecision of the owner\b|решени[еяю] владельца", re.I),
+     "decision attribution in a comment"),
+    (re.compile(r"\b(?:previously|formerly|used to be)\b", re.I), "change history in a comment"),
+]
+# Engineering text is English. A UI string in «…» may wrap to the next comment line, so a
+# comment block is read as one text; three Cyrillic words in a row outside quotes are prose.
+BLOCK_QUOTED = re.compile(r"«[^»]*»|`[^`\n]*`|\"[^\"\n]*\"")
+CYRILLIC_PROSE = re.compile(r"[А-Яа-яЁё]+(?:[\s,.;:()-]+[А-Яа-яЁё]+){2,}")
+LANGUAGE_MESSAGE = "comment not in English; quote a UI string in «»"
+
+
+def non_english(comments: list[tuple[int, str]]) -> list[int]:
+    """First line of each block of consecutive comment lines that holds Cyrillic prose."""
+    blocks: list[list[tuple[int, str]]] = []
+    for number, text in comments:
+        if blocks and blocks[-1][-1][0] + 1 == number:
+            blocks[-1].append((number, text))
+        else:
+            blocks.append([(number, text)])
+    found = []
+    for block in blocks:
+        text = "\n".join(part for _, part in block)
+        match = CYRILLIC_PROSE.search(BLOCK_QUOTED.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text))
+        if match:
+            found.append(block[0][0] + text.count("\n", 0, match.start()))
+    return found
+# JSDoc documents the exported API; an internal declaration takes a line comment.
+# A block with a tag (`@type`, `@param`) stays: in JavaScript it carries types.
+JSDOC_SUFFIXES = {".ts", ".tsx", ".js", ".mjs"}
+INTERNAL_DECLARATION = re.compile(
+    r"(?:declare\s+)?(?:async\s+)?(?:function\b|const\b|let\b|var\b|class\b|abstract\s+class\b|type\b|interface\b|enum\b)")
+PRIVATE_MEMBER = re.compile(r"\s+(?:static\s+)?(?:readonly\s+)?(?:async\s+)?(?:#|private\s)")
+JSDOC_MESSAGE = "JSDoc on an internal declaration; use a line comment"
+
+
+def internal_jsdoc(lines: list[str]) -> list[int]:
+    """Line numbers of JSDoc blocks without tags above a non-exported declaration or a private member."""
+    found, i = [], 0
+    while i < len(lines):
+        if not lines[i].lstrip().startswith("/**"):
+            i += 1
+            continue
+        end = i
+        while end < len(lines) - 1 and "*/" not in lines[end]:
+            end += 1
+        following = lines[end + 1] if end + 1 < len(lines) else ""
+        tagged = any("@" in line for line in lines[i:end + 1])
+        if not tagged and (INTERNAL_DECLARATION.match(following) or PRIVATE_MEMBER.match(following)):
+            found.append(i + 1)
+        i = end + 1
+    return found
+
+
+# A quoted value is an example of a format, not history: `2026-01-31`, «2026-01-31», "2026-01-31".
+# A date in a test describes test data.
+TEST_FILE = re.compile(r"(?:^|/)(?:tests?|fixtures|__tests__)/|\.(?:test|spec)\.[^/]+$")
+QUOTED = re.compile(r"`[^`]*`|«[^»]*»|\"[^\"]*\"|'[^']*'")
+BASELINE = Path(".baselines/comments.json")
+
+
+def load_baseline(root: Path) -> dict[str, dict]:
+    path = root / BASELINE
+    data = json.loads(path.read_text()) if path.is_file() else {}
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    for key, entry in data.items():
+        if not isinstance(entry, dict) or not isinstance(entry.get("count"), int):
+            raise ValueError(f"{key}: needs count and until")
+        date.fromisoformat(entry.get("until", ""))
+    return data
 
 
 def git(root: Path, *args: str) -> str:
@@ -111,9 +203,18 @@ def main(argv: list[str]) -> int:
     else:
         files = [p for p in git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0") if p]
 
+    write = argv[:1] == ["--write-baseline"]
+    if write:
+        files = [p for p in git(root, "ls-files", "-z").split("\0") if p]
+    try:
+        baseline = {} if write else load_baseline(root)
+    except ValueError as err:
+        print(f"{BASELINE}:1: invalid baseline: {err}")
+        return 1
+    recorded: dict[str, int] = {}
     violations = 0
     for path in files:
-        starts = STYLES.get(Path(path).suffix)
+        starts = style_of(path)
         full = root / path
         if starts is None or not full.is_file():
             continue
@@ -124,11 +225,36 @@ def main(argv: list[str]) -> int:
         comments = python_comments(source) if full.suffix == ".py" else None
         if comments is None:
             comments = line_comments(source.splitlines(), starts)
+        history = []
         for number, text in comments:
             for pattern, message in RULES:
                 if pattern.search(text):
                     print(f"{path}:{number}: {message}")
                     violations += 1
+            prose = QUOTED.sub("", text)
+            history += [(number, message) for pattern, message in HISTORY
+                        if pattern.search(prose) and not (message == HISTORY[0][1] and TEST_FILE.search(path))]
+        history += [(number, LANGUAGE_MESSAGE) for number in non_english(comments)]
+        if full.suffix in JSDOC_SUFFIXES:
+            history += [(number, JSDOC_MESSAGE) for number in internal_jsdoc(source.splitlines())]
+        if write:
+            if history:
+                recorded[path] = len(history)
+            continue
+        entry = baseline.get(path)
+        if entry and history and len(history) <= entry["count"] and date.fromisoformat(entry["until"]) >= date.today():
+            continue
+        if entry and history and date.fromisoformat(entry["until"]) < date.today():
+            print(f"{path}: the baseline entry expired on {entry['until']}")
+        for number, message in history:
+            print(f"{path}:{number}: {message}")
+            violations += 1
+    if write:
+        until = (date.today() + timedelta(days=90)).isoformat()
+        (root / BASELINE).parent.mkdir(exist_ok=True)
+        (root / BASELINE).write_text(json.dumps(
+            {k: {"count": v, "until": until} for k, v in sorted(recorded.items())}, indent=2) + "\n")
+        print(f"{BASELINE}: {len(recorded)} files recorded until {until}")
     return 1 if violations else 0
 
 

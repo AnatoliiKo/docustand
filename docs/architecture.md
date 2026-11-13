@@ -10,7 +10,7 @@
 | Plugin (`.claude-plugin/`, `skills/`, `agents/`) | Claude Code plugin and marketplace manifests; skills `repo-init`, `project-docs`, `quality-gates`; agent `inventory` |
 | `tests/` | Unit tests render the template and run the check scripts; `tests/integration/` runs `hk` in a rendered repository |
 | `docs/decisions/` | ADRs of the standard |
-| Root `mise.toml`, `renovate.json` | docustand's own tools and Renovate settings; excluded from `copier update` |
+| `mise.toml`, `.github/renovate.json` | docustand's own tools and Renovate settings; `.github/renovate.json` extends the template file, see `overrides` in `.repo.yaml` |
 
 ## Data flows
 
@@ -19,7 +19,7 @@
 1. `repo-init` inspects the repository and prepares answers.
 2. `copier copy` renders `template/` into the project and writes `.repo.yaml`.
 3. For an existing repository, `merge_existing.py conflicts` lists files that differ, then `merge` appends the missing `.gitignore` lines.
-4. `mise install` installs the tools and the git hooks of `hk.pkl`.
+4. `mise install` installs the tools and the git hooks of `.config/hk.pkl`.
 5. Renovate raises a pull request that changes `_commit` in `.repo.yaml`, and `copier update -a .repo.yaml` brings the template files up to date.
 6. Detachment removes `_src_path` and `_commit` from `.repo.yaml`, the plugin from `.claude/settings.json` and the docustand lines from `AGENTS.md`; the rendered files stay and work without docustand.
 

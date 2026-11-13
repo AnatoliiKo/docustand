@@ -1,0 +1,95 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail on an ADR without the standard sections, over 80 lines or with a broken supersede link"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-adr [--write-baseline] [FILE ...]
+
+Every `docs/decisions/NNNN-*.md` has a `Status:` line (proposed, accepted, deprecated or
+`superseded by ADR NNNN`), the sections Context, Decision, Rejected and Consequences in this
+order, and at most 80 lines. An ADR superseded by another is named in a `Supersedes:` line of
+that ADR. `.baselines/adr.json` exempts an old ADR from the format until its `until` date and
+caps its length: {"docs/decisions/0001-x.md": {"lines": 120, "until": "2027-01-31"}}.
+`--write-baseline` records every failing ADR with `until` 90 days ahead (migration).
+Arguments only narrow the report; every ADR is checked.
+"""
+import json
+import re
+import subprocess
+import sys
+from datetime import date, timedelta
+from pathlib import Path
+
+DIR = Path("docs/decisions")
+BASELINE = Path(".baselines/adr.json")
+MAX_LINES = 80
+SECTIONS = ["## Context", "## Decision", "## Rejected", "## Consequences"]
+STATUS = re.compile(r"^Status: (proposed|accepted|deprecated|superseded by .*\bADR (\d{4})\b)", re.M)
+SUPERSEDES = re.compile(r"^Supersedes: .*\bADR (\d{4})\b", re.M)
+NAME = re.compile(r"(\d{4})-[a-z0-9-]+\.md")
+
+
+def problems(text: str) -> list[str]:
+    found = []
+    if not STATUS.search(text):
+        found.append("needs `Status: proposed|accepted|deprecated|superseded by ADR NNNN`")
+    headings = [line.strip() for line in text.splitlines() if line.startswith("## ")]
+    if headings != SECTIONS:
+        found.append(f"sections must be {', '.join(s[3:] for s in SECTIONS)} in this order")
+    if (n := len(text.splitlines())) > MAX_LINES:
+        found.append(f"{n} lines, the limit is {MAX_LINES}")
+    return found
+
+
+def load_baseline(root: Path) -> dict[str, dict]:
+    path = root / BASELINE
+    data = json.loads(path.read_text()) if path.is_file() else {}
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    for key, entry in data.items():
+        if not isinstance(entry, dict) or not isinstance(entry.get("lines"), int):
+            raise ValueError(f"{key}: needs lines and until")
+        date.fromisoformat(entry.get("until", ""))
+    return data
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True, capture_output=True,
+                               text=True).stdout.strip())
+    adrs = {p.relative_to(root).as_posix(): p.read_text() for p in sorted((root / DIR).glob("*.md"))
+            if NAME.fullmatch(p.name)}
+    if argv[:1] == ["--write-baseline"]:
+        until = (date.today() + timedelta(days=90)).isoformat()
+        entries = {k: {"lines": len(t.splitlines()), "until": until} for k, t in adrs.items() if problems(t)}
+        (root / BASELINE).parent.mkdir(exist_ok=True)
+        (root / BASELINE).write_text(json.dumps(entries, indent=2) + "\n")
+        print(f"{BASELINE}: {len(entries)} ADRs recorded until {until}")
+        return 0
+    try:
+        baseline = load_baseline(root)
+    except ValueError as err:
+        print(f"{BASELINE}:1: invalid baseline: {err}")
+        return 1
+    numbers = {NAME.fullmatch(Path(k).name).group(1): t for k, t in adrs.items()}
+    errors = []
+    for key, text in adrs.items():
+        entry = baseline.get(key)
+        if entry is None:
+            errors += [f"{key}: {p}" for p in problems(text)]
+        elif date.fromisoformat(entry["until"]) < date.today():
+            errors.append(f"{key}: the baseline entry expired on {entry['until']}; bring the ADR to the format")
+        elif (n := len(text.splitlines())) > entry["lines"]:
+            errors.append(f"{key}: {n} lines, the baseline allows {entry['lines']}")
+        if (status := STATUS.search(text)) and status.group(2):
+            target = numbers.get(status.group(2))
+            this = NAME.fullmatch(Path(key).name).group(1)
+            if target is None or this not in SUPERSEDES.findall(target):
+                errors.append(f"{key}: ADR {status.group(2)} must exist and name ADR {this} in a `Supersedes:` line")
+    errors += [f"{key}: baseline entry of a missing ADR" for key in baseline if key not in adrs]
+    for line in errors:
+        print(line)
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

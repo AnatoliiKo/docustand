@@ -1,0 +1,96 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail on a tracked root file or folder outside the allowed list"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: check-root [--since BASE]
+
+The allowed root entries are `.mise/data/root-files.txt` of the standard and
+`root_files` of `.repo.yaml`. `*` matches within one name. A folder counts by its
+name. Only entries known to git are checked.
+`--since BASE` (CI) also fails when a file of MOVED that existed at BASE is gone and a line
+of it is missing at its new path: a template update deletes the old file and writes the
+template default at the new path, so the project content of the file would be lost.
+"""
+import fnmatch
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+STANDARD = Path(".mise/data/root-files.txt")
+# Files of the standard that left the root in 0.5.0; `git mv` keeps their project content.
+MOVED = {
+    "hk.pkl": ".config/hk.pkl", "lychee.toml": ".config/lychee.toml", "typos.toml": ".config/typos.toml",
+    ".rumdl.toml": ".config/rumdl.toml", "commitlint.config.mjs": ".config/commitlint.config.mjs",
+    "renovate.json": ".github/renovate.json", "eslint.project.mjs": ".config/eslint.project.mjs",
+    ".dependency-cruiser.cjs": ".config/dependency-cruiser.cjs",
+    ".dependency-cruiser.standard.cjs": ".config/dependency-cruiser.standard.cjs",
+    "knip.json": ".config/knip.json", ".jscpd.json": ".config/jscpd.json",
+    ".size-baseline.json": ".baselines/size.json", ".betterleaksignore": ".baselines/betterleaks.ignore",
+    "eslint-suppressions.json": ".baselines/eslint-suppressions.json",
+}
+
+
+# Written once by the template, then owned by the project: only their content can get lost.
+PROJECT_OWNED = ["typos.toml", "eslint.project.mjs", ".dependency-cruiser.cjs", "knip.json", ".jscpd.json"]
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True).stdout
+
+
+def allowed(root: Path) -> list[str]:
+    path = root / STANDARD
+    patterns = [] if not path.is_file() else [
+        line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")]
+    answers = root / ".repo.yaml"
+    config = yaml.safe_load(answers.read_text()) if answers.is_file() else None
+    return patterns + [str(p) for p in ((config or {}).get("root_files") or [])]
+
+
+# A template default shares almost no lines with a project file; a move may still edit a few lines.
+KEPT_SHARE = 0.8
+
+
+def lost_moves(root: Path, base: str) -> list[str]:
+    """Old paths of PROJECT_OWNED present at BASE with under KEPT_SHARE of their lines at the new path."""
+    lost = []
+    for old in PROJECT_OWNED:
+        new = MOVED[old]
+        before = subprocess.run(["git", "-C", str(root), "show", f"{base}:{old}"], capture_output=True, text=True)
+        if before.returncode != 0 or (root / old).exists():
+            continue
+        target = root / new
+        now = set(target.read_text().splitlines()) if target.is_file() else set()
+        # A line naming a moved file changes with the move itself, such as `extends` of dependency-cruiser.
+        kept = [line for line in before.stdout.splitlines()
+                if line.strip() and not any(Path(name).name.lstrip(".") in line for name in MOVED)]
+        if kept and sum(line in now for line in kept) < KEPT_SHARE * len(kept):
+            lost.append(old)
+    return lost
+
+
+def main(argv: list[str]) -> int:
+    root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    lost = lost_moves(root, argv[1]) if argv[:1] == ["--since"] and len(argv) == 2 else []
+    for path in lost:
+        print(f"{path}: its project content is missing at {MOVED[path]}; run "
+              f"`git checkout {argv[1]} -- {path} && git mv -f {path} {MOVED[path]}`")
+    patterns = allowed(root)
+    entries = sorted({name.split("/", 1)[0] for name in git(root, "ls-files", "-z").split("\0") if name})
+    extra = [e for e in entries if not any(fnmatch.fnmatchcase(e, p) for p in patterns)]
+    for entry in extra:
+        if entry in MOVED:
+            extra_step = ("; then set `extends` to `./dependency-cruiser.standard.cjs`"
+                          if entry == ".dependency-cruiser.cjs" else "")
+            print(f"{entry}: moved to {MOVED[entry]}; run `git mv {entry} {MOVED[entry]}`{extra_step}")
+        else:
+            print(f"{entry}: not allowed in the repository root; move it, or add it to root_files in .repo.yaml")
+    return 1 if extra or lost else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

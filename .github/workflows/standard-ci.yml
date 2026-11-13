@@ -13,8 +13,9 @@ concurrency:
 
 permissions:
   contents: read
-  # ci-merged-pr reads the pull requests of the pushed commit.
+  # ci-merged-pr reads the pull requests of the pushed commit and the checks of their heads.
   pull-requests: read
+  checks: read
 
 jobs:
   check:
@@ -29,7 +30,7 @@ jobs:
       - name: Git version
         run: git --version
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
-      # A commit of a merged pull request was checked in the pull request.
+      # A commit of a merged pull request with a green `check` run was checked in the pull request.
       - name: Merged pull request (push)
         id: merged
         if: ${{ github.event_name == 'push' }}
@@ -58,6 +59,17 @@ jobs:
           else
             mise run check-baseline -- "$BASE_SHA"
           fi
+      # A template update deletes a moved project file; the content must arrive at the new path.
+      - name: Moved files (pull request)
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: mise run check-root -- --since "$BASE_SHA"
+      - name: ADR history (pull request)
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: mise run check-adr-history -- "$BASE_SHA" HEAD
       # Cloud sessions commit without hk, so every commit of the pull request is linted here.
       - name: Commit messages
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}

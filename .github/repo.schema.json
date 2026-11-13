@@ -10,11 +10,25 @@
     "level": {"enum": ["base", "full"]},
     "team": {"enum": ["solo"]},
     "stack": {"type": "array", "items": {"enum": ["terraform", "typescript"]}, "uniqueItems": true},
-    "architecture": {"type": "object"},
+    "architecture": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {"type": "string"},
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["style"],
+            "properties": {"style": {"type": "string"}, "script": {"type": "string", "pattern": "^[A-Za-z0-9:_-]+$"}}
+          }
+        ]
+      }
+    },
     "system": {"type": ["object", "null"]},
     "contract": {"type": ["object", "null"]},
     "required_ci_branches": {"type": "array", "items": {"type": "string"}, "minItems": 1},
     "md_exceptions": {"type": "array", "items": {"type": "string"}},
+    "root_files": {"type": "array", "items": {"type": "string"}},
     "report_schedule": {"enum": ["off", "monthly", "weekly", "twice-weekly"]},
     "deployed": {"type": "boolean"},
     "overrides": {

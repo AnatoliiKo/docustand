@@ -20,7 +20,7 @@ import yaml
 
 ALLOWED = [
     "README.md", "AGENTS.md", "CLAUDE.md", "CLAUDE.local.md", "CHANGELOG.md",
-    "docs/*.md", "docs/runbooks/**", "docs/temp/**", "openspec/**",
+    "docs/architecture.md", "docs/tasks.md", "docs/access.md", "docs/operations.md", "docs/runbooks/**", "docs/temp/**", "openspec/**",
     ".github/pull_request_template.md", ".claude/commands/**", ".claude/skills/**",
 ]
 ADR = re.compile(r"docs/decisions/\d{4}-[a-z0-9]+(-[a-z0-9]+)*\.md")

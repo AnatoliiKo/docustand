@@ -17,12 +17,32 @@ local function bin(name: String) = "node_modules/.bin/\(name)"
 
 // Fast checks on changed files.
 local commitSteps = new Mapping<String, Step> {
-  ["betterleaks"] = Builtins.betterleaks
+  // Known findings without a secret are fingerprints in `.baselines/betterleaks.ignore`.
+  ["betterleaks"] = (Builtins.betterleaks) {
+    check = new Command {
+      argv = List("betterleaks", "dir", "--redact", "--verbose", "--no-banner", "-i", ".baselines/betterleaks.ignore", "{{files}}")
+    }
+  }
   // `--assume-in-merge`: markers left by a conflicted template update fail outside a merge too.
   ["check-merge-conflict"] = Builtins.check_merge_conflict
-  ["typos"] = Builtins.typos
+  // typos finds no config under `.config/` by itself.
+  ["typos"] = (Builtins.typos) {
+    check = """
+      status=0
+      output=$(typos --config .config/typos.toml --force-exclude --diff {{files}}) || status=$?
+      [ -z "$output" ] && exit "$status"
+      printf "%s" "$output"
+      exit 1
+      """
+    fix = "typos --config .config/typos.toml --force-exclude --write-changes {{files}}"
+  }
   ["rumdl"] = Builtins.rumdl
   ["check-md-placement"] = script("check-md-placement", List("**/*.md", "**/*.MD"))
+  // A moved or deleted code file breaks a path in any document, so every document is checked.
+  ["check-doc-paths"] {
+    glob = List("**/*")
+    check = ".mise/tasks/check-doc-paths"
+  }
   ["check-agents-md"] = script("check-agents-md", "AGENTS.md")
   ["check-tasks-format"] = script("check-tasks-format", "docs/tasks.md")
   // The schema is an input too, so any change validates the whole `.repo.yaml`.
@@ -36,8 +56,20 @@ local commitSteps = new Mapping<String, Step> {
   ["check-size"] = script("check-size", "**/*")
   ["check-comments"] = script(
     "check-comments",
-    List("**/*.ts", "**/*.tsx", "**/*.js", "**/*.mjs", "**/*.php", "**/*.tf", "**/*.py", "**/*.sh")
+    List(
+      "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,pkl,php,tf,py,sh,ps1,yml,yaml,toml}",
+      "**/Dockerfile*", "**/*.dockerfile", "**/.gitignore", "**/.dockerignore", "**/.prettierignore"
+    )
   )
+  // Any added or removed path can be a new root entry; the allowed list is in `.mise/data/root-files.txt`.
+  ["check-root"] {
+    glob = List("**/*", ".repo.yaml")
+    check = ".mise/tasks/check-root"
+  }
+  ["check-adr"] {
+    glob = List("docs/decisions/*.md", ".baselines/adr.json")
+    check = ".mise/tasks/check-adr"
+  }
 }
 
 local fastLint = new Mapping<String, Step> {}
@@ -48,7 +80,7 @@ local pushSteps = new Mapping<String, Step> {
   ["lychee"] = (Builtins.lychee) {
     types = null
     glob = List("**/*.md")
-    check = new Command { argv = List("lychee", "--offline", "--no-progress", "{{files}}") }
+    check = new Command { argv = List("lychee", "--config", ".config/lychee.toml", "--offline", "--no-progress", "{{files}}") }
   }
 }
 
@@ -62,7 +94,7 @@ hooks {
   ["commit-msg"] {
     steps {
       ["commitlint"] {
-        check = new Command { argv = List("commitlint", "--edit", "{{commit_msg_file}}") }
+        check = new Command { argv = List("commitlint", "--config", ".config/commitlint.config.mjs", "--edit", "{{commit_msg_file}}") }
       }
     }
   }
