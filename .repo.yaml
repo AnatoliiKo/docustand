@@ -1,5 +1,5 @@
 # Managed by Copier while the project follows the template; change answers with copier update -a .repo.yaml --defaults --data.
-_commit: v0.7.1
+_commit: v0.8.0
 _src_path: gh:AnatoliiKo/docustand
 architecture: {}
 contract: null
