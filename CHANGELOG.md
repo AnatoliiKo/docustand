@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.7.1 — 2026-11-13
+
+### Changed
+
+- `check-doc-paths` skips a document with the line `<!-- doc-paths: another repository -->` and treats `NNNN`, `YYYY` and `XX` as placeholders, see ADR 0026.
+
 ## 0.7.0 — 2026-11-13
 
 ### Added

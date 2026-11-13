@@ -1,5 +1,7 @@
 # Audit, update, answers, detach
 
+<!-- doc-paths: another repository -->
+
 ## Audit and update
 
 A repeated run is safe: it reads `.repo.yaml` and asks only questions that have no answer yet.

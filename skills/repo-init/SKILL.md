@@ -5,6 +5,8 @@ description: Use to bring a repository to the docustand standard or keep it ther
 
 # repo-init
 
+<!-- doc-paths: another repository -->
+
 The single entry point of docustand.
 It inspects the repository, asks only what the code does not answer, applies the Copier template and switches on what GitHub needs.
 

@@ -7,6 +7,8 @@ model: haiku
 
 # Inventory of documentation
 
+<!-- doc-paths: another repository -->
+
 Read-only. There is no tool to write a file: return the table in the answer.
 `repo-init` saves it to `docs/temp/inventory.md` and shows it to the owner.
 

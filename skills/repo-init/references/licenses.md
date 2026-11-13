@@ -1,5 +1,7 @@
 # Allowed licenses of dependencies
 
+<!-- doc-paths: another repository -->
+
 A new dependency needs a license from this table; another license needs the owner's approval and an ADR.
 
 | License | Allowed for |

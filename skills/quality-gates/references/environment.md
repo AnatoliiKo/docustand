@@ -1,5 +1,7 @@
 # Owner environment
 
+<!-- doc-paths: another repository -->
+
 Facts about the owner's machines that change how gates run.
 They come from `~/.claude/CLAUDE.md`; if that file disagrees with this one, the global file wins.
 

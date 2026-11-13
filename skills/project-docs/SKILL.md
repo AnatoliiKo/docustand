@@ -5,6 +5,8 @@ description: Use when writing, updating or auditing a repository's documentation
 
 # Project Docs
 
+<!-- doc-paths: another repository -->
+
 Goal: documentation that is true today and stays true.
 Every path, command and ADR number in it exists.
 Every list that mirrors code is checked against the code or points at it.

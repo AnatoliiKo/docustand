@@ -1,5 +1,7 @@
 # Document formats
 
+<!-- doc-paths: another repository -->
+
 The layout is the repository standard of docustand.
 The rendered `AGENTS.md` of the project is the source for its rules; this file explains the layout to the skill.
 

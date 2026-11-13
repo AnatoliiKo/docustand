@@ -1,5 +1,7 @@
 # Terraform profile
 
+<!-- doc-paths: another repository -->
+
 Read by the `repo-init` skill when `terraform` is in the `stack` answer.
 
 ## Detection

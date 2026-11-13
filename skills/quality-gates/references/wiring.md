@@ -1,5 +1,7 @@
 # Wiring gates so they enforce
 
+<!-- doc-paths: another repository -->
+
 ## Standard files
 
 The Copier template owns these files; `copier update` replaces them, and `.claude/settings.json` has an `ask` rule on each:

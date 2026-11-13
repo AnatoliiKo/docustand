@@ -1,5 +1,7 @@
 # Reconnaissance
 
+<!-- doc-paths: another repository -->
+
 Find out everything the code and GitHub answer before asking anything.
 Record the findings in `docs/temp/recon.md` of the target project; they feed the questions and the final report.
 Before the template adds `docs/temp/` to `.gitignore`, never stage that folder.

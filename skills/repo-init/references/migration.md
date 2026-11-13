@@ -1,5 +1,7 @@
 # Migration of an existing repository
 
+<!-- doc-paths: another repository -->
+
 Six steps, each on its own branch from the default branch and in its own PR.
 The next step starts after the owner merges the previous one.
 Temporary files go to `docs/temp/` of the project; until step 2 adds it to `.gitignore`, never stage that folder.

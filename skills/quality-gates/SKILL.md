@@ -5,6 +5,8 @@ description: Use when a repository's code quality checks, linters, git hooks or 
 
 # Quality Gates
 
+<!-- doc-paths: another repository -->
+
 Goal: a repository that checks itself.
 Every gate exits non-zero on a violation, runs from one `mise run check` in hooks and CI, and has been seen failing.
 

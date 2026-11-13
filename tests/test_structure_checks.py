@@ -576,3 +576,12 @@ def test_doc_path_to_a_missing_file_fails(project):
 
     assert code == 1
     assert out.splitlines() == ["docs/architecture.md:5: `src/app/old.ts` does not exist"]
+
+
+def test_doc_paths_skip_placeholders_and_documents_about_other_repositories(project):
+    dest = project()
+    write(dest, "docs/architecture.md", "# Architecture\n\nADRs: `docs/decisions/NNNN-slug.md`.\n")
+    write(dest, "docs/guide.md", "# Guide\n\n<!-- doc-paths: another repository -->\n\nCreate `docs/runbooks/`.\n")
+    subprocess.run(["git", "add", "-A"], cwd=dest, check=True)
+
+    assert run(dest, "check-doc-paths") == (0, "")

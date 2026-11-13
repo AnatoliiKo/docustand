@@ -1,5 +1,7 @@
 # Questions
 
+<!-- doc-paths: another repository -->
+
 One message with every applicable question, before any change.
 When the question tool takes fewer questions per call than apply, ask them in consecutive calls without changing anything in between.
 Each question names what reconnaissance found, then numbered options.

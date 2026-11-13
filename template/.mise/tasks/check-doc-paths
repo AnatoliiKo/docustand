@@ -12,6 +12,9 @@ tracked path (`config/timing.ts` inside a module section) counts as existing.
 Spans with spaces, globs, placeholders (`<name>`, `…`) or URLs are not paths.
 Fenced code blocks are skipped: commands may name files they create.
 ADRs and `CHANGELOG.md` record the state of their date and are not checked.
+A document with the line `<!-- doc-paths: another repository -->` describes the
+files of other repositories, such as a skill or a guide, and is not checked.
+A repeated capital (`NNNN`, `YYYY`, `XX`) is a placeholder, not a path.
 Without files every tracked Markdown file is checked.
 """
 import re
@@ -24,6 +27,8 @@ SPAN = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
 FENCE = re.compile(r"^\s*(```|~~~)")
 NOT_A_PATH = re.compile(r"\s|[*?\[\]{}<>$|\\…]|\.\.\.|://|^[@~-]")
 SUFFIX = re.compile(r"(?::\d+(?:-\d+)?|#[\w-]*)$")
+PLACEHOLDER = re.compile(r"\b(?:N{3,}|Y{4}|X{2,})\b")
+MARKER = "<!-- doc-paths: another repository -->"
 
 
 def git(*args: str) -> str:
@@ -58,9 +63,14 @@ def main(argv: list[str]) -> int:
     for document in documents:
         if SKIPPED.match(document) or not Path(document).is_file():
             continue
-        for number, span in spans(Path(document).read_text()):
+        text = Path(document).read_text()
+        if MARKER in text.splitlines():
+            continue
+        for number, span in spans(text):
             path = SUFFIX.sub("", span).removeprefix("./").rstrip("/")
-            if NOT_A_PATH.search(path) or "/" not in path or path.split("/", 1)[0] not in roots:
+            if NOT_A_PATH.search(path) or PLACEHOLDER.search(path) or "/" not in path:
+                continue
+            if path.split("/", 1)[0] not in roots:
                 continue
             if path in files or path in folders or Path(path).exists():
                 continue

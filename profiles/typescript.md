@@ -1,5 +1,7 @@
 # TypeScript profile
 
+<!-- doc-paths: another repository -->
+
 Read by the `repo-init` skill when `typescript` is in the `stack` answer.
 The profile is the base layer of `nextjs` and `expo` ([ADR 0014](../docs/decisions/0014-typescript-profile-as-base-layer.md)); the tools are in [ADR 0015](../docs/decisions/0015-typescript-profile-dependencies.md).
 
