@@ -376,8 +376,17 @@ def test_renovate_dependency_update_is_not_a_protected_change(report, tmp_path):
                 patches={(7, ".repo.yaml"): TEMPLATE_PATCH}, pr_commits={6: [renovate_commit("ccc3")]},
                 commit_files={"ccc3": ["package.json", "apps/web/package.json"]})
     sections = collect(report, fake, tmp_path, access="", protected=["**/package.json", ".github/workflows/**", ".repo.yaml"])
-    assert sections["Template updates"] == []
-    assert sections["Protected files"] == ["#7: `.repo.yaml`, `.github/workflows/a.yml`"]
+    # A template update by hand changes the rendered files as Renovate does; a file the template does not render stays.
+    assert sections["Template updates"] == ["#7: `v0.2.0`"]
+    assert sections["Protected files"] == ["#7: `.github/workflows/a.yml`"]
+
+
+def test_shrinking_baselines_are_no_protected_change(report, tmp_path):
+    pr = {**RENOVATE_PR, "number": 8, "author": {"login": "someone"}}
+    fake = Fake(prs=[pr], files={8: [".baselines/size.json", ".baselines/new.json", ".config/knip.json"]},
+                added={".baselines/new.json"})
+    sections = collect(report, fake, tmp_path, access="", protected=[".baselines/**", ".config/**"])
+    assert sections["Protected files"] == ["#8: `.baselines/new.json`, `.config/knip.json`"]
 
 
 def test_double_star_slash_matches_the_root(report):

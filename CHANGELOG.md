@@ -3,6 +3,13 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.8.1 — 2026-11-13
+
+### Changed
+
+- The scheduled report treats a pull request that changes `_commit` in `.repo.yaml` as a template update by any author; the files the template renders are no protected-file findings there, see ADR 0028.
+- A changed or deleted `.baselines/` file is no protected-file finding: `check-baseline` lets a pull request only shrink it.
+
 ## 0.8.0 — 2026-11-13
 
 ### Added
