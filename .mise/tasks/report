@@ -88,6 +88,34 @@ def check_baseline():
     return module
 
 
+@functools.cache
+def gitignore_block():
+    """Module of the `check-gitignore-block` task; its `tracked` list names every file the template renders."""
+    path = Path(__file__).resolve().parent / "check-gitignore-block"
+    loader = importlib.machinery.SourceFileLoader("check_gitignore_block", str(path))
+    module = importlib.util.module_from_spec(importlib.util.spec_from_loader("check_gitignore_block", loader))
+    loader.exec_module(module)
+    return module
+
+
+def standard_files(root: Path) -> set[str]:
+    """Files the template renders for the answers in `root/.repo.yaml`."""
+    block = gitignore_block()
+    return set(block.tracked(block.answers(root)))
+
+
+def expected_changes(files: list[dict], template: bool, standard: set[str]) -> list[str]:
+    """Changed paths without the expected ones.
+
+    A template update changes the files the template renders. A changed or deleted
+    baseline only shrinks, since `check-baseline` fails a pull request that grows one;
+    a new baseline file has its own section.
+    """
+    return [f["filename"] for f in files
+            if not (template and f["filename"] in standard)
+            and not (f["filename"].startswith(".baselines/") and f.get("status") not in ADDED)]
+
+
 def baseline_files(root: Path) -> list[str]:
     """Baseline file names of `stack` in `root/.repo.yaml`."""
     return check_baseline().profile_files(root)
@@ -266,9 +294,7 @@ def protected_changes(files_by_pr: dict[int, list[str]], protected: list[str]) -
 
 
 def template_update(pr: dict, files: list[dict]) -> str | None:
-    """Template version of a Renovate PR that changes `_commit` in .repo.yaml; None for any other PR."""
-    if ((pr.get("author") or {}).get("login") or "") not in RENOVATE:
-        return None
+    """Template version of a PR that changes `_commit` in .repo.yaml, by Renovate or by hand; None otherwise."""
     for item in files:
         if item.get("filename") == ".repo.yaml" and (match := TEMPLATE_COMMIT.search(item.get("patch") or "")):
             return match.group(1)
@@ -443,8 +469,9 @@ def collect(repo: str, root: Path, now: datetime, schedule: str, manual: bool = 
         sections["Skip-Check"] = [code(t) for t in skip_check_trailers(commits)]
         changed = {p["number"]: fetch(
             ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{p['number']}/files"]) or [] for p in prs}
-        files = {n: [f["filename"] for f in fs] for n, fs in changed.items()}
         updates = {p["number"]: v for p in prs if (v := template_update(p, changed[p["number"]]))}
+        standard = standard_files(root) if updates else set()
+        files = {n: expected_changes(fs, n in updates, standard) for n, fs in changed.items()}
         renovate = [p["number"] for p in prs if ((p.get("author") or {}).get("login") or "") in RENOVATE]
         for number in renovate:
             # Renovate commits change dependency manifests and template files by design; other commits stay findings.
