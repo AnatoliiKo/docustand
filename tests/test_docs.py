@@ -42,6 +42,7 @@ def test_agents_md_limit(render, tmp_path):
     assert "mise run check" in before_pr
     assert "mise run pr-ready" in before_pr
     assert "review checklist" in before_pr
+    assert "Close a Renovate pull request that fails for an outside reason" in text
     assert NO_TRAILERS in text
 
 

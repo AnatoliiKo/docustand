@@ -46,6 +46,7 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 - Run `mise run check` before a commit.
 - Never weaken a check. Do not add entries to baselines or suppressions, add exceptions, lower thresholds or edit check configs, `.config/hk.pkl`, `mise.toml`, `.github/workflows/` or `.claude/` to make a check pass. Fix the cause.
 - A deviation from a file of the standard needs an entry with a reason in `overrides` in `.repo.yaml`, approved by the owner.
+- Close a Renovate pull request that fails for an outside reason, such as a tool without support of the new major version: Renovate then skips that major version. Add a backlog task that names when to take it.
 - Never use `--no-verify`, `git commit -n`, or variables that disable hk steps.
 - Change answers in `.repo.yaml` only with `copier update -a .repo.yaml --defaults --data <key>=<value>`.
 - Store plans, specs and other output of superpowers skills in `docs/temp/`, not in `docs/`.

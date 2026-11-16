@@ -256,7 +256,11 @@ def test_renovate_groups_non_major_updates_weekly(renovate):
 
 def test_renovate_refreshes_lock_file_weekly(renovate):
     # Transitive dependencies change only in the lock file; their vulnerability alerts stay open otherwise.
-    assert renovate["lockFileMaintenance"] == {"enabled": True, "schedule": WEEKLY_RULE["schedule"]}
+    # Lock file maintenance has no release timestamps: with an age, its status check stays pending.
+    assert renovate["lockFileMaintenance"] == {"enabled": True, "minimumReleaseAge": None,
+                                               "schedule": WEEKLY_RULE["schedule"]}
+    own = json.loads((REPO_ROOT / ".github/renovate.json").read_text())
+    assert own["lockFileMaintenance"] == renovate["lockFileMaintenance"]
 
 
 MAJOR_RULE = {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": True}

@@ -3,6 +3,16 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.10.2 — 2026-11-16
+
+### Fixed
+
+- Lock file maintenance pull requests no longer wait for `renovate/stability-days` for good: Renovate has no release timestamps for them, and the package manager applies its own age limit, see ADR 0032.
+
+### Added
+
+- `AGENTS.md` tells to close a Renovate pull request that fails for an outside reason and to add a backlog task for the skipped major version.
+
 ## 0.10.1 — 2026-11-16
 
 ### Changed
