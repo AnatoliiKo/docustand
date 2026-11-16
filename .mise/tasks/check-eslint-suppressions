@@ -1,0 +1,72 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when an ESLint suppression has no until date or has expired"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-eslint-suppressions [--stamp] [FILE ...]
+
+`.baselines/eslint-suppressions.json` is the suppressions file of ESLint:
+{"src/a.ts": {"max-params": {"count": 2, "until": "2027-01-31"}}}. ESLint reads only
+`count` and keeps the other fields of a rule when it prunes the file. Every rule entry
+needs an `until` date; an entry past it fails. `--stamp` gives every entry without a
+valid `until` a date 90 days ahead, after `eslint --suppress-all` (migration).
+The files hk passes are ignored: an expired entry fails on any commit.
+"""
+import json
+import sys
+from datetime import date, timedelta
+from pathlib import Path
+
+BASELINE = Path(".baselines/eslint-suppressions.json")
+DAYS = 90
+
+
+def until_of(entry: dict) -> str | None:
+    try:
+        return date.fromisoformat(str(entry.get("until", ""))).isoformat()
+    except ValueError:
+        return None
+
+
+def rules(data: dict):
+    """(file, rule, entry) of every rule entry."""
+    for file, by_rule in data.items():
+        for rule, entry in (by_rule.items() if isinstance(by_rule, dict) else []):
+            yield file, rule, entry
+
+
+def main(argv: list[str]) -> int:
+    if not BASELINE.is_file():
+        return 0
+    try:
+        data = json.loads(BASELINE.read_text())
+        if not isinstance(data, dict):
+            raise ValueError("not an object")
+    except ValueError as err:
+        print(f"{BASELINE}:1: invalid baseline: {err}")
+        return 1
+    if argv[:1] == ["--stamp"]:
+        default = (date.today() + timedelta(days=DAYS)).isoformat()
+        stamped = 0
+        for _, _, entry in rules(data):
+            if isinstance(entry, dict) and until_of(entry) is None:
+                entry["until"] = default
+                stamped += 1
+        BASELINE.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        print(f"{BASELINE}: {stamped} suppressions dated until {default}")
+        return 0
+    today = date.today().isoformat()
+    failed = False
+    for file, rule, entry in rules(data):
+        until = until_of(entry) if isinstance(entry, dict) else None
+        if until is None:
+            print(f"{BASELINE}:1: {file} {rule} needs until; run `mise run check-eslint-suppressions --stamp`")
+            failed = True
+        elif until < today:
+            print(f"{file}:1: the {rule} suppressions expired on {until}; fix the violations")
+            failed = True
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

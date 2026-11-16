@@ -324,11 +324,19 @@ def stack_drift(detected: list[str], declared: list[str]) -> list[str]:
     return drift
 
 
+def _parse_date(value: object) -> date | None:
+    try:
+        return date.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        return None
+
+
 def baseline_status(root: Path, today: date) -> tuple[list[str], list[str]]:
     """Entry counts of the non-empty `.baselines/` files and the entries that expire soon.
 
-    A JSON baseline counts its keys and reads `until` of each entry; a text baseline
-    counts its lines without comments.
+    A JSON baseline counts its keys and reads `until` of each entry; the ESLint
+    suppressions file keeps `until` one level deeper, per rule of a file, and reports
+    the earliest. A text baseline counts its lines without comments.
     """
     counts, expiring = [], []
     folder = root / ".baselines"
@@ -342,11 +350,10 @@ def baseline_status(root: Path, today: date) -> tuple[list[str], list[str]]:
                 continue
             entries = data if isinstance(data, dict) else {}
             for key, entry in entries.items():
-                until = entry.get("until") if isinstance(entry, dict) else None
-                try:
-                    due = date.fromisoformat(until) if isinstance(until, str) else None
-                except ValueError:
-                    due = None
+                dates = [entry.get("until")] if isinstance(entry, dict) else []
+                if isinstance(entry, dict) and "until" not in entry:
+                    dates = [rule.get("until") for rule in entry.values() if isinstance(rule, dict)]
+                due = min(filter(None, map(_parse_date, dates)), default=None)
                 if due and due <= today + timedelta(days=BASELINE_NOTICE_DAYS):
                     expiring.append(f"{code(name)}: {code(key)} until {due.isoformat()}")
             size = len(entries)

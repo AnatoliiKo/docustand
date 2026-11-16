@@ -6,20 +6,24 @@
 """Usage: check-size [--write-baseline] [FILE ...]
 
 Limits come from `.mise/data/size-limits.json` ({".ts": 300}) and count non-empty
-lines. A file over its limit fails unless `.baselines/size.json` records it; a recorded
-file may not grow. Outside CI the script keeps the baseline current and stages it:
-an entry follows a staged rename, drops to the new size when the file shrinks, and
-disappears when the file falls under the limit or is gone. `--write-baseline`
-records every tracked file over its limit (migration).
+lines. A file over its limit fails unless `.baselines/size.json` records it
+({"src/a.ts": {"lines": 420, "until": "2027-01-31"}}); a recorded file may not grow,
+and an entry past its `until` date fails. Outside CI the script keeps the baseline
+current and stages it: an entry follows a staged rename, drops to the new size when
+the file shrinks, and disappears when the file falls under the limit or is gone; its
+`until` stays. `--write-baseline` records every tracked file over its limit with
+`until` 90 days ahead and keeps the `until` of an entry that has one (migration).
 """
 import json
 import os
 import subprocess
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 LIMITS = Path(".mise/data/size-limits.json")
 BASELINE = Path(".baselines/size.json")
+DAYS = 90
 
 
 def git(root: Path, *args: str) -> str:
@@ -41,7 +45,7 @@ def renames(root: Path) -> dict[str, str]:
     return pairs
 
 
-def save(root: Path, entries: dict[str, int]) -> None:
+def save(root: Path, entries: dict[str, dict]) -> None:
     (root / BASELINE).parent.mkdir(exist_ok=True)
     (root / BASELINE).write_text(json.dumps(dict(sorted(entries.items())), indent=2) + "\n")
     git(root, "add", "--", str(BASELINE))
@@ -52,13 +56,37 @@ def relative(root: Path, arg: str) -> str | None:
     return None if rel == ".." or rel.startswith("../") else Path(rel).as_posix()
 
 
+def load(root: Path) -> dict:
+    data = json.loads((root / BASELINE).read_text()) if (root / BASELINE).is_file() else {}
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    return data
+
+
+def invalid(entry: object) -> bool:
+    if not isinstance(entry, dict) or not isinstance(entry.get("lines"), int):
+        return True
+    try:
+        date.fromisoformat(str(entry.get("until", "")))
+    except ValueError:
+        return True
+    return False
+
+
 def write_baseline(root: Path, limits: dict[str, int]) -> int:
+    try:
+        old = load(root)
+    except ValueError:
+        old = {}
+    default = (date.today() + timedelta(days=DAYS)).isoformat()
     entries = {}
     for rel in git(root, "ls-files", "-z").split("\0"):
         limit = limits.get(Path(rel).suffix)
         path = root / rel
         if limit is not None and path.is_file() and (n := size(path)) > limit:
-            entries[rel] = n
+            was = old.get(rel)
+            until = was["until"] if isinstance(was, dict) and not invalid(was) else default
+            entries[rel] = {"lines": n, "until": until}
     save(root, entries)
     print(f"{BASELINE}: {len(entries)} files over their limit recorded")
     return 0
@@ -72,11 +100,14 @@ def main(argv: list[str]) -> int:
     if argv[:1] == ["--write-baseline"]:
         return write_baseline(root, limits)
     try:
-        entries = json.loads((root / BASELINE).read_text()) if (root / BASELINE).is_file() else {}
-        if not isinstance(entries, dict):
-            raise ValueError("not an object")
+        entries = load(root)
     except ValueError as err:
         print(f"{BASELINE}:1: invalid baseline: {err}")
+        return 1
+    wrong = [rel for rel, entry in entries.items() if invalid(entry)]
+    if wrong:
+        for rel in wrong:
+            print(f"{BASELINE}:1: {rel} needs lines and until; run `mise run check-size --write-baseline`")
         return 1
 
     moved = renames(root)
@@ -94,14 +125,19 @@ def main(argv: list[str]) -> int:
                 print(f"{rel}:1: {n} non-empty lines, limit {limit}")
                 failed = True
             continue
-        if n > entries[key]:
-            print(f"{rel}:1: grew from {entries[key]} to {n} non-empty lines (baseline in {BASELINE})")
+        if n > entries[key]["lines"]:
+            print(f"{rel}:1: grew from {entries[key]['lines']} to {n} non-empty lines (baseline in {BASELINE})")
             failed = True
             continue
         updated.pop(key)
         if n > limit:
-            updated[rel] = n
-    updated = {rel: n for rel, n in updated.items() if (root / rel).is_file()}
+            updated[rel] = {"lines": n, "until": entries[key]["until"]}
+    updated = {rel: entry for rel, entry in updated.items() if (root / rel).is_file()}
+    today = date.today().isoformat()
+    for rel, entry in sorted(updated.items()):
+        if entry["until"] < today:
+            print(f"{rel}:1: the size baseline entry expired on {entry['until']}; bring the file under its limit")
+            failed = True
     if updated != entries and not os.environ.get("CI"):
         save(root, updated)
     return 1 if failed else 0
