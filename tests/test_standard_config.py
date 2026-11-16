@@ -19,7 +19,16 @@ def jsonc(path):
 def tool_lines() -> list[str]:
     text = STANDARD.read_text()
     section = text.split("[tools]", 1)[1].split("\n[", 1)[0]
-    return [line for line in section.splitlines() if line and not line.startswith(("#", "{%"))]
+    return [line for line in section.splitlines() if line and not line.startswith("#")]
+
+
+def test_template_source_is_valid_toml_for_renovate():
+    # The Renovate mise manager parses the source as TOML and silently skips a file that fails.
+    source = tomllib.loads(STANDARD.read_text())
+
+    assert len(source["tools"]) == len(tool_lines())
+    assert "hk install --mise" in source["hooks"]["postinstall"]
+    assert not re.search(r"^\s*\{%", STANDARD.read_text(), re.M), "use `#%` line statements"
 
 
 def test_every_tool_is_pinned_without_jinja():

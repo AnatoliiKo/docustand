@@ -6,7 +6,7 @@
   "lockFileMaintenance": {"enabled": true, "schedule": ["* 0-5 * * 1"]},
   "copier": {"managerFilePatterns": ["/(^|/)\\.repo\\.yaml$/"]},
   "semanticCommits": "enabled",
-  "ignorePaths": [".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"],
+  "ignorePaths": ["**/.mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"],
   "platformAutomerge": false,
   "packageRules": [
     {"matchManagers": ["github-actions"], "groupName": "github actions"},
@@ -16,7 +16,8 @@
     {"matchManagers": ["copier"], "minimumReleaseAge": null, "automerge": false, "groupName": null, "schedule": ["at any time"]},
     {"matchManagers": ["copier"], "matchDepNames": ["/^gh:/"], "overridePackageName": "{{{replace '^gh:' 'https://github.com/' depName}}}"},
     {"matchManagers": ["copier"], "matchDepNames": ["/^gl:/"], "overridePackageName": "{{{replace '^gl:' 'https://gitlab.com/' depName}}}"},
-    {"matchManagers": ["custom.regex"], "groupName": "mise tools"},
+    {"matchManagers": ["mise", "custom.regex"], "groupName": "mise tools"},
+    {"matchManagers": ["mise"], "matchDepNames": ["python"], "allowedVersions": "<3.14"},
     {"matchFileNames": ["template/**"], "automerge": false}
   ],
   "github-actions": {"managerFilePatterns": ["/^template/\\.github/workflows/.+\\.ya?ml\\.jinja$/"]},

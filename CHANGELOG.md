@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - The template pins hk 2.12.0 in `.mise/conf.d/standard.toml` and `.config/hk.pkl`.
+- The template renders with the Jinja line statement prefix `#%`; `.mise/conf.d/standard.toml` lists `pipx:check-jsonschema` after the profile tools, see ADR 0031.
+- `.github/renovate.json` ignores `**/.mise/conf.d/standard.toml`: Renovate drops any file whose path contains an ignored entry, and the bare entry hid the template source from docustand's own Renovate.
 
 ## 0.10.0 — 2026-11-16
 

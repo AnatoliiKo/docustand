@@ -15,25 +15,24 @@ lychee = "0.24.2"
 # The npm backend installs packages without Node.js, but commitlint needs it to run.
 node = "26.13.0"
 "npm:@commitlint/cli" = "21.2.4"
-"pipx:check-jsonschema" = "0.39.0"
-{%- if 'terraform' in stack %}
+#% if 'terraform' in stack
 terraform = "1.17.1"
 tflint = "0.65.0"
-{%- endif %}
-{%- if 'typescript' in stack %}
+#% endif
+#% if 'typescript' in stack
 # Duplication check in CI; a standalone binary, not a project dependency.
 "npm:jscpd" = "5.4.2"
-{%- endif %}
+#% endif
+"pipx:check-jsonschema" = "0.39.0"
 
 [hooks]
-{%- if 'typescript' in stack %}
+#% if 'typescript' in stack
 # `mise install` also installs the git hooks of `.config/hk.pkl` and the Node dependencies:
 # the hooks run the tools from `node_modules/.bin/`, so a fresh clone needs them before a commit.
-postinstall = "hk install --mise && if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; elif [ -f package-lock.json ]; then npm ci; fi"
-{%- else %}
+#% else
 # `mise install` also installs the git hooks of `.config/hk.pkl`.
-postinstall = "hk install --mise"
-{%- endif %}
+#% endif
+postinstall = "hk install --mise{% if 'typescript' in stack %} && if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; elif [ -f package-lock.json ]; then npm ci; fi{% endif %}"
 
 [tasks.check]
 description = "Run every check on the whole repository"

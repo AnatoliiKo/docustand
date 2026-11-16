@@ -1,6 +1,10 @@
 _min_copier_version: "9.19.1"
 _subdirectory: template
 _answers_file: .repo.yaml
+# A `#%` line is a Jinja statement and a TOML or YAML comment: `standard.toml.jinja` stays
+# valid TOML, so the Renovate mise manager reads its pins (ADR 0031).
+_envops:
+  line_statement_prefix: "#%"
 # Files written once; template updates never overwrite them.
 _skip_if_exists:
   - README.md
