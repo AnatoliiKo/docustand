@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Changed
+
+- The template pins hk 2.12.0 in `.mise/conf.d/standard.toml` and `.config/hk.pkl`.
+
 ## 0.10.0 — 2026-11-16
 
 ### Added
