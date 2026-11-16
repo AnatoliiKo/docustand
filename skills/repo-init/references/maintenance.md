@@ -107,7 +107,7 @@ Edit the files textually and minimally: remove the lines named below and keep th
 2. `.mise/conf.d/standard.toml`: delete the line that starts with `"pipx:copier"`.
 3. `.claude/settings.json`: delete the `"docustand@docustand": true` entry from `enabledPlugins` and the `"docustand"` entry from `extraKnownMarketplaces`. Fix the commas so the JSON stays valid.
 4. `AGENTS.md`: delete the line `If docustand is installed: /docustand:pr-ready.` and the blank line before it; two blank lines in a row fail the Markdown lint.
-5. `.github/renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty. Fix the commas so the JSON stays valid.
+5. `.github/renovate.json`: delete the `"copier"` manager entry and, from `ignorePaths`, `**/.mise/conf.d/standard.toml` and `.github/workflows/standard-*.yml`; delete `ignorePaths` when it becomes empty. Fix the commas so the JSON stays valid.
 6. `AGENTS.md`: replace the rule that starts with ``- Change answers in `.repo.yaml` only with `copier update` `` with ``- Edit `.repo.yaml` by hand; the change needs the owner's approval.``
 7. Full level only: delete the scheduled Claude task of the reports and its row in `docs/access.md`. At the base level the task does not exist.
 

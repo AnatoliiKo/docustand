@@ -308,7 +308,10 @@ def test_renovate_groups_updates(renovate):
 
 
 def test_renovate_ignores_standard_files(renovate):
-    assert renovate["ignorePaths"] == [".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"]
+    # Renovate also drops a file whose path contains an entry: a bare `.mise/conf.d/standard.toml`
+    # hides `template/.mise/conf.d/standard.toml.jinja` from docustand's own Renovate.
+    assert renovate["ignorePaths"] == ["**/.mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"]
+    assert not any(p in "template/.mise/conf.d/standard.toml.jinja" for p in renovate["ignorePaths"])
 
 
 def test_docustand_renovate_matches_template_files():
@@ -338,7 +341,10 @@ def test_docustand_renovate_is_template_plus_documented_extras():
             assert root[key] == value, key
     rules, extra = root["packageRules"], root["packageRules"][len(template["packageRules"]):]
     assert rules[:len(template["packageRules"])] == template["packageRules"]
-    assert {"matchManagers": ["custom.regex"], "groupName": "mise tools"} in extra
+    # After the non-major rule: hk of `standard.toml.jinja` and of `hk.pkl.jinja` land in one pull request.
+    assert {"matchManagers": ["mise", "custom.regex"], "groupName": "mise tools"} in extra
+    # The check scripts are tested on Python 3.13; PyYAML 6.0.3 ships no wheels for 3.15.
+    assert {"matchManagers": ["mise"], "matchDepNames": ["python"], "allowedVersions": "<3.14"} in extra
     assert {"matchFileNames": ["template/**"], "automerge": False} in extra
 
     # Template formatting is kept: every template line appears in order (trailing commas aside).
@@ -362,7 +368,7 @@ def test_docustand_renovate_bumps_hk_in_template_pkl():
     for expression in manager["matchStrings"]:
         assert re.findall(expression.replace("(?<", "(?P<"), pkl), expression
     assert manager["depNameTemplate"] == "jdx/hk"
-    assert {"matchManagers": ["custom.regex"], "groupName": "mise tools"} in root["packageRules"]
+    assert {"matchManagers": ["mise", "custom.regex"], "groupName": "mise tools"} in root["packageRules"]
 
 
 def test_template_version_lines_have_no_jinja():

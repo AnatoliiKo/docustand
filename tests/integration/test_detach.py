@@ -19,7 +19,7 @@ from test_gates_fail import MAIN_TF, mise_env, sh
 pytestmark = pytest.mark.integration
 
 REPO_YAML_HEADER = "# Project properties checked by .github/repo.schema.json.\n"
-RENOVATE_IGNORED = {".mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"}
+RENOVATE_IGNORED = {"**/.mise/conf.d/standard.toml", ".github/workflows/standard-*.yml"}
 AGENTS_LINE = "If docustand is installed: /docustand:pr-ready."
 ANSWERS_RULE = "- Change answers in `.repo.yaml` only with `copier update"
 HAND_EDIT_RULE = "- Edit `.repo.yaml` by hand; the change needs the owner's approval.\n"
