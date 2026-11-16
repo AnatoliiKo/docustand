@@ -87,6 +87,14 @@ local commitSteps = new Mapping<String, Step> {
     glob = List("docs/decisions/*.md", ".baselines/adr.json")
     check = ".mise/tasks/check-adr"
   }
+{%- endraw %}
+{%- if 'typescript' in stack %}
+{%- raw %}
+  // An expired ESLint suppression fails on any commit, not only on a change of the file.
+  ["check-eslint-suppressions"] = script("check-eslint-suppressions", "**/*")
+{%- endraw %}
+{%- endif %}
+{%- raw %}
 }
 
 {%- endraw %}

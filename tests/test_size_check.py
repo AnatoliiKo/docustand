@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -38,6 +39,10 @@ def write(repo: Path, rel: str, text: str) -> None:
 def baseline(repo: Path) -> dict:
     path = repo / ".baselines/size.json"
     return json.loads(path.read_text()) if path.exists() else {}
+
+
+def sizes(repo: Path) -> dict:
+    return {rel: entry["lines"] for rel, entry in baseline(repo).items()}
 
 
 def staged(repo: Path) -> set[str]:
@@ -100,7 +105,7 @@ def test_write_baseline_records_tracked_files_over_limit(repo):
     code, _ = check(repo, "--write-baseline")
 
     assert code == 0
-    assert baseline(repo) == {"big.ts": 5, "src/huge.tsx": 9}
+    assert sizes(repo) == {"big.ts": 5, "src/huge.tsx": 9}
     assert (repo / ".baselines/size.json").read_text().endswith("}\n")
 
 
@@ -114,7 +119,7 @@ def test_baselined_file_may_not_grow(repo):
 
     assert code == 1
     assert "big.ts:1: grew from 5 to 6 non-empty lines (baseline in .baselines/size.json)" in out
-    assert baseline(repo) == {"big.ts": 5}
+    assert sizes(repo) == {"big.ts": 5}
 
 
 def test_shrunk_file_lowers_and_stages_entry(repo):
@@ -128,7 +133,7 @@ def test_shrunk_file_lowers_and_stages_entry(repo):
     code, out = check(repo, "big.ts")
 
     assert code == 0, out
-    assert baseline(repo) == {"big.ts": 5}
+    assert sizes(repo) == {"big.ts": 5}
     assert ".baselines/size.json" in staged(repo)
 
 
@@ -153,7 +158,7 @@ def test_staged_rename_moves_entry(repo):
     code, out = check(repo, "features/big.ts")
 
     assert code == 0, out
-    assert baseline(repo) == {"features/big.ts": 6}
+    assert sizes(repo) == {"features/big.ts": 6}
     assert ".baselines/size.json" in staged(repo)
 
 
@@ -203,3 +208,54 @@ def test_invalid_baseline_fails(repo):
 
     assert code == 1
     assert ".baselines/size.json:1:" in out
+
+
+def ahead(days: int) -> str:
+    return (date.today() + timedelta(days=days)).isoformat()
+
+
+def test_write_baseline_dates_entries_90_days_ahead_and_keeps_dates(repo):
+    write(repo, "big.ts", lines(5))
+    write(repo, "old.ts", lines(6))
+    write(repo, ".baselines/size.json", json.dumps({"old.ts": {"lines": 6, "until": ahead(10)}}))
+    commit_all(repo)
+
+    assert check(repo, "--write-baseline")[0] == 0
+
+    assert baseline(repo) == {"big.ts": {"lines": 5, "until": ahead(90)}, "old.ts": {"lines": 6, "until": ahead(10)}}
+
+
+def test_shrink_and_rename_keep_until(repo):
+    write(repo, "old/big.ts", lines(7))
+    write(repo, ".baselines/size.json", json.dumps({"old/big.ts": {"lines": 7, "until": ahead(5)}}))
+    commit_all(repo)
+    (repo / "new").mkdir()
+    git(repo, "mv", "old/big.ts", "new/big.ts")
+    write(repo, "new/big.ts", lines(5))
+    git(repo, "add", "-A")
+
+    assert check(repo, "new/big.ts")[0] == 0
+    assert baseline(repo) == {"new/big.ts": {"lines": 5, "until": ahead(5)}}
+
+
+def test_expired_entry_fails_without_touching_the_file(repo):
+    write(repo, "big.ts", lines(5))
+    write(repo, "a.ts", lines(1))
+    write(repo, ".baselines/size.json", json.dumps({"big.ts": {"lines": 5, "until": ahead(-1)}}))
+    commit_all(repo)
+
+    code, out = check(repo, "a.ts")
+
+    assert code == 1
+    assert f"big.ts:1: the size baseline entry expired on {ahead(-1)}; bring the file under its limit" in out
+
+
+def test_entry_without_until_fails(repo):
+    write(repo, "big.ts", lines(5))
+    write(repo, ".baselines/size.json", json.dumps({"big.ts": 5}))
+    commit_all(repo)
+
+    code, out = check(repo, "big.ts")
+
+    assert code == 1
+    assert ".baselines/size.json:1: big.ts needs lines and until; run `mise run check-size --write-baseline`" in out

@@ -16,8 +16,9 @@ as raw text. A missing, non-mapping or invalid current `.repo.yaml` allows nothi
 With `--file` the files are not tied to profiles, so any `stack` change allows them.
 Otherwise a new file counts as growth. Every new baseline file is printed with the
 reason. Entries are the non-empty lines of a text file; JSON baselines compare:
-`.baselines/eslint-suppressions.json` the sum of the counts; `.baselines/size.json` the number of
-entries, the sum of the lines and each kept entry, so a rename passes; `.config/jscpd.json` the
+`.baselines/eslint-suppressions.json` the sum of the counts and the `until` of each kept rule entry;
+`.baselines/size.json` the number of entries, the sum of the lines and each kept entry, so a
+rename passes, and no `until` later than the latest at the base; `.config/jscpd.json` the
 `threshold`, which may not rise or disappear; a `.baselines/` file each entry, whose number
 may not rise, whose `until` may not move later, and which may not be added.
 """
@@ -111,6 +112,29 @@ def suppressions(data: object) -> int:
     return sum(int(r.get("count", 0)) for r in rules)
 
 
+def later(was: object, now: object) -> bool:
+    """`until` moved later; an entry without a date at the base allows any date."""
+    return bool(was) and str(now or "") > str(was)
+
+
+def suppression_dates(data: object) -> dict[tuple[str, str], object]:
+    files = data.items() if isinstance(data, dict) else []
+    return {(f, r): e.get("until") for f, rules in files if isinstance(rules, dict)
+            for r, e in rules.items() if isinstance(e, dict)}
+
+
+def size_entries(data: object) -> dict[str, tuple[int, object]]:
+    """{path: (lines, until)}; an entry of the format before dates is a bare number."""
+    items = data.items() if isinstance(data, dict) else []
+    found = {}
+    for key, value in items:
+        if isinstance(value, int):
+            found[key] = (value, None)
+        elif isinstance(value, dict) and isinstance(value.get("lines"), int):
+            found[key] = (value["lines"], value.get("until"))
+    return found
+
+
 def dated_growth(before: str | None, after: str | None) -> list[str]:
     """Growth of a `.baselines/` file: {path: {<number>: n, "until": date}}."""
     try:
@@ -147,8 +171,11 @@ def growth(name: str, before: str | None, after: str | None) -> list[str]:
     except ValueError as err:
         return [f"invalid JSON: {err}"]
     if kind == ".baselines/eslint-suppressions.json":
+        was, now = suppression_dates(old), suppression_dates(new)
+        found = [f"{f} {r}: until moved from {was[(f, r)]} to {until}" for (f, r), until in now.items()
+                 if (f, r) in was and later(was[(f, r)], until)]
         old, new = suppressions(old), suppressions(new)
-        return [f"baseline grew from {old} to {new} suppressions"] if new > old else []
+        return found + ([f"baseline grew from {old} to {new} suppressions"] if new > old else [])
     if kind == ".config/jscpd.json":
         was = old.get("threshold") if isinstance(old, dict) else None
         now = new.get("threshold") if isinstance(new, dict) else None
@@ -157,9 +184,15 @@ def growth(name: str, before: str | None, after: str | None) -> list[str]:
         if not isinstance(now, (int, float)):
             return ["threshold removed"]
         return [f"threshold grew from {was} to {now}"] if now > was else []
-    old = {k: v for k, v in old.items() if isinstance(v, int)} if isinstance(old, dict) else {}
-    new = {k: v for k, v in new.items() if isinstance(v, int)} if isinstance(new, dict) else {}
+    old_dated, new_dated = size_entries(old), size_entries(new)
+    old = {k: lines for k, (lines, _) in old_dated.items()}
+    new = {k: lines for k, (lines, _) in new_dated.items()}
     found = [f"{k} grew from {old[k]} to {v} lines" for k, v in new.items() if k in old and v > old[k]]
+    dates = [str(until) for _, until in old_dated.values() if until]
+    for k, (_, until) in new_dated.items():
+        limit = old_dated[k][1] if k in old_dated else max(dates, default=None)
+        if later(limit, until):
+            found.append(f"{k}: until moved from {limit} to {until}")
     if len(new) > len(old):
         found.append(f"baseline grew from {len(old)} to {len(new)} entries")
     if sum(new.values()) > sum(old.values()):

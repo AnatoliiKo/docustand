@@ -709,6 +709,19 @@ def test_baseline_status_counts_entries_and_lists_soon_expiring_ones(report, tmp
     assert expiring == ["`.baselines/comments.json`: `src/a.ts` until 2026-11-20"]
 
 
+def test_baseline_status_reads_the_earliest_until_of_eslint_rules(report, tmp_path):
+    folder = tmp_path / ".baselines"
+    folder.mkdir()
+    (folder / "eslint-suppressions.json").write_text(json.dumps({
+        "src/a.ts": {"complexity": {"count": 1, "until": "2027-06-01"}, "max-params": {"count": 1, "until": "2026-11-25"}},
+        "src/b.ts": {"complexity": {"count": 1, "until": "2027-06-01"}}}))
+
+    counts, expiring = report.baseline_status(tmp_path, NOW.date())
+
+    assert counts == ["`.baselines/eslint-suppressions.json`: 2 entries"]
+    assert expiring == ["`.baselines/eslint-suppressions.json`: `src/a.ts` until 2026-11-25"]
+
+
 def test_stale_prs_skip_recent_and_report_ones(report):
     prs = [{"number": 1, "updatedAt": "2026-10-01T00:00:00Z", "headRefName": "wt/x"},
            {"number": 2, "updatedAt": "2026-11-01T00:00:00Z", "headRefName": "wt/y"},

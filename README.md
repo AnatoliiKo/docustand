@@ -89,7 +89,7 @@ Stack profiles in this release:
 
 - The Terraform profile runs without secrets: `init -backend=false`, no `plan`.
 - The TypeScript profile is in [`profiles/typescript.md`](profiles/typescript.md).
-- Every stack has `check-size`: a file over the size limit of its profile fails unless `.baselines/size.json` records it.
+- Every stack has `check-size`: a file over the size limit of its profile fails unless `.baselines/size.json` records it before its `until` date.
 - A new stack needs a profile first.
 
 ## Update

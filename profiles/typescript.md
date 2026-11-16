@@ -29,8 +29,8 @@ The profile is the base layer of `nextjs` and `expo` ([ADR 0014](../docs/decisio
 | `.config/knip.json` | project, written once, protected | Ignores the tools that only the hooks call |
 | `.config/jscpd.json` | project, written once, protected | Duplication threshold |
 | `.mise/data/size-limits.json` | standard | 300 non-empty lines for `.ts`, `.tsx`, `.mts`, `.cts` |
-| `.baselines/size.json` | project, protected | Files over the limit with their size |
-| `.baselines/eslint-suppressions.json` | project, protected | Old ESLint violations |
+| `.baselines/size.json` | project, protected | Files over the limit with their size and `until` date |
+| `.baselines/eslint-suppressions.json` | project, protected | Old ESLint violations with an `until` date per rule |
 | `package.json`, `tsconfig*.json`, `vitest.config.*`, `vitest.workspace.*` at any depth | project, protected | The scripts the hooks run, the strictness of typecheck and the tests that run |
 
 The standard rules: `complexity` 10, `sonarjs/cognitive-complexity` 15, `max-depth` 4, `max-params` 4, `max-lines-per-function` 80 (`.tsx` 120).
@@ -47,6 +47,7 @@ The parser options of `eslint.config.mjs` come before `.config/eslint.project.mj
 | pre-commit | `prettier` | `prettier --check` on changed code files; files of the template are excluded |
 | pre-commit | `eslint-fast` | `ESLINT_NO_TYPES=1 eslint` on changed code files |
 | pre-commit | `check-size` | `.mise/tasks/check-size` on changed files |
+| pre-commit | `check-eslint-suppressions` | `.mise/tasks/check-eslint-suppressions`: an ESLint suppression without `until` or past it |
 | pre-push | `typecheck`, `test` | `npm run typecheck`, `npm run test` |
 | pre-push | `eslint` | `eslint` with type information on the changed files of the push |
 | pre-push | `dependency-cruiser-standard` | `depcruise --config .config/dependency-cruiser.standard.cjs .`: the standard `no-circular` that a project rule cannot replace |
@@ -62,11 +63,12 @@ Steps call the tools from `node_modules/.bin/`; the dependencies are installed b
 
 ## Baselines
 
-- `check-size` records nothing by itself; `check-size --write-baseline` records every tracked file over the limit at migration.
+- `check-size` records nothing by itself; `check-size --write-baseline` records every tracked file over the limit at migration with `until` 90 days ahead.
 - Outside CI `check-size` moves an entry after a staged rename, lowers it when the file shrinks and stages `.baselines/size.json`.
-- Old ESLint violations: `eslint --suppress-all`, then `eslint --prune-suppressions` as they are fixed.
+- Old ESLint violations: `eslint --suppress-all`, then `mise run check-eslint-suppressions -- --stamp`, then `eslint --prune-suppressions` as they are fixed; ESLint reads only `count` and keeps `until`.
+- An entry past its `until` fails `check-size` or `check-eslint-suppressions` on any commit.
 - `.config/jscpd.json` gets the measured duplication percentage at migration: run `jscpd .` with the template config and write the total into `threshold`.
-- `check-baseline` fails when the suppressions, the size baseline or the threshold grow.
+- `check-baseline` fails when the suppressions, the size baseline or the threshold grow, or when an `until` moves later.
 
 ## Migration notes
 

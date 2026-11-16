@@ -3,6 +3,18 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.10.0 — 2026-11-16
+
+### Added
+
+- `check-eslint-suppressions` fails when an entry of `.baselines/eslint-suppressions.json` has no `until` date or is past it; `--stamp` dates the entries 90 days ahead, see ADR 0030.
+
+### Changed
+
+- An entry of `.baselines/size.json` is `{"lines": n, "until": "YYYY-MM-DD"}`; `check-size` fails on an entry without a date or past it, and `--write-baseline` dates new entries 90 days ahead.
+- `check-baseline` fails when an `until` of the size or ESLint baseline moves later.
+- The scheduled report lists the earliest `until` of the ESLint suppressions of a file among the baseline entries that expire soon.
+
 ## 0.9.0 — 2026-11-13
 
 ### Added

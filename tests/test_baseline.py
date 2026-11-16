@@ -357,3 +357,47 @@ def test_dated_baseline_entries_only_shrink(before, after, grew):
     found = load_module().growth(".baselines/adr.json", json.dumps(before), json.dumps(after))
 
     assert bool(found) is grew, found
+
+
+def dated_suppression(until: str | None) -> str:
+    entry = {"count": 2, **({"until": until} if until else {})}
+    return json.dumps({"src/a.ts": {"complexity": entry}})
+
+
+@pytest.mark.parametrize("before,after,moved", [
+    ("2027-01-31", "2027-03-31", True),
+    ("2027-01-31", "2027-01-01", False),
+    (None, "2027-03-31", False),
+])
+def test_eslint_suppression_until_may_not_move_later(tmp_path, git_repo, before, after, moved):
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/eslint-suppressions.json",
+                                dated_suppression(before), dated_suppression(after))
+
+    assert (code == 1) == moved, out
+    if moved:
+        assert "src/a.ts complexity: until moved from 2027-01-31 to 2027-03-31" in out
+
+
+def test_size_baseline_until_may_not_move_later_also_on_rename(tmp_path, git_repo):
+    before = json.dumps({"old/a.ts": {"lines": 400, "until": "2027-01-31"}})
+
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/size.json", before,
+                                json.dumps({"old/a.ts": {"lines": 390, "until": "2027-02-28"}}))
+    assert code == 1
+    assert "old/a.ts: until moved from 2027-01-31 to 2027-02-28" in out
+
+    code, out = baseline_change(tmp_path / "2", git_repo, ".baselines/size.json", before,
+                                json.dumps({"new/a.ts": {"lines": 400, "until": "2027-02-28"}}))
+    assert code == 1
+    assert "new/a.ts: until moved from 2027-01-31 to 2027-02-28" in out
+
+    code, out = baseline_change(tmp_path / "3", git_repo, ".baselines/size.json", before,
+                                json.dumps({"new/a.ts": {"lines": 400, "until": "2027-01-31"}}))
+    assert code == 0, out
+
+
+def test_size_baseline_without_dates_at_base_takes_dates(tmp_path, git_repo):
+    code, out = baseline_change(tmp_path, git_repo, ".baselines/size.json", json.dumps({"a.ts": 400}),
+                                json.dumps({"a.ts": {"lines": 400, "until": "2027-02-28"}}))
+
+    assert code == 0, out

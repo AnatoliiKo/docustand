@@ -72,6 +72,15 @@ After the update:
 2. `mise run check-doc-paths` lists document paths that do not exist; fix the documents. The check has no baseline: a stale path misleads the next reader.
 3. A deployed project keeps `## Maintenance` of `README.md` only when it differs from `docs/operations.md`; the template writes the note to `docs/operations.md` only.
 
+## Update across 0.10.0
+
+0.10.0 dates the entries of `.baselines/size.json` and `.baselines/eslint-suppressions.json`, see ADR 0030.
+After the update, with a non-empty file:
+
+1. `mise run check-size -- --write-baseline` rewrites `.baselines/size.json` with `until` 90 days ahead.
+2. `mise run check-eslint-suppressions -- --stamp` gives every ESLint suppression `until` 90 days ahead.
+3. Each baseline gets a cleanup task in `docs/tasks.md` with the entry count as its `Done when`, due before the earliest `until`.
+
 ## Changing an answer
 
 Level, stack, report schedule, branches, `md_exceptions`, `overrides` and every other answer change only through Copier, never by editing `.repo.yaml`:

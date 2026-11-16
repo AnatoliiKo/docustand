@@ -354,5 +354,29 @@ def test_size_baseline_follows_a_rename(ts):
     local = {k: v for k, v in env.items() if k not in ("CI", "GITHUB_ACTIONS")}
     sh(root, local, "mise", "x", "--", "hk", "run", "pre-commit", check=True)
 
-    assert json.loads((root / ".baselines/size.json").read_text()) == {"src/moved/big.ts": 320}
+    entry = json.loads((root / ".baselines/size.json").read_text())["src/moved/big.ts"]
+    assert entry["lines"] == 320 and entry["until"]
     assert ".baselines/size.json" in sh(root, env, "git", "diff", "--cached", "--name-only", check=True).stdout
+
+
+def test_eslint_keeps_until_of_suppressions(ts):
+    root, env = ts
+    write(root, "src/pick.ts", branches(12))
+    write(root, "src/other.ts", branches(12))
+    write(root, "src/main.ts", MAIN + 'export { pick } from "./pick.js";\nexport { pick as other } from "./other.js";\n')
+    sh(root, env, "npx", "eslint", "--suppress-all", "--suppressions-location",
+       ".baselines/eslint-suppressions.json", "src", check=True)
+    sh(root, env, "mise", "run", "check-eslint-suppressions", "--", "--stamp", check=True)
+    write(root, "src/other.ts", "export const pick = 1;\n")
+    sh(root, env, "npx", "eslint", "--prune-suppressions", "--suppressions-location",
+       ".baselines/eslint-suppressions.json", "src", check=True)
+
+    data = json.loads((root / ".baselines/eslint-suppressions.json").read_text())
+    assert list(data) == ["src/pick.ts"]
+    assert all(entry["until"] for entry in data["src/pick.ts"].values())
+    assert check(ts).returncode == 0
+
+    for entry in data["src/pick.ts"].values():
+        entry["until"] = "2020-01-01"
+    write(root, ".baselines/eslint-suppressions.json", json.dumps(data))
+    assert_step_fails(check(ts), "check-eslint-suppressions")
