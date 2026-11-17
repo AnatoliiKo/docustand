@@ -1,7 +1,7 @@
 # 0025. Comment language and document paths
 
 Date: 2026-11-13
-Status: accepted
+Status: accepted; the comment language rule is replaced by [ADR 0033](0033-project-language.md)
 
 ## Context
 

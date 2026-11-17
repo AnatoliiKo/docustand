@@ -2,6 +2,7 @@ docs/temp/
 CLAUDE.local.md
 .venv/
 __pycache__/
+openspec/
 
 # >>> repository standard
 .claude/*

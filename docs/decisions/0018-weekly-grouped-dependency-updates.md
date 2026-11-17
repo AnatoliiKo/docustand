@@ -1,7 +1,7 @@
 # 0018. Weekly grouped dependency updates
 
 Date: 2026-11-11
-Status: accepted
+Status: superseded by ADR 0034
 
 ## Context
 
