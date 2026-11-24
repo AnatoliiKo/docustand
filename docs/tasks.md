@@ -12,8 +12,8 @@
 
 - Goal: one `language` answer (`ru`, `en`, `auto`) sets the language of comments and documents; no mixed languages in one project.
 - Done when: `check-comments` fails on a comment outside `language`; `auto` resolves to `ru` or `en` in `.repo.yaml` during `repo-init` and asks the owner when neither language exceeds 80 % of the measured blocks; the rendered `AGENTS.md` follows `language`; tests cover the three values; `cinema-ops` passes `mise run check` with the answer set.
-- Stopped at: not started; ADR 0025 fixes English as the only comment language.
-- Next: implement the `language` answer and the `check-comments` rule from ADR 0033.
+- Stopped at: the `cinema-ops` check with `language: en` (template commit 277e7b0, clone at 5d17f21) fails in 2 steps. `check-md-language` reports docs/operations.md:215-216 and docs/sources/mail.md:16-17 (non-English names outside «», real findings) and 534 rows of docs/ui-phrases.md between lines 18 and 1245 (a catalog of UI strings, detector false positive). `test` fails 8 of 1480 tests with the 5000 ms timeout at load average 10-18. `check-comments` passes.
+- Next: fix the template defects found by the `cinema-ops` language check: `check-md-language` on tables of UI strings such as docs/ui-phrases.md; then quote the 4 names in `cinema-ops` and rerun `mise run check`; the `test` timeouts under host load go to the same part as a vitest worker question for the `typescript` profile.
 - Refs: ADR 0025, ADR 0033, `template/.mise/tasks/check-comments`.
 
 ### Add the maintenance agent contract
