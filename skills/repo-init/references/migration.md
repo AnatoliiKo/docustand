@@ -18,7 +18,7 @@ Temporary files go to `docs/temp/` of the project; until step 2 adds it to `.git
 
 The template meets existing files. The order below keeps every existing line; it is the order tested by `tests/test_migration_render.py` in docustand.
 
-1. Render the template aside with the same answers. Until `mise install` brings Copier, run every `copier` command of this step as `mise exec uv@0.13.7 pipx:copier@9.19.1 -- copier ...`. Single-quote list and mapping values:
+1. Render the template aside with the same answers. Until `mise install` brings Copier, run every `copier` command of this step as `mise exec uv@0.13.9 pipx:copier@9.19.1 -- copier ...`. Single-quote list and mapping values:
 
    ```bash
    copier copy --defaults --vcs-ref <ref> --data project_name=<name> --data 'stack=[...]' <more --data> \

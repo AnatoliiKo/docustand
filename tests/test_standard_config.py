@@ -76,7 +76,7 @@ def test_typescript_files_only_for_typescript_stack(render, tmp_path):
         ".cts": 300, ".mts": 300, ".ts": 300, ".tsx": 300}
     assert json.loads((plain / ".mise/data/size-limits.json").read_text()) == {}
     tools = tomllib.loads((ts / ".mise/conf.d/standard.toml").read_text())["tools"]
-    assert tools["npm:jscpd"] == "5.4.2" and "node" in tools
+    assert tools["npm:jscpd"] == "5.4.3" and "node" in tools
     assert "npm:jscpd" not in tomllib.loads((plain / ".mise/conf.d/standard.toml").read_text())["tools"]
     assert "eslint" not in (plain / ".config/hk.pkl").read_text()
     assert "node_modules/" in (ts / ".gitignore").read_text().splitlines()

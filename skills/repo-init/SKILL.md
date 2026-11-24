@@ -60,7 +60,7 @@ Level `full` is offered with its description, and it is not available yet: the t
 - Repository unreachable (`git ls-remote` fails): use `${CLAUDE_PLUGIN_ROOT}` only if it is a git checkout (`git -C ${CLAUDE_PLUGIN_ROOT} rev-parse --show-toplevel` prints it); otherwise stop. Warn the owner: `_src_path` records a local path and Renovate cannot update the template. The remedy after publication is a one-time edit of `_src_path` to `gh:AnatoliiKo/docustand`, approved by the owner, then `copier update -a .repo.yaml --defaults --vcs-ref <first tag>`.
 
 Below, `<template>` and `<ref>` are this source and ref.
-Until `mise install` brings Copier from `standard.toml`, run Copier as `mise exec uv@0.13.7 pipx:copier@9.19.1 -- copier ...`.
+Until `mise install` brings Copier from `standard.toml`, run Copier as `mise exec uv@0.13.9 pipx:copier@9.19.1 -- copier ...`.
 
 ## 5. New repository
 
@@ -68,7 +68,7 @@ Until `mise install` brings Copier from `standard.toml`, run Copier as `mise exe
 2. Apply the template with every answer as `--data` (lists and mappings in YAML flow form, single-quoted):
 
    ```bash
-   mise exec uv@0.13.7 pipx:copier@9.19.1 -- copier copy --defaults --vcs-ref <ref> \
+   mise exec uv@0.13.9 pipx:copier@9.19.1 -- copier copy --defaults --vcs-ref <ref> \
      --data project_name=<name> --data level=base --data 'stack=[terraform]' \
      --data report_schedule=weekly --data 'required_ci_branches=[main]' \
      <template> .
