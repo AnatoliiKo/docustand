@@ -215,7 +215,7 @@ def test_repo_init_carries_build_facts():
         "hk install --mise",
         "merge_existing.py merge . docs/temp/rendered",
         "--skip <file 1>",
-        "mise exec uv@0.13.7 pipx:copier@9.19.1 -- copier",
+        "mise exec uv@0.13.9 pipx:copier@9.19.1 -- copier",
         "notes/probe.md",
         "otherwise stop",
         "`_src_path` to `gh:AnatoliiKo/docustand`",

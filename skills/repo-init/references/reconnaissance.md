@@ -9,7 +9,7 @@ Before the template adds `docs/temp/` to `.gitignore`, never stage that folder.
 ## Stack
 
 - Before the template is in the repository: `uv run --script ${CLAUDE_PLUGIN_ROOT}/template/.mise/tasks/detect-stack <dir>`.
-  Without `uv` on `PATH`: prefix the command with `mise exec uv@0.13.7 --`.
+  Without `uv` on `PATH`: prefix the command with `mise exec uv@0.13.9 --`.
 - After the template is in the repository: `mise run detect-stack`.
 - Output: `{"stack": [...], "evidence": {profile: [paths]}}`. A profile in `stack` has a file in `${CLAUDE_PLUGIN_ROOT}/profiles/`; read it for tools and commands.
 - Also read the manifests: `package.json`, `composer.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `*.tf`, Dockerfiles, compose files. Code without a profile is a finding: the question «Stack» applies.
