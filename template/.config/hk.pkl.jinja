@@ -60,6 +60,10 @@ local commitSteps = new Mapping<String, Step> {
     glob = List("**/*")
     check = ".mise/tasks/check-doc-paths"
   }
+  ["check-md-language"] {
+    glob = List("**/*.md", ".repo.yaml")
+    check = ".mise/tasks/check-md-language"
+  }
   ["check-agents-md"] = script("check-agents-md", "AGENTS.md")
   ["check-tasks-format"] = script("check-tasks-format", "docs/tasks.md")
   // The schema is an input too, so any change validates the whole `.repo.yaml`.

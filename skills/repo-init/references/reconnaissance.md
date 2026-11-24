@@ -56,6 +56,10 @@ For a migration, `merge_existing.py conflicts` later lists the exact files that 
 - Provider signs: an OpenAPI or TypeSpec file, a router with HTTP endpoints, a GraphQL schema.
 - Consumer signs: a generated client, a base URL of another service, an SDK of the owner's other repository.
 
+## Language
+
+Run `.mise/tasks/detect-language` (a rendered project) or `uv run --script <template>/.mise/tasks/detect-language` in the repository. It prints the number of `en` and `ru` prose blocks of documents and comments and a result. For `auto`, store `en` or `ru` with `copier update -a .repo.yaml --defaults --data language=<en|ru>`; when the result is `null`, ask the owner. Quoted strings, code spans, URLs and tool directives are not counted.
+
 ## Existing answers
 
 `.repo.yaml` and `docs/decisions/` already answer some questions; never ask those again.

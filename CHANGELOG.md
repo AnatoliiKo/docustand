@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+
+- The answer `language` (`en`, `ru`, `auto`; default `en`) sets the language of comments and Markdown documents, see ADR 0033. `check-comments` and the new `check-md-language` share the detector `.mise/lib/language.py`; `detect-language` resolves `auto` for `repo-init`; `AGENTS.md` renders its text rules per language. Under `ru`, `README.md`, `docs/access.md`, `docs/architecture.md`, `docs/operations.md` and the project configs `.config/eslint.project.mjs` and `.config/dependency-cruiser.cjs` render in Russian; `copier update` skips existing files, so translate them by hand when the answer changes.
+
 ### Changed
 
 - Renovate merges the weekly `non-major dependencies` pull request and the lock file maintenance pull request after the external checks pass; major updates and `copier` updates stay manual, see ADR 0034.

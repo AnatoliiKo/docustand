@@ -1,0 +1,4 @@
+{% if language == 'ru' %}// Правила ESLint проекта; `eslint.config.mjs` применяет стандартные правила после них.
+// Правила с типами запускаются перед push и в CI, а не перед коммитом.{% else %}// Project ESLint rules; `eslint.config.mjs` applies the standard rules after them.
+// Rules with type information run before push and in CI, not before a commit.{% endif %}
+export default [];

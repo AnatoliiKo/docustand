@@ -1,0 +1,5 @@
+{% if language == 'ru' %}// Правила архитектуры проекта; `no-circular` приходит из стандартного файла.{% else %}// Project architecture rules; `no-circular` comes from the standard file.{% endif %}
+module.exports = {
+  extends: "./dependency-cruiser.standard.cjs",
+  forbidden: [],
+};
