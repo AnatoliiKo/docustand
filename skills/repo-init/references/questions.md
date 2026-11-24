@@ -18,6 +18,7 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 |---|---|---|
 | Level: base or full | always | `level` |
 | Report schedule: monthly, weekly (recommended), twice a week, off | always | `report_schedule` |
+| Language of comments and documents: English (default), Russian, or detect | always | `language` |
 | Is the detected stack right? | the profile is ambiguous or missing | `stack` |
 | Architecture: confirm the detected methodology, or decide whether one is needed | code repositories; not for infrastructure or documentation | `architecture`, ADR |
 | Own configs found: keep the differences with a reason in `overrides`, or bring them to the template | the project already has configs that the template also brings | `overrides` or the template file |
@@ -34,6 +35,12 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 
 1. Base (recommended): README, `AGENTS.md`, ADRs, `docs/tasks.md`, hk, CI, bypass protection, comment rules, deterministic report. Costs: no OpenSpec, Danger, Vale or LLM reports.
 2. Full: base plus OpenSpec, Danger, Vale and LLM reports in the summary. Not available yet: the template rejects `level: full`; choosing it now keeps `base` and the change waits for a template release.
+
+**Language** (ADR 0033).
+
+1. English (default, recommended for new projects): comments, documents, commits and PRs in English. Costs: Russian text of an existing project is translated.
+2. Russian: the same in Russian; `check-comments` and `check-md-language` fail on Latin prose without Cyrillic words. Costs: English text of an existing project is translated.
+3. Detect (`auto`): `detect-language` counts prose blocks and `repo-init` stores `en` or `ru`; the owner decides when no language exceeds 80 %. Costs: `auto` stays red until resolved.
 
 **Report schedule.**
 

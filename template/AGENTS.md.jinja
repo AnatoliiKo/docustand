@@ -61,7 +61,13 @@ Tools: `.mise/conf.d/standard.toml` (standard) and `mise.toml` (project). Comman
 
 ## Text rules
 
+#% if language == 'ru'
+- Write engineering texts of the project in Russian: code comments, commits, PRs, documentation, ADRs, tasks. The files that the template renders stay in English. UI strings, localization and test data may use other languages.
+#% elif language == 'auto'
+- The language of engineering texts is unresolved: run `repo-init` to set `language` to `en` or `ru` before writing comments or documents.
+#% else
 - Write engineering texts in English: code comments, commits, PRs, documentation, ADRs, tasks, this file. UI strings, localization and test data may use other languages.
+#% endif
 - Use a technical, formal style. Use present tense and affirmative sentences. Write no first person, hedging, evaluative words, emoji or rhetorical questions.
 - One sentence states one fact. Write numbers with units, dates as `YYYY-MM-DD`, identifiers and paths in backticks.
 - State a fact once and link to it elsewhere.

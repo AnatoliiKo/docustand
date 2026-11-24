@@ -19,6 +19,7 @@ def test_answers_file_is_repo_yaml(render, tmp_path):
     assert answers["level"] == "base"
     assert answers["team"] == "solo"
     assert answers["report_schedule"] == "weekly"
+    assert answers["language"] == "en"
     assert answers["overrides"] == []
 
 

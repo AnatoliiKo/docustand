@@ -240,7 +240,7 @@ def test_renovate_min_age_at_least_3_days(renovate):
 
 
 WEEKLY_RULE = {"matchUpdateTypes": ["minor", "patch", "pin", "digest"], "groupName": "non-major dependencies",
-               "schedule": ["* 0-5 * * 1"]}
+               "schedule": ["* 0-5 * * 1"], "automerge": True}
 
 
 def test_renovate_groups_non_major_updates_weekly(renovate):
@@ -251,19 +251,19 @@ def test_renovate_groups_non_major_updates_weekly(renovate):
     assert WEEKLY_RULE in rules
     assert max(groups) < rules.index(WEEKLY_RULE)
     assert renovate["platformAutomerge"] is False
-    assert not any(r.get("automerge") for r in rules)
+    assert [r for r in rules if r.get("automerge")] == [WEEKLY_RULE]
 
 
 def test_renovate_refreshes_lock_file_weekly(renovate):
     # Transitive dependencies change only in the lock file; their vulnerability alerts stay open otherwise.
     # Lock file maintenance has no release timestamps: with an age, its status check stays pending.
     assert renovate["lockFileMaintenance"] == {"enabled": True, "minimumReleaseAge": None,
-                                               "schedule": WEEKLY_RULE["schedule"]}
+                                               "schedule": WEEKLY_RULE["schedule"], "automerge": True}
     own = json.loads((REPO_ROOT / ".github/renovate.json").read_text())
     assert own["lockFileMaintenance"] == renovate["lockFileMaintenance"]
 
 
-MAJOR_RULE = {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": True}
+MAJOR_RULE = {"matchUpdateTypes": ["major"], "dependencyDashboardApproval": True, "automerge": False}
 
 
 def test_renovate_major_updates_wait_for_dashboard_approval(renovate):
@@ -273,6 +273,20 @@ def test_renovate_major_updates_wait_for_dashboard_approval(renovate):
     assert rules.index(MAJOR_RULE) > rules.index(WEEKLY_RULE)
     assert renovate["extends"] == ["config:recommended"]
     assert "dependencyDashboardApproval" not in renovate["vulnerabilityAlerts"]
+
+
+@pytest.mark.parametrize("source", ["rendered", "root"])
+def test_renovate_major_updates_never_automerge(renovate, source):
+    config = renovate if source == "rendered" else json.loads((REPO_ROOT / ".github/renovate.json").read_text())
+    major = [r for r in config["packageRules"] if "automerge" in r and "major" in r.get("matchUpdateTypes", [])]
+    assert major[-1]["automerge"] is False
+
+
+def test_renovate_automerge_waits_for_external_checks(renovate):
+    # Without external checks Renovate would merge on the stability-days status alone.
+    assert not renovate.get("ignoreTests")
+    assert not renovate.get("internalChecksAsSuccess")
+    assert renovate["platformAutomerge"] is False
 
 
 COPIER_RULE = {"matchManagers": ["copier"], "minimumReleaseAge": None, "automerge": False,
@@ -286,6 +300,15 @@ def test_renovate_copier_updates_wait_for_review(renovate, source):
     rules = config["packageRules"]
     assert COPIER_RULE in rules
     assert rules.index(COPIER_RULE) > rules.index(WEEKLY_RULE)
+
+
+@pytest.mark.parametrize("source", ["rendered", "root"])
+def test_renovate_copier_updates_never_automerge(renovate, source):
+    config = renovate if source == "rendered" else json.loads((REPO_ROOT / ".github/renovate.json").read_text())
+    rules = config["packageRules"]
+    assert rules.index(COPIER_RULE) > rules.index(WEEKLY_RULE)
+    if source == "root":
+        assert rules[-1] == {"matchFileNames": ["template/**"], "automerge": False}
 
 
 SHORTHAND_RULES = [

@@ -2,7 +2,7 @@
 
 ## Parts
 
-| Part | Responsibility |
+{% if language == 'ru' %}| Часть | Назначение |{% else %}| Part | Responsibility |{% endif %}
 |---|---|
 | | |
 
@@ -14,11 +14,11 @@
 
 ## Glossary
 
-| Term | Meaning |
+{% if language == 'ru' %}| Термин | Значение |{% else %}| Term | Meaning |{% endif %}
 |---|---|
 | | |
 
 ## Methodology
 {% if architecture %}{% for part, style in architecture.items() %}
 - `{{ part }}`: `{{ style }}`.{% endfor %}{% else %}
-No architectural methodology is set.{% endif %}
+{% if language == 'ru' %}Методология архитектуры не задана.{% else %}No architectural methodology is set.{% endif %}{% endif %}

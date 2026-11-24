@@ -1,0 +1,51 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Fail when Markdown prose is not in the language of .repo.yaml"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: check-md-language [FILE ...]
+
+Prose blocks are paragraphs, list items, headings and table rows outside fenced code, inline code,
+link targets and HTML comments; the detector is `.mise/lib/language.py`, shared with `check-comments`.
+ADRs, `docs/temp/` and `CHANGELOG.md` are never checked. `AGENTS.md` is not checked under `ru`: the template renders it in English.
+`language: auto` fails: `repo-init` resolves it to `en` or `ru`. A changed `.repo.yaml` checks every document.
+Without files every tracked Markdown file is checked.
+"""
+import subprocess
+import sys
+from pathlib import Path
+
+# A cache folder in `.mise/lib/` would dirty the work tree.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+import language as lang
+
+
+def main(argv: list[str]) -> int:
+    root = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], check=True, capture_output=True,
+                               text=True).stdout.strip())
+    language = lang.read_language(root)
+    if language == "auto":
+        print(".repo.yaml: language is `auto`; run repo-init to resolve it to `en` or `ru`")
+        return 1
+    if language not in lang.MESSAGES:
+        print(f".repo.yaml: language `{language}` is not `en`, `ru` or `auto`")
+        return 1
+    tracked = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root,
+                             check=True, capture_output=True, text=True).stdout.split("\0")
+    documents = [p for p in tracked if p.endswith(".md")]
+    if argv and ".repo.yaml" not in argv:
+        documents = [a for a in argv if a.endswith(".md")]
+    found = 0
+    for document in documents:
+        path = root / document
+        if lang.DOCUMENTS_SKIPPED.match(document) or lang.is_standard(document, language) or not path.is_file():
+            continue
+        for number in lang.violations(lang.markdown_blocks(path.read_text()), language):
+            print(f"{document}:{number}: prose not in {lang.MESSAGES[language]}; quote a UI string in «»")
+            found += 1
+    return 1 if found else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

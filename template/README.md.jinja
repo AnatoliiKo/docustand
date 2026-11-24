@@ -1,38 +1,38 @@
 # {{ project_name }}
 
-One sentence on what the project does.
+{% if language == 'ru' %}Одно предложение о том, что делает проект.{% else %}One sentence on what the project does.{% endif %}
 
 ## Setup
 
-1. Install [mise](https://mise.jdx.dev/).
-2. Clone the repository, or run `git init` in a new one: the hooks need a git repository.
-3. Run `mise install`: it installs the pinned tools, then the git hooks (`hk install --mise`).
-4. Run `mise tasks` to list the available commands.
+{% if language == 'ru' %}1. Установить [mise](https://mise.jdx.dev/).{% else %}1. Install [mise](https://mise.jdx.dev/).{% endif %}
+{% if language == 'ru' %}2. Клонировать репозиторий или выполнить `git init` в новом: хукам нужен git-репозиторий.{% else %}2. Clone the repository, or run `git init` in a new one: the hooks need a git repository.{% endif %}
+{% if language == 'ru' %}3. Выполнить `mise install`: команда ставит закреплённые инструменты, затем git-хуки (`hk install --mise`).{% else %}3. Run `mise install`: it installs the pinned tools, then the git hooks (`hk install --mise`).{% endif %}
+{% if language == 'ru' %}4. Выполнить `mise tasks`, чтобы увидеть доступные команды.{% else %}4. Run `mise tasks` to list the available commands.{% endif %}
 
 ## Checks
 
-- `mise run check` runs all checks.
-- `mise run pr-ready` runs `mise run check` and records the verified commit.
+{% if language == 'ru' %}- `mise run check` запускает все проверки.{% else %}- `mise run check` runs all checks.{% endif %}
+{% if language == 'ru' %}- `mise run pr-ready` запускает `mise run check` и записывает проверенный коммит.{% else %}- `mise run pr-ready` runs `mise run check` and records the verified commit.{% endif %}
 
 ## Documentation
 
-| File | Content |
+{% if language == 'ru' %}| Файл | Содержимое |{% else %}| File | Content |{% endif %}
 |---|---|
-| `AGENTS.md` | Rules for agents and contributors |
-| `docs/architecture.md` | System map and architecture |
-| `docs/decisions/` | Decision records |
-| `docs/tasks.md` | Work in progress and backlog |
-| `docs/access.md` | Required accesses and expiry dates |
+{% if language == 'ru' %}| `AGENTS.md` | Правила для агентов и участников |{% else %}| `AGENTS.md` | Rules for agents and contributors |{% endif %}
+{% if language == 'ru' %}| `docs/architecture.md` | Карта системы и архитектура |{% else %}| `docs/architecture.md` | System map and architecture |{% endif %}
+{% if language == 'ru' %}| `docs/decisions/` | Записи решений |{% else %}| `docs/decisions/` | Decision records |{% endif %}
+{% if language == 'ru' %}| `docs/tasks.md` | Задачи в работе и бэклог |{% else %}| `docs/tasks.md` | Work in progress and backlog |{% endif %}
+{% if language == 'ru' %}| `docs/access.md` | Нужные доступы и сроки их действия |{% else %}| `docs/access.md` | Required accesses and expiry dates |{% endif %}
 {%- if deployed %}
-| `docs/operations.md` | Deploy, rollback, backup restore, alerts |
+{% if language == 'ru' %}| `docs/operations.md` | Выкладка, откат, восстановление из бэкапа, алерты |{% else %}| `docs/operations.md` | Deploy, rollback, backup restore, alerts |{% endif %}
 {%- endif %}
 {%- if not deployed %}
 
 ## Maintenance
 
 {% if report_schedule != 'off' -%}
-GitHub disables scheduled workflows after 60 days without activity in public repositories. Re-enable the report workflow with `gh workflow enable standard-report.yml`.
+{% if language == 'ru' %}GitHub отключает рабочие процессы по расписанию после 60 дней без активности в публичных репозиториях. Включить процесс отчёта заново: `gh workflow enable standard-report.yml`.{% else %}GitHub disables scheduled workflows after 60 days without activity in public repositories. Re-enable the report workflow with `gh workflow enable standard-report.yml`.{% endif %}
 {%- else -%}
-Scheduled reports are off. Enable them by changing the `report_schedule` answer in `.repo.yaml` as `AGENTS.md` describes.
+{% if language == 'ru' %}Отчёты по расписанию выключены. Включить их можно сменой ответа `report_schedule` в `.repo.yaml`, как описано в `AGENTS.md`.{% else %}Scheduled reports are off. Enable them by changing the `report_schedule` answer in `.repo.yaml` as `AGENTS.md` describes.{% endif %}
 {%- endif %}
 {%- endif %}

@@ -26,6 +26,11 @@ import tokenize
 from datetime import date, timedelta
 from pathlib import Path
 
+# A cache folder in `.mise/lib/` would dirty the work tree.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+import language as lang
+
 C_LIKE = ("//", "/*")
 HASH = ("#",)
 STYLES = {
@@ -62,28 +67,12 @@ HISTORY = [
      "decision attribution in a comment"),
     (re.compile(r"\b(?:previously|formerly|used to be)\b", re.I), "change history in a comment"),
 ]
-# Engineering text is English. A UI string in «…» may wrap to the next comment line, so a
-# comment block is read as one text; three Cyrillic words in a row outside quotes are prose.
-BLOCK_QUOTED = re.compile(r"«[^»]*»|`[^`\n]*`|\"[^\"\n]*\"")
-CYRILLIC_PROSE = re.compile(r"[А-Яа-яЁё]+(?:[\s,.;:()-]+[А-Яа-яЁё]+){2,}")
-LANGUAGE_MESSAGE = "comment not in English; quote a UI string in «»"
+# Engineering text is in `language` of `.repo.yaml`; a UI string in «…» may wrap to the next comment line,
+# so a comment block is read as one text (ADR 0033).
+LANGUAGE_MESSAGE = "comment not in {}; quote a UI string in «»"
+UNRESOLVED = "language is `auto` in .repo.yaml; run repo-init to resolve it to `en` or `ru`"
 
 
-def non_english(comments: list[tuple[int, str]]) -> list[int]:
-    """First line of each block of consecutive comment lines that holds Cyrillic prose."""
-    blocks: list[list[tuple[int, str]]] = []
-    for number, text in comments:
-        if blocks and blocks[-1][-1][0] + 1 == number:
-            blocks[-1].append((number, text))
-        else:
-            blocks.append([(number, text)])
-    found = []
-    for block in blocks:
-        text = "\n".join(part for _, part in block)
-        match = CYRILLIC_PROSE.search(BLOCK_QUOTED.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text))
-        if match:
-            found.append(block[0][0] + text.count("\n", 0, match.start()))
-    return found
 # JSDoc documents the exported API; an internal declaration takes a line comment.
 # A block with a tag (`@type`, `@param`) stays: in JavaScript it carries types.
 JSDOC_SUFFIXES = {".ts", ".tsx", ".js", ".mjs"}
@@ -203,6 +192,13 @@ def main(argv: list[str]) -> int:
     else:
         files = [p for p in git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0") if p]
 
+    language = lang.read_language(root)
+    if language == "auto":
+        print(f".repo.yaml: {UNRESOLVED}")
+        return 1
+    if language not in lang.MESSAGES:
+        print(f".repo.yaml: language `{language}` is not `en`, `ru` or `auto`")
+        return 1
     write = argv[:1] == ["--write-baseline"]
     if write:
         files = [p for p in git(root, "ls-files", "-z").split("\0") if p]
@@ -234,7 +230,9 @@ def main(argv: list[str]) -> int:
             prose = QUOTED.sub("", text)
             history += [(number, message) for pattern, message in HISTORY
                         if pattern.search(prose) and not (message == HISTORY[0][1] and TEST_FILE.search(path))]
-        history += [(number, LANGUAGE_MESSAGE) for number in non_english(comments)]
+        if not lang.is_standard(path, language):
+            history += [(number, LANGUAGE_MESSAGE.format(lang.MESSAGES[language]))
+                        for number in lang.violations(lang.group(comments), language, comment=True)]
         if full.suffix in JSDOC_SUFFIXES:
             history += [(number, JSDOC_MESSAGE) for number in internal_jsdoc(source.splitlines())]
         if write:

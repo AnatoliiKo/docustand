@@ -45,6 +45,15 @@ team:
     solo: solo
   default: solo
 
+language:
+  type: str
+  help: Language of comments and documents
+  choices:
+    en: en
+    ru: ru
+    auto: auto
+  default: en
+
 stack:
   type: yaml
   multiselect: true
