@@ -1,16 +1,17 @@
 # Access
 
-Accesses the project depends on. Secrets are never stored here.
-Expiry is a date in `YYYY-MM-DD` format or `never`.
+{% if language == 'ru' %}Доступы, от которых зависит проект. Секреты здесь не хранятся.
+Срок действия — дата в формате `YYYY-MM-DD` или `never`.{% else %}Accesses the project depends on. Secrets are never stored here.
+Expiry is a date in `YYYY-MM-DD` format or `never`.{% endif %}
 
-| Access | Owner | Where secrets live | Expires |
+{% if language == 'ru' %}| Доступ | Владелец | Где хранятся секреты | Срок |{% else %}| Access | Owner | Where secrets live | Expires |{% endif %}
 |---|---|---|---|
-| Code hosting (GitHub repository) | | | never |
+{% if language == 'ru' %}| Хостинг кода (репозиторий GitHub) |{% else %}| Code hosting (GitHub repository) |{% endif %} | | never |
 | CI token | | | YYYY-MM-DD |
-| Renovate GitHub App on the repository | | GitHub App settings | never |
+{% if language == 'ru' %}| Renovate GitHub App в репозитории | | настройки GitHub App |{% else %}| Renovate GitHub App on the repository | | GitHub App settings |{% endif %} never |
 {%- if report_schedule != 'off' %}
-| Report GitHub App: Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read, Dependabot alerts read | | GitHub Actions secrets `REPORT_APP_CLIENT_ID`, `REPORT_APP_PRIVATE_KEY` | never |
+{% if language == 'ru' %}| Report GitHub App: чтение и запись Contents и Pull requests, чтение Administration, Checks, Commit statuses и Dependabot alerts | | секреты GitHub Actions `REPORT_APP_CLIENT_ID`, `REPORT_APP_PRIVATE_KEY` | never |{% else %}| Report GitHub App: Contents read and write, Pull requests read and write, Administration read, Checks read, Commit statuses read, Dependabot alerts read | | GitHub Actions secrets `REPORT_APP_CLIENT_ID`, `REPORT_APP_PRIVATE_KEY` | never |{% endif %}
 {%- endif %}
 {%- if level == 'full' and report_schedule != 'off' %}
-| Scheduled Claude task for reports | | | never |
+{% if language == 'ru' %}| Задача Claude по расписанию для отчётов |{% else %}| Scheduled Claude task for reports |{% endif %} | | never |
 {%- endif %}

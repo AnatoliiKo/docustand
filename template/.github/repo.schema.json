@@ -9,6 +9,7 @@
     "project_name": {"type": "string"},
     "level": {"enum": ["base", "full"]},
     "team": {"enum": ["solo"]},
+    "language": {"enum": ["en", "ru", "auto"]},
     "stack": {"type": "array", "items": {"enum": ["terraform", "typescript"]}, "uniqueItems": true},
     "architecture": {
       "type": "object",

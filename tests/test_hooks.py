@@ -17,7 +17,7 @@ PR_MSG = 'Run the "Before a PR" steps from AGENTS.md and mise run pr-ready first
 PROTECTED = [
     ".repo.yaml", ".github/renovate.json", "mise.toml", ".mise/conf.d/**",
     ".github/workflows/**", ".claude/settings.json", ".claude/hooks/**",
-    ".mise/tasks/**", ".mise/data/**", ".github/repo.schema.json", ".baselines/**", ".config/**",
+    ".mise/tasks/**", ".mise/data/**", ".mise/lib/**", ".github/repo.schema.json", ".baselines/**", ".config/**",
 ]
 TYPESCRIPT_PROTECTED = [
     "eslint.config.mjs", "steiger.config.*",

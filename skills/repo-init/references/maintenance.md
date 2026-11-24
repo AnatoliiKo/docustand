@@ -92,10 +92,11 @@ Level, stack, report schedule, branches, `md_exceptions`, `overrides` and every 
    copier update -a .repo.yaml --defaults --data <key>=<value>
    ```
 
-   Examples: `--data report_schedule=monthly`, `--data 'stack=[terraform]'`, `--data 'required_ci_branches=[main,develop]'`. Lists and mappings in YAML flow form, single-quoted: brackets and braces are globs in zsh.
+   Examples: `--data language=ru`, `--data report_schedule=monthly`, `--data 'stack=[terraform]'`, `--data 'required_ci_branches=[main,develop]'`. Lists and mappings in YAML flow form, single-quoted: brackets and braces are globs in zsh.
 3. `--data level=full` fails with «Level "full" is not supported yet»: the full level is not available yet.
 4. Copier adds and removes the files of the changed answer (profile configs, the report workflow, `docs/operations.md`). `mise install`, then `mise run check` exits 0.
-5. A changed `required_ci_branches` also changes branch protection (SKILL.md section 6).
+5. A changed `language` fails `check-comments` and `check-md-language` on old text of the other language. Translate that text in the same change; baseline entries and exceptions are not added.
+6. A changed `required_ci_branches` also changes branch protection (SKILL.md section 6).
 
 ## Detach
 
