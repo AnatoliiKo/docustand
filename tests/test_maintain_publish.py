@@ -517,7 +517,9 @@ def test_publish_rejects_files_a_hook_adds_to_the_commit(started):
 
 def test_publish_keeps_remote_branch_that_appears_before_the_push(started):
     edit_doc(started)
-    foreign = started.remote_git("commit-tree", "-m", "chore: foreign", "main^{tree}").strip()
+    # A bare repository has no local identity, and a CI runner has no global one.
+    foreign = started.remote_git("-c", "user.name=T", "-c", "user.email=t@e.c", "commit-tree", "-m", "chore: foreign",
+                                 "main^{tree}").strip()
     shim = started.stub / "bin/git"
     real = shutil.which("git")
     shim.write_text(f'#!/bin/sh\nif [ "$1" = push ]; then\n  "{real}" -C "{started.remote}" update-ref '
