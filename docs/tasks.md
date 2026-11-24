@@ -29,5 +29,4 @@
 - Migrate the `infrastructure` project to the repository standard — second pilot project, results go to `docs/pilot-log.md`.
 - Review changes to protected files in #2 — they change how checks run outside a template update.
 - Review changes to protected files in #14 — they change how checks run outside a template update.
-- Enable automerge of non-major updates after a green CI in `template/.github/renovate.json` — weekly manual merges defeat up-to-date dependencies; ADR 0034.
 - Update the pins of docustand tools through Renovate and release automatically — tools of projects move only with a docustand release.
