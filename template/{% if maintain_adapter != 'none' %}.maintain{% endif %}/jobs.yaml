@@ -1,0 +1,54 @@
+# Maintenance jobs: the contract of every adapter, independent of an agent.
+# `paths` and `exclude` are globs: `*` and `?` stay within a segment, `**` crosses segments.
+# `maintain` reads this file from the base branch, so an edit by an agent has no effect.
+jobs:
+  docs-drift:
+    instructions: .maintain/jobs/docs-drift.md
+    paths: ["**/*.md"]
+    exclude:
+      - AGENTS.md
+      - CLAUDE.md
+      - CHANGELOG.md
+      - docs/decisions/**
+      - docs/tasks.md
+      - .claude/**
+      - .github/**
+      - openspec/**
+    # Documents of `md_exceptions` and documents that name a generator stay as they are.
+    skip_md_exceptions: true
+    skip_generated: true
+    commit: "docs: align documents with the code"
+  baseline-burndown:
+    instructions: .maintain/jobs/baseline-burndown.md
+    paths: ["**"]
+    exclude: &code_exclude
+      - openspec/**
+      - .github/**
+      - .claude/**
+      - AGENTS.md
+      - CLAUDE.md
+      - "**/.*"
+      - "**/.*/**"
+      - "**/rumdl.toml"
+      - "**/typos.toml"
+      - "**/_typos.toml"
+      - "**/*.config.*"
+      - "**/package-lock.json"
+      - "**/pnpm-lock.yaml"
+      - "**/yarn.lock"
+      - "**/bun.lock"
+      - "**/bun.lockb"
+      - "**/composer.lock"
+      - "**/Cargo.lock"
+      - "**/poetry.lock"
+      - "**/uv.lock"
+      - "**/Gemfile.lock"
+      - "**/go.sum"
+      - "**/.terraform.lock.hcl"
+    baselines: true
+    commit: "chore: remove baseline entries"
+  dead-code:
+    instructions: .maintain/jobs/dead-code.md
+    paths: ["**"]
+    exclude: *code_exclude
+    commit: "refactor: remove unused code"

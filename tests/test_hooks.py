@@ -18,6 +18,7 @@ PROTECTED = [
     ".repo.yaml", ".github/renovate.json", "mise.toml", ".mise/conf.d/**",
     ".github/workflows/**", ".claude/settings.json", ".claude/hooks/**",
     ".mise/tasks/**", ".mise/data/**", ".mise/lib/**", ".github/repo.schema.json", ".baselines/**", ".config/**",
+    ".maintain/**", ".mise/**", "mise*.toml", ".mise*.toml", "hk.*", ".hkrc.pkl",
 ]
 TYPESCRIPT_PROTECTED = [
     "eslint.config.mjs", "steiger.config.*",
@@ -591,6 +592,14 @@ def test_settings_json_valid(render, tmp_path):
     assert "Edit(/.mise/tasks/**)" in ask and "Edit(/.github/repo.schema.json)" in ask
     assert "Edit(/.tflint.hcl)" not in ask
     assert sorted(ask) == sorted(f"Edit(/{p})" for p in PROTECTED)
+
+
+@pytest.mark.parametrize("path", [".mise/config.toml", "mise.local.toml", ".mise.toml", "hk.local.pkl",
+                                  ".maintain/jobs.yaml"])
+def test_guard_asks_before_write_to_tool_override(render, tmp_path, path):
+    dest = render(tmp_path, project_name="demo")
+
+    assert decision(bash_in(dest, f"cp x {path}")) == "ask"
 
 
 def test_settings_typescript_protects_profile_files(render, tmp_path):

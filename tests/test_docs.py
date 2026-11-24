@@ -193,3 +193,10 @@ def test_review_checklist_lists_rules_without_a_check(render, tmp_path):
                      "number in `Done when`"):
         assert sum(fragment in item for item in items) == 1, fragment
     assert "docustand" not in checklist, "a detached repository keeps the checklist"
+
+
+def test_agents_md_limit_with_adapter_and_all_profiles(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", maintain_adapter="manual", stack=["terraform", "typescript"],
+                  deployed=True)
+
+    assert len((dest / "AGENTS.md").read_text().splitlines()) <= 150

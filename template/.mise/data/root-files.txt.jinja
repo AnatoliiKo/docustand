@@ -5,6 +5,9 @@
 .config
 .github
 .mise
+{%- if maintain_adapter | default('none') != 'none' %}
+.maintain
+{%- endif %}
 docs
 .editorconfig
 .env.example

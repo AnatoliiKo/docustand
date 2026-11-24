@@ -1,0 +1,36 @@
+# Maintenance
+
+This folder holds the maintenance jobs of the repository and the adapters that run them.
+
+| Path | Content |
+|---|---|
+| `jobs.yaml` | Manifest: the jobs, the paths each may change and the commit title |
+| `jobs/` | One instruction file per job |
+{%- if maintain_adapter == 'manual' %}
+| `manual/` | Adapter for a local run |
+{%- endif %}
+
+## Run
+
+```sh
+mise run maintain -- prompt docs-drift
+{%- if maintain_adapter == 'manual' %}
+.maintain/manual/run docs-drift --local -- <agent command>
+{%- else %}
+mise run maintain -- run docs-drift --local -- <agent command>
+{%- endif %}
+```
+
+Jobs: `docs-drift`, `baseline-burndown`, `dead-code`. Every job ends in a pull request from `maintain/<job>`; no job merges or pushes to another branch.
+
+`mise run maintain -- start|publish|run <job> [--local]` is the contract all adapters share. `--local` stops after the commit: no push, no pull request.
+
+## Own adapter
+
+Create `.maintain/<adapter>/` with a `README.md` that states what the folder holds and how to run it, and an executable `run` that calls `mise run maintain -- run <job>`. Record the folder name as the answer `maintain_adapter` in `.repo.yaml`, changed as `AGENTS.md` prescribes.
+
+An adapter that runs `publish` as a separate process after the agent, such as a CI job, runs the code of `.mise/` from a clean checkout of the base branch, with the tree of the agent as the current folder. `run` loads the code before the agent starts, so it needs no such care.
+
+## Limits of the protection
+
+`maintain` reads the manifest and the protected paths from the base branch and stops before any code of the tree runs when a job changes a path outside its list. The limits cover a mistake of an agent and a bypass of the checks through repository files. An agent with an arbitrary shell can change `.git/config` and the environment; the last barrier is CI and the review of the pull request.

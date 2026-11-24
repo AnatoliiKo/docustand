@@ -471,6 +471,8 @@ def load_gitignore_block():
 @pytest.mark.parametrize("data", [
     {},
     {"stack": ["terraform", "typescript"], "deployed": True, "report_schedule": "off"},
+    {"maintain_adapter": "manual"},
+    {"maintain_adapter": "codex"},
 ])
 def test_gitignore_tracked_list_equals_rendered_files(render, tmp_path, data):
     dest = render(tmp_path, project_name="demo", **data)
@@ -478,6 +480,26 @@ def test_gitignore_tracked_list_equals_rendered_files(render, tmp_path, data):
     script = load_gitignore_block()
 
     assert sorted(script.tracked(script.answers(dest))) == rendered
+
+
+def test_gitignore_tracked_follows_maintain_answers():
+    script = load_gitignore_block()
+
+    assert ".mise/tasks/maintain" not in script.tracked({})
+    assert ".mise/tasks/maintain" not in script.tracked({"maintain_adapter": "none"})
+    assert ".maintain/jobs.yaml" in script.tracked({"maintain_adapter": "codex"})
+    assert ".maintain/manual/run" not in script.tracked({"maintain_adapter": "codex"})
+    assert ".maintain/manual/run" in script.tracked({"maintain_adapter": "manual"})
+
+
+def test_maintain_folder_allows_only_its_documents(project):
+    dest = project(maintain_adapter="manual")
+    write(dest, ".maintain/notes.md", "# Notes\n")
+
+    code, out = run(dest, "check-md-placement")
+
+    assert code == 1 and ".maintain/notes.md" in out
+    assert ".maintain/README.md" not in out and ".maintain/jobs/" not in out and ".maintain/manual/" not in out
 
 
 def test_gitignore_tracked_follows_answers():

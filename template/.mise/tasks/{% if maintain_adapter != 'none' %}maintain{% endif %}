@@ -1,0 +1,53 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Run a maintenance job: prompt, start, publish or run"
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["pyyaml==6.0.3"]
+# ///
+"""Usage: maintain prompt|start|publish|run JOB [--local] [-- AGENT COMMAND]
+
+`run` loads the whole code before the agent starts, so an agent cannot change the publishing step.
+`.mise/lib/` is taken next to this script; the repository is the one of the current folder.
+Jobs are described in `.maintain/jobs.yaml`; every job ends in a pull request from `maintain/<job>`.
+"""
+import subprocess
+import sys
+from pathlib import Path
+
+# A cache folder in `.mise/lib/` would dirty the work tree.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+import maintain as m
+
+USAGE = "usage: maintain prompt|start|publish|run JOB [--local] [-- AGENT COMMAND]"
+
+
+def main(argv: list[str]) -> int:
+    split = argv.index("--") if "--" in argv else len(argv)
+    args, agent = argv[:split], argv[split + 1:]
+    local = "--local" in args
+    words = [a for a in args if a != "--local"]
+    if len(words) != 2 or words[0] not in ("prompt", "start", "publish", "run") or len(args) - len(words) > 1:
+        print(USAGE, file=sys.stderr)
+        return 1
+    command, name = words
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+        if top.returncode != 0:
+            raise m.Failure("not inside a git repository")
+        root = Path(top.stdout.strip())
+        if command == "prompt":
+            print(m.prompt_text(root, "HEAD", m.load_job(root, "HEAD", name)), end="")
+            return 0
+        if command == "start":
+            return m.start(root, name, local)
+        if command == "publish":
+            return m.publish(root, name, local)
+        return m.run_job(root, name, local, agent)
+    except m.Failure as err:
+        print(f"maintain: {err}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -20,8 +20,8 @@
 
 - Goal: a project runs scheduled maintenance jobs through an agent adapter that the owner picks per project.
 - Done when: `.repo.yaml` accepts `maintain_adapter` and `maintain_schedule` with `none` and `off` as defaults; the adapter `manual` and one CI adapter run `docs-drift` and `baseline-burndown` on `cinema-ops` and open a PR; the adapter folder holds a `README` with the run command.
-- Stopped at: not started.
-- Next: implement the answers, the jobs and the adapters from ADR 0035.
+- Stopped at: the contract and the adapter `manual` are in the template and covered by tests; they did not run on `cinema-ops`, no PR is open and the template has no CI adapter.
+- Next: run `docs-drift` and `baseline-burndown` on `cinema-ops` after the `check-md-language` fix of the task `Add project language setting`; then the CI adapter of ADR 0035 with the action chosen by the owner.
 - Refs: ADR 0027, ADR 0035, `report_schedule` in `copier.yml`.
 
 ## Backlog

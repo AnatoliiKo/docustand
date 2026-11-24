@@ -39,7 +39,7 @@ def skip_if_exists(template: Path) -> set[str]:
         elif active:
             item = re.match(r"^\s+-\s+(\S.*?)\s*(?:#.*)?$", line)
             if item:
-                entries.add(item.group(1).strip("\"'"))
+                entries.add(item.group(1).strip("\"'").removeprefix("/"))
             elif line.strip() and not line.lstrip().startswith("#"):
                 active = False
     return entries

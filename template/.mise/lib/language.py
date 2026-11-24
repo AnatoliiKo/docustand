@@ -41,7 +41,10 @@ RENDERED = frozenset({
     ".tflint.hcl", "eslint.config.mjs",
     ".github/workflows/standard-ci.yml", ".github/workflows/standard-report.yml",
     ".github/pull_request_template.md", ".github/repo.schema.json", ".mise/conf.d/standard.toml",
-    ".mise/lib/language.py",
+    ".mise/lib/language.py", ".mise/lib/protected.py", ".mise/lib/maintain.py", ".mise/tasks/maintain",
+    ".maintain/README.md", ".maintain/jobs.yaml", ".maintain/jobs/docs-drift.md",
+    ".maintain/jobs/baseline-burndown.md", ".maintain/jobs/dead-code.md",
+    ".maintain/manual/README.md", ".maintain/manual/run",
     *(f".mise/tasks/{name}" for name in (
         "check-adr", "check-adr-history", "check-agents-md", "check-baseline", "check-comments",
         "check-doc-paths", "check-env-example", "check-eslint-suppressions", "check-gitignore-block",

@@ -23,6 +23,13 @@
 5. Renovate raises a pull request that changes `_commit` in `.repo.yaml`, and `copier update -a .repo.yaml` brings the template files up to date.
 6. Detachment removes `_src_path` and `_commit` from `.repo.yaml`, the plugin from `.claude/settings.json` and the docustand lines from `AGENTS.md`; the rendered files stay and work without docustand.
 
+Maintenance jobs, when `maintain_adapter` is not `none` (ADR 0035):
+
+1. An adapter in `.maintain/<adapter>/` calls `mise run maintain -- run <job>`; `start` creates `maintain/<job>` from the fresh default branch.
+2. The agent command reads the instruction of `.maintain/jobs/<job>.md` on stdin and edits files.
+3. `publish` reads the job limits and the protected paths from the base commit, checks every changed path before it runs any code of the tree, runs `mise run check` and commits through the hooks.
+4. `publish` pushes only `maintain/<job>` and opens a pull request; the owner merges it.
+
 The scheduled `standard-report` workflow of a project reads the repository and opens or updates the `report` pull request through the report GitHub App; the app bot signs the commit, and a run without findings closes the open pull request.
 
 ## External services
