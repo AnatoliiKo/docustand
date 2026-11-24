@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Changed
+
+- Renovate merges the weekly `non-major dependencies` pull request and the lock file maintenance pull request after the external checks pass; major updates and `copier` updates stay manual, see ADR 0034.
+
 ## 0.10.2 — 2026-11-16
 
 ### Fixed
