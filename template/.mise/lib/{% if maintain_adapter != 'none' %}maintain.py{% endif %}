@@ -1,0 +1,524 @@
+"""Maintenance jobs: manifest, boundaries, baseline rules and the git steps of `.mise/tasks/maintain`.
+
+The manifest, the protected paths and the answers come from the base commit, never from the tree of the agent.
+"""
+import json
+import os
+import re
+import subprocess
+from collections import Counter
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+from protected import glob_to_regex, patterns
+
+PREFIX = "maintain/"
+MANIFEST = ".maintain/jobs.yaml"
+SETTINGS = ".claude/settings.json"
+ANSWERS = ".repo.yaml"
+BASELINES = ".baselines/"
+SIZE = ".baselines/size.json"
+ESLINT = ".baselines/eslint-suppressions.json"
+SHRINKING = {SIZE, ESLINT}
+JOB_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+GENERATED = re.compile(r"generated|сгенерирован|do not edit", re.I)
+DROPPED_ENV = re.compile(r"^(?:HK|HK_SKIP_.*|GIT_LITERAL_PATHSPECS)$")
+LOCAL_FOLDERS = [".mise", "mise", ".mise-tasks", "mise-tasks", ".config"]
+LOCAL_FILES = ["mise*.toml", ".mise*.toml", "hk.*", ".hkrc.pkl"]
+MAX_TITLE = 72
+CODE = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
+
+
+class Failure(Exception):
+    """A step failed; the message is printed and the exit code is 1."""
+
+
+def run(args: list[str], root: Path, *, text: str | None = None, check: bool = True,
+        drop_ci: bool = False) -> subprocess.CompletedProcess[str]:
+    """Run a command in `root` without the variables that switch hooks off."""
+    env = {k: v for k, v in os.environ.items() if not DROPPED_ENV.match(k)}
+    if drop_ci:
+        env.pop("CI", None)
+    try:
+        result = subprocess.run(args, cwd=root, input=text, capture_output=True, text=True,
+                                errors="replace", env=env)
+    except OSError as err:
+        raise Failure(f"`{args[0]}` is not available: {err}") from err
+    if check and result.returncode != 0:
+        output = (result.stdout + result.stderr).strip()
+        raise Failure(f"`{' '.join(args)}` failed with code {result.returncode}:\n{output}")
+    return result
+
+
+def git(root: Path, *args: str, text: str | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return run(["git", *args], root, text=text, check=check)
+
+
+def show(root: Path, ref: str, path: str) -> str | None:
+    """Text of `path` at `ref`; None when the path does not exist there."""
+    result = git(root, "show", f"{ref}:{path}", check=False)
+    return result.stdout if result.returncode == 0 else None
+
+
+@dataclass(frozen=True)
+class Job:
+    name: str
+    instructions: str
+    paths: list[str]
+    exclude: list[str]
+    commit: str
+    baselines: bool = False
+    skip_md_exceptions: bool = False
+    skip_generated: bool = False
+
+    @property
+    def branch(self) -> str:
+        return PREFIX + self.name
+
+
+def _strings(value: Any, what: str) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise Failure(f"{MANIFEST}: {what} must be a list of strings")
+    return value
+
+
+def load_job(root: Path, ref: str, name: str) -> Job:
+    """The job `name` of the manifest at `ref`."""
+    if not JOB_NAME.match(name):
+        raise Failure(f"unknown job `{name}`")
+    text = show(root, ref, MANIFEST)
+    if text is None:
+        raise Failure(f"{MANIFEST} does not exist at {ref}")
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as err:
+        raise Failure(f"{MANIFEST} is invalid: {err}") from err
+    jobs = data.get("jobs") if isinstance(data, dict) else None
+    if not isinstance(jobs, dict):
+        raise Failure(f"{MANIFEST} needs a `jobs` mapping")
+    if name not in jobs:
+        raise Failure(f"unknown job `{name}`; jobs: {', '.join(sorted(map(str, jobs)))}")
+    raw = jobs[name]
+    if not isinstance(raw, dict) or not isinstance(raw.get("instructions"), str) or not isinstance(raw.get("commit"), str):
+        raise Failure(f"{MANIFEST}: job `{name}` needs `instructions`, `paths` and `commit`")
+    if len(raw["commit"]) > MAX_TITLE:
+        raise Failure(f"{MANIFEST}: the commit title of `{name}` is longer than {MAX_TITLE} characters")
+    return Job(name, raw["instructions"], _strings(raw.get("paths"), "paths"),
+               _strings(raw.get("exclude", []), "exclude"), raw["commit"], raw.get("baselines") is True,
+               raw.get("skip_md_exceptions") is True, raw.get("skip_generated") is True)
+
+
+def prompt_text(root: Path, ref: str, job: Job) -> str:
+    """The instruction of the job and the paths it may change."""
+    body = show(root, ref, job.instructions)
+    if body is None:
+        raise Failure(f"{job.instructions} does not exist at {ref}")
+    lines = [body.rstrip(), "", "## Allowed paths", ""]
+    lines += [f"- `{p}`" for p in job.paths]
+    lines += ["", "## Excluded paths", ""] + [f"- `{p}`" for p in job.exclude]
+    return "\n".join(lines) + "\n"
+
+
+@dataclass(frozen=True)
+class Base:
+    branch: str
+    ref: str
+    merge_base: str
+
+
+def default_branch(root: Path) -> str:
+    out = git(root, "ls-remote", "--symref", "origin", "HEAD").stdout
+    match = re.search(r"^ref: refs/heads/(\S+)\s+HEAD$", out, re.M)
+    if not match:
+        raise Failure("cannot read the default branch of origin")
+    return match.group(1)
+
+
+def fetch_default(root: Path) -> tuple[str, str]:
+    """Fetch the default branch of `origin`; returns its name and the remote ref."""
+    branch = default_branch(root)
+    git(root, "fetch", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
+    return branch, f"origin/{branch}"
+
+
+def fetch_base(root: Path) -> Base:
+    branch, ref = fetch_default(root)
+    return Base(branch, ref, git(root, "merge-base", "HEAD", ref).stdout.strip())
+
+
+def changed_paths(root: Path) -> list[str]:
+    """Paths changed in the work tree or the index, and new files that git does not ignore."""
+    found: set[str] = set()
+    for args in (("diff", "--no-renames", "--name-only", "-z", "HEAD"),
+                 ("diff", "--no-renames", "--name-only", "-z", "--cached"),
+                 ("ls-files", "-z", "--others", "--exclude-standard")):
+        found.update(p for p in git(root, *args).stdout.split("\0") if p)
+    return sorted(found)
+
+
+def ignored_local_configs(root: Path) -> list[str]:
+    """Local `mise` and `hk` configs that git ignores: they replace the tasks of `mise run check`."""
+    found: set[str] = set()
+    for pattern in LOCAL_FILES:
+        found.update(p.relative_to(root).as_posix() for p in root.glob(pattern) if p.is_file())
+    for folder in LOCAL_FOLDERS:
+        if (root / folder).is_dir():
+            found.update(p.relative_to(root).as_posix() for p in (root / folder).rglob("*") if p.is_file())
+    candidates = sorted(p for p in found if "__pycache__" not in Path(p).parts and Path(p).name != ".DS_Store")
+    if not candidates:
+        return []
+    out = git(root, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--",
+              *[f":(top,literal){p}" for p in candidates]).stdout
+    return sorted(p for p in out.split("\0") if p)
+
+
+def pathspec(paths: list[str]) -> str:
+    return "\0".join(f":(top,literal){p}" for p in paths) + "\0"
+
+
+class Boundary:
+    """The paths a job may change, read from the base commit."""
+
+    def __init__(self, root: Path, job: Job, base: str) -> None:
+        self.root, self.job, self.base = root, job, base
+        settings = show(root, base, SETTINGS)
+        if settings is None:
+            raise Failure(f"{SETTINGS} does not exist at the base")
+        try:
+            ask = patterns(settings)
+        except (ValueError, AttributeError, TypeError) as err:
+            raise Failure(f"{SETTINGS} is invalid at the base: {err}") from err
+        self.ask = [glob_to_regex(p) for p in ask]
+        self.paths = [glob_to_regex(p, question=True) for p in job.paths]
+        self.exclude = [glob_to_regex(p, question=True) for p in job.exclude]
+        self.roots = {p.split("/", 1)[0] for p in git(root, "ls-tree", "--name-only", "-z", base).stdout.split("\0") if p}
+        try:
+            answers = yaml.safe_load(show(root, base, ANSWERS) or "") or {}
+        except yaml.YAMLError as err:
+            raise Failure(f"{ANSWERS} is invalid at the base: {err}") from err
+        listed = answers.get("md_exceptions") if isinstance(answers, dict) else None
+        self.md_exceptions = [glob_to_regex(p, question=True) for p in listed if isinstance(p, str)] \
+            if isinstance(listed, list) else []
+        stack = answers.get("stack") if isinstance(answers, dict) else None
+        self.stack = stack if isinstance(stack, list) else []
+
+    def reason(self, path: str) -> str | None:
+        if path.startswith(BASELINES):
+            if path in SHRINKING or self.job.baselines:
+                return None
+            return "baseline file that this job may not change"
+        if any(rx.match(path) for rx in self.exclude):
+            return "excluded from the job"
+        if not any(rx.match(path) for rx in self.paths):
+            return "outside the paths of the job"
+        if any(rx.match(path) for rx in self.ask):
+            return "protected file"
+        if path.split("/", 1)[0] not in self.roots:
+            return "new entry in the repository root"
+        if self.job.skip_md_exceptions and any(rx.match(path) for rx in self.md_exceptions):
+            return "document listed in md_exceptions"
+        if self.job.skip_generated:
+            head = (show(self.root, self.base, path) or "").splitlines()[:5]
+            if any(GENERATED.search(line) for line in head):
+                return "generated document"
+        return None
+
+    def violations(self, paths: list[str]) -> list[str]:
+        return [f"{p}: {r}" for p in paths if (r := self.reason(p))]
+
+
+def subset(after: Any, before: Any, key: str = "") -> bool:
+    """Every entry of `after` is in `before`, numbers are not larger and `until` is not later."""
+    if isinstance(after, dict):
+        leaf = bool(after) and not any(isinstance(v, (dict, list)) for v in after.values())
+        if leaf and isinstance(before, dict) and set(after) != set(before):
+            return False
+        return isinstance(before, dict) and all(k in before and subset(v, before[k], k) for k, v in after.items())
+    if isinstance(after, list):
+        pool = Counter(json.dumps(v, sort_keys=True) for v in before) if isinstance(before, list) else Counter()
+        need = Counter(json.dumps(v, sort_keys=True) for v in after)
+        return not (need - pool)
+    if isinstance(after, (int, float)) and not isinstance(after, bool):
+        return isinstance(before, (int, float)) and not isinstance(before, bool) and after <= before
+    if isinstance(after, str) and key == "until":
+        return isinstance(before, str) and after <= before
+    return after == before
+
+
+def _lines(text: str) -> Counter[str]:
+    return Counter(line for line in text.splitlines() if line.strip())
+
+
+def baseline_growth(root: Path, base: str, paths: list[str]) -> list[str]:
+    """Baseline files of `paths` whose entries are not a subset of the entries at `base`."""
+    found = []
+    for path in (p for p in paths if p.startswith(BASELINES)):
+        file = root / path
+        if not file.is_file():
+            continue
+        before = show(root, base, path) or ""
+        try:
+            after = file.read_text()
+        except UnicodeDecodeError:
+            found.append(f"{path}: not UTF-8 text")
+            continue
+        if path.endswith(".json"):
+            try:
+                ok = subset(json.loads(after or "{}"), json.loads(before or "{}"))
+            except json.JSONDecodeError:
+                found.append(f"{path}: invalid JSON")
+                continue
+        else:
+            ok = not (_lines(after) - _lines(before))
+        if not ok:
+            found.append(f"{path}: an entry is new, larger or later than at the base")
+    return found
+
+
+def stage(root: Path, paths: list[str]) -> None:
+    """Stage `paths`; a deleted path has no match for `git add` once its deletion is staged."""
+    present = [p for p in paths if os.path.lexists(root / p)]
+    gone = [p for p in paths if p not in present]
+    if present:
+        git(root, "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul", text=pathspec(present))
+    if gone:
+        git(root, "rm", "-q", "--cached", "--ignore-unmatch", "--pathspec-from-file=-", "--pathspec-file-nul",
+            text=pathspec(gone))
+
+
+def prune_size(root: Path, paths: list[str]) -> None:
+    """Let `check-size` drop the entries of files that shrank; it keeps entries in CI."""
+    try:
+        keys = list(json.loads((root / SIZE).read_text()))
+    except (OSError, json.JSONDecodeError, TypeError):
+        keys = []
+    files = sorted({p for p in paths if (root / p).is_file()} | set(keys))
+    run([str(root / ".mise/tasks/check-size"), *files], root, drop_ci=True)
+
+
+def linted_files(root: Path) -> list[str]:
+    """The code files the `eslint` step of hk lints: tracked and new files that git does not ignore."""
+    out = git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").stdout.split("\0")
+    return sorted(p for p in out if p and Path(p).suffix in CODE and (root / p).is_file())
+
+
+def prune_eslint(root: Path, base: str, stack: list[Any]) -> None:
+    """Prune the suppressions of ESLint; the text of the base stays when the JSON equals the base."""
+    path = root / ESLINT
+    if "typescript" not in stack or not path.is_file():
+        return
+    before = path.read_text()
+    try:
+        data = json.loads(before)
+    except json.JSONDecodeError as err:
+        raise Failure(f"{ESLINT} is invalid: {err}") from err
+    if data:
+        files = linted_files(root)
+        run([str(root / "node_modules/.bin/eslint"), "--no-warn-ignored", "--prune-suppressions",
+             "--suppressions-location", ESLINT, *files], root)
+    if json.loads(path.read_text()) == data:
+        path.write_text(before)
+    original = show(root, base, ESLINT)
+    if original is not None and json.loads(path.read_text()) == json.loads(original or "{}"):
+        path.write_text(original)
+
+
+def pr_body(job: Job, paths: list[str]) -> str:
+    shown = ", ".join(f"`{p}`" for p in paths[:5]) + (f" and {len(paths) - 5} more" if len(paths) > 5 else "")
+    return "\n".join([
+        "## What", "", f"- {job.commit}.", f"- Files: {shown}.", "",
+        "## Why", "", f"Maintenance job `{job.name}`; its instruction is `{job.instructions}`.", "",
+        "## How verified", "", "- `mise run check` and `check-baseline` passed before the commit.", "",
+    ])
+
+
+def pull_requests(root: Path, branch: str) -> list[dict[str, Any]]:
+    """Pull requests of the same repository whose head is `branch`, in any state."""
+    out = run(["gh", "pr", "list", "--head", branch, "--state", "all", "--limit", "100", "--json",
+               "number,state,headRefOid,isCrossRepository"], root).stdout
+    try:
+        return [pr for pr in json.loads(out or "[]") if not pr.get("isCrossRepository")]
+    except json.JSONDecodeError as err:
+        raise Failure(f"`gh pr list` printed no JSON: {out.strip()[:200]}") from err
+
+
+def remote_tip(root: Path, branch: str) -> str:
+    out = git(root, "ls-remote", "--heads", "origin", f"refs/heads/{branch}").stdout.split()
+    return out[0] if out else ""
+
+
+def marks_file(root: Path, job: Job) -> Path:
+    path = Path(git(root, "rev-parse", "--git-path", f"maintain-{job.name}").stdout.strip())
+    return path if path.is_absolute() else root / path
+
+
+def read_marks(root: Path, job: Job) -> list[str]:
+    path = marks_file(root, job)
+    return path.read_text().split() if path.is_file() else []
+
+
+def head_of(root: Path) -> str:
+    return git(root, "rev-parse", "HEAD").stdout.strip()
+
+
+def start(root: Path, job_name: str, local: bool) -> int:
+    """Create `maintain/<job>` from the fresh default branch."""
+    if git(root, "status", "--porcelain").stdout.strip():
+        raise Failure("the work tree has uncommitted changes; commit or restore them first")
+    configs = ignored_local_configs(root)
+    if configs:
+        raise Failure("git ignores local tool configs that replace the checks: " + ", ".join(configs))
+    branch, ref = fetch_default(root)
+    job = load_job(root, ref, job_name)
+    prs: list[dict[str, Any]] = []
+    if local:
+        print("pull requests are not checked with --local")
+    else:
+        prs = pull_requests(root, job.branch)
+        for pr in prs:
+            if pr["state"] == "OPEN":
+                raise Failure(f"pull request #{pr['number']} is open for {job.branch}; merge or close it first")
+    closed = {pr["headRefOid"] for pr in prs}
+    local_tip = git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{job.branch}", check=False).stdout.strip()
+    if local_tip:
+        own = git(root, "rev-list", f"{ref}..{job.branch}").stdout.split()
+        if own and local_tip not in closed:
+            raise Failure(f"{job.branch} holds commits that are not on {ref}; check them, "
+                          f"then run `git branch -D {job.branch}`")
+    tip = "" if local else remote_tip(root, job.branch)
+    if tip and tip not in closed and git(root, "merge-base", "--is-ancestor", tip, ref, check=False).returncode != 0:
+        raise Failure(f"{job.branch} on origin holds commits of no merged or closed pull request; check them, "
+                      f"then run `git push origin --delete {job.branch}`")
+    git(root, "checkout", "-q", "--no-track", "-B", job.branch, ref)
+    marks_file(root, job).unlink(missing_ok=True)
+    print(f"{job.branch} created from {ref}")
+    return 0
+
+
+def deliver(root: Path, job: Job, base: Base, local: bool) -> int:
+    """Push the branch and open the pull request; nothing is duplicated."""
+    head = head_of(root)
+    if local:
+        print(f"committed {head[:7]} on {job.branch}; run `mise run maintain -- publish {job.name}` "
+              "to push and open the pull request")
+        return 0
+    try:
+        return push_and_open(root, job, base)
+    except Failure as err:
+        raise Failure(f"{err}\nThe commit stays on {job.branch}; run `mise run maintain -- publish {job.name}` again.") from err
+
+
+def push_and_open(root: Path, job: Job, base: Base) -> int:
+    head = head_of(root)
+    prs = pull_requests(root, job.branch)
+    for pr in (p for p in prs if p["state"] == "OPEN"):
+        if pr["headRefOid"] != head:
+            raise Failure(f"pull request #{pr['number']} is open for {job.branch} with another head")
+        print(f"pull request #{pr['number']} is already open")
+        return 0
+    for pr in prs:
+        if pr["headRefOid"] == head:
+            print(f"pull request #{pr['number']} is {pr['state'].lower()}; "
+                  f"run `mise run maintain -- start {job.name}` for the next run")
+            return 0
+    tip = remote_tip(root, job.branch)
+    known = {*read_marks(root, job), *(p["headRefOid"] for p in prs)}
+    if tip and tip not in known and git(root, "merge-base", "--is-ancestor", tip, base.ref, check=False).returncode != 0:
+        raise Failure(f"{job.branch} on origin holds commits that are not from this job; check them, "
+                      f"then run `git push origin --delete {job.branch}`")
+    git(root, "push", f"--force-with-lease={job.branch}:{tip}", "origin", f"HEAD:refs/heads/{job.branch}")
+    paths = git(root, "diff-tree", "--no-commit-id", "--no-renames", "--name-only", "-r", "-z", head).stdout.split("\0")
+    created = run(["gh", "pr", "create", "--base", base.branch, "--head", job.branch, "--title", job.commit,
+                   "--body", pr_body(job, [p for p in paths if p])], root)
+    print(created.stdout.strip())
+    return 0
+
+
+def verify(root: Path, boundary: Boundary, base: str, accepted: set[str]) -> list[str]:
+    """Changed paths after a step: only accepted paths and the shrinking baselines, baselines as a subset."""
+    final = changed_paths(root)
+    problems = [f"{p}: changed after the checks began, outside the verified paths"
+                for p in final if p not in accepted and p not in SHRINKING]
+    problems += boundary.violations([p for p in final if p in accepted]) + baseline_growth(root, base, final)
+    if problems:
+        raise Failure("the job changed files outside its limits:\n" + "\n".join(problems))
+    return final
+
+
+def publish(root: Path, job_name: str, local: bool) -> int:
+    """Check the changes of the agent, commit through the hooks, push and open the pull request."""
+    current = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    if current != PREFIX + job_name:
+        raise Failure(f"the current branch is `{current}`, not `{PREFIX}{job_name}`; run `mise run maintain -- start {job_name}`")
+    configs = ignored_local_configs(root)
+    if configs:
+        raise Failure("git ignores local tool configs that replace the checks: " + ", ".join(configs))
+    base = fetch_base(root)
+    job = load_job(root, base.merge_base, job_name)
+    changed = changed_paths(root)
+    head = head_of(root)
+    if read_marks(root, job)[-1:] == [head]:
+        if changed:
+            raise Failure("uncommitted changes on top of the published commit: " + ", ".join(changed)
+                          + f"\nRemove them and run `publish` again, or run `git reset --soft HEAD^` and `publish` to "
+                          "include them in a new commit.")
+        return deliver(root, job, base, local)
+    commits = git(root, "log", "--format=%h %s", f"{base.ref}..HEAD").stdout.strip()
+    if commits:
+        raise Failure(f"agent commits on {job.branch}; the job commits itself:\n{commits}\n"
+                      "After an interrupted publish, run `git reset --soft HEAD^` and `publish` again.")
+    if not changed:
+        print("no changes")
+        return 0
+    boundary = Boundary(root, job, base.merge_base)
+    problems = boundary.violations(changed) + baseline_growth(root, base.merge_base, changed)
+    if problems:
+        raise Failure("the job changed files outside its limits:\n" + "\n".join(problems))
+    if not local:
+        for pr in (p for p in pull_requests(root, job.branch) if p["state"] == "OPEN"):
+            raise Failure(f"pull request #{pr['number']} is open for {job.branch}; merge or close it, "
+                          f"then run `mise run maintain -- start {job.name}`")
+    accepted = set(changed)
+    stage(root, changed)
+    prune_size(root, changed)
+    prune_eslint(root, base.merge_base, boundary.stack)
+    stage(root, [p for p in SHRINKING if (root / p).exists() or p in accepted])
+    if not verify(root, boundary, base.merge_base, accepted):
+        print("no changes")
+        return 0
+    run(["mise", "run", "check"], root)
+    final = verify(root, boundary, base.merge_base, accepted)
+    run([str(root / ".mise/tasks/check-baseline"), base.merge_base], root)
+    if not final:
+        print("no changes")
+        return 0
+    stage(root, final)
+    git(root, "commit", "-q", "-m", job.commit, "--pathspec-from-file=-", "--pathspec-file-nul", text=pathspec(final))
+    committed = git(root, "diff-tree", "--no-commit-id", "--no-renames", "--name-only", "-r", "-z", "HEAD").stdout.split("\0")
+    strays = [p for p in committed if p and p not in final]
+    if strays:
+        git(root, "reset", "--soft", "HEAD^")
+        raise Failure("the commit holds files outside the verified list: " + ", ".join(strays))
+    with marks_file(root, job).open("a") as marks:
+        marks.write(head_of(root) + "\n")
+    return deliver(root, job, base, local)
+
+
+def run_job(root: Path, job_name: str, local: bool, agent: list[str]) -> int:
+    """`start`, the agent command with the instruction on stdin, then `publish`."""
+    start(root, job_name, local)
+    job = load_job(root, "HEAD", job_name)
+    text = prompt_text(root, "HEAD", job)
+    if not agent:
+        print(text)
+        print(f"Run `mise run maintain -- publish {job_name}{' --local' if local else ''}` after the edits.")
+        return 0
+    try:
+        code = subprocess.run(agent, cwd=root, input=text, text=True).returncode
+    except OSError as err:
+        raise Failure(f"agent command not found: {err}") from err
+    if code != 0:
+        raise Failure(f"the agent command failed with code {code}; the changes stay in the tree, nothing is published")
+    return publish(root, job_name, local)

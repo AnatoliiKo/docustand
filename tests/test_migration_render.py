@@ -93,6 +93,16 @@ def test_conflicting_standard_files_kept(tmp_path, existing):
     assert listed == sorted(listed)
 
 
+def test_project_readme_is_no_conflict(tmp_path, existing):
+    (existing / "README.md").write_text("# Own project\n")
+
+    _, (_, step2, _, _) = migrate(tmp_path, existing)
+
+    assert step2.returncode == 0, step2.stderr
+    assert "README.md" not in step2.stdout.split()
+    assert (existing / "README.md").read_text() == "# Own project\n"
+
+
 def test_no_foreign_line_lost(tmp_path, existing):
     migrate(tmp_path, existing)
     for rel in (".gitignore", "CLAUDE.md", ".github/workflows/tests.yml", ".github/workflows/ci.yml"):

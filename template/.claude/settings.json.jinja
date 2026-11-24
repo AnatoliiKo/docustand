@@ -12,6 +12,12 @@
   ".github/repo.schema.json",
   ".baselines/**",
   ".config/**",
+  ".maintain/**",
+  ".mise/**",
+  "mise*.toml",
+  ".mise*.toml",
+  "hk.*",
+  ".hkrc.pkl",
 ] -%}
 {%- if 'terraform' in stack -%}
 {%- set protected = protected + [".tflint.hcl"] -%}

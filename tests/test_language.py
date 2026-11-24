@@ -284,3 +284,28 @@ def test_en_cut_fragment_still_splits_cyrillic_words(project, text):
     write(dest, "src/a.py", text)
 
     assert "not in English" not in run(dest, "check-comments", "src/a.py").stdout
+
+
+def commit_all(dest: Path) -> None:
+    subprocess.run(["git", "-C", str(dest), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(dest), "commit", "-qm", "chore: base"], check=True, capture_output=True)
+
+
+def test_ru_with_manual_passes_language_checks(project):
+    dest = project(language="ru", maintain_adapter="manual")
+    commit_all(dest)
+
+    for task in ("check-md-language", "check-comments"):
+        result = run(dest, task)
+        assert result.returncode == 0, task + result.stdout + result.stderr
+
+
+def test_ru_rejects_english_own_adapter_readme(project):
+    dest = project(language="ru", maintain_adapter="codex")
+    write(dest, ".maintain/codex/README.md", "# Adapter for the codex agent\n\nThis folder holds the adapter and its entry point.\n")
+    commit_all(dest)
+
+    result = run(dest, "check-md-language")
+
+    assert result.returncode == 1
+    assert ".maintain/codex/README.md:1:" in result.stdout

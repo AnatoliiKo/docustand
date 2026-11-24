@@ -112,3 +112,64 @@ def test_schema_accepts_float_like_commit(render, tmp_path):
     result = subprocess.run(["check-jsonschema", "--schemafile", str(schema), str(answers)],
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_maintain_answers_default_to_none_and_off(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+
+    answers = yaml.safe_load((dest / ".repo.yaml").read_text())
+
+    assert answers["maintain_adapter"] == "none"
+    assert answers["maintain_schedule"] == "off"
+    assert "maintain_schedule: 'off'" in (dest / ".repo.yaml").read_text()
+
+
+@pytest.mark.parametrize("name", ["Bad Name", "../x", "jobs"])
+def test_copier_rejects_invalid_maintain_adapter(render, tmp_path, name):
+    result = render(tmp_path, check=False, project_name="demo", maintain_adapter=name)
+
+    assert result.returncode != 0
+    assert "maintain_adapter needs a name" in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("schedule", ["weekly", "monthly"])
+def test_copier_rejects_maintain_schedule_without_ci_adapter(render, tmp_path, schedule):
+    result = render(tmp_path, check=False, project_name="demo", maintain_schedule=schedule)
+
+    assert result.returncode != 0
+    assert "not supported yet" in result.stdout + result.stderr
+
+
+def _validate(dest, text: str) -> subprocess.CompletedProcess[str]:
+    answers = dest / ".repo.yaml"
+    answers.write_text(answers.read_text() + text)
+    return subprocess.run(["check-jsonschema", "--schemafile", str(dest / ".github" / "repo.schema.json"),
+                           str(answers)], capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("text, valid", [
+    ("maintain_adapter: manual\nmaintain_schedule: weekly\n", True),
+    ("maintain_adapter: codex-2\n", True),
+    ("maintain_adapter: Bad Name\n", False),
+    ("maintain_adapter: ../x\n", False),
+    ("maintain_adapter: jobs\n", False),
+    ("maintain_schedule: daily\n", False),
+])
+def test_schema_checks_maintain_answers(render, tmp_path, text, valid):
+    dest = render(tmp_path, project_name="demo")
+    answers = dest / ".repo.yaml"
+    answers.write_text("".join(line + "\n" for line in answers.read_text().splitlines()
+                               if not line.startswith("maintain_")))
+
+    result = _validate(dest, text)
+
+    assert (result.returncode == 0) is valid, result.stdout + result.stderr
+
+
+def test_schema_accepts_missing_maintain_answers(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+    answers = dest / ".repo.yaml"
+    answers.write_text("".join(line + "\n" for line in answers.read_text().splitlines()
+                               if not line.startswith("maintain_")))
+
+    assert _validate(dest, "").returncode == 0

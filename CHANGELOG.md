@@ -7,10 +7,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The answers `maintain_adapter` (`none`, `manual` or an own adapter name; default `none`) and `maintain_schedule` (`off`, `monthly`, `weekly`; default `off`, other values are rejected until a CI adapter exists) and the maintenance contract of ADR 0035. A project with an adapter gets `.maintain/` (manifest, instructions of `docs-drift`, `baseline-burndown` and `dead-code`, `README.md`), the task `maintain` (`prompt`, `start`, `publish`, `run`) and, for `manual`, `.maintain/manual/run`. Every job ends in a pull request from `maintain/<job>`; `publish` reads the job limits from the base commit and lets baselines only shrink.
+- `.mise/lib/protected.py` holds the protected-path and glob helpers of `report`, `check-md-placement` and `maintain`.
 - The answer `language` (`en`, `ru`, `auto`; default `en`) sets the language of comments and Markdown documents, see ADR 0033. `check-comments` and the new `check-md-language` share the detector `.mise/lib/language.py`; `detect-language` resolves `auto` for `repo-init`; `AGENTS.md` renders its text rules per language. Under `ru`, `README.md`, `docs/access.md`, `docs/architecture.md`, `docs/operations.md` and the project configs `.config/eslint.project.mjs` and `.config/dependency-cruiser.cjs` render in Russian; `copier update` skips existing files, so translate them by hand when the answer changes.
 
 ### Changed
 
+- The `ask` rules of `.claude/settings.json` also cover `.maintain/**`, `.mise/**`, `mise*.toml`, `.mise*.toml`, `hk.*` and `.hkrc.pkl`: `.mise/config.toml`, `mise.local.toml` and `hk.local.pkl` replace the tasks of `mise run check` and were not protected.
 - Renovate merges the weekly `non-major dependencies` pull request and the lock file maintenance pull request after the external checks pass; major updates and `copier` updates stay manual, see ADR 0034.
 
 ## 0.10.2 — 2026-11-16

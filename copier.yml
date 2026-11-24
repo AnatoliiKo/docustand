@@ -7,7 +7,8 @@ _envops:
   line_statement_prefix: "#%"
 # Files written once; template updates never overwrite them.
 _skip_if_exists:
-  - README.md
+  # Entries are gitignore patterns: the slash keeps the README files of `.maintain/` updatable.
+  - /README.md
   - docs/architecture.md
   - docs/tasks.md
   - docs/access.md
@@ -104,6 +105,24 @@ report_schedule:
     weekly: weekly
     twice-weekly: twice-weekly
   default: weekly
+
+maintain_adapter:
+  type: str
+  help: Maintenance agent adapter (none, manual or the name of an own adapter)
+  default: none
+  validator: >-
+    {% if not maintain_adapter | regex_search('^[a-z0-9][a-z0-9-]*$') or maintain_adapter == 'jobs' %}maintain_adapter needs a name of lowercase letters, digits and hyphens, other than "jobs".{% endif %}
+
+maintain_schedule:
+  type: str
+  help: Maintenance schedule
+  choices:
+    "off": "off"
+    monthly: monthly
+    weekly: weekly
+  default: "off"
+  validator: >-
+    {% if maintain_schedule != 'off' %}maintain_schedule "{{ maintain_schedule }}" is not supported yet; use "off".{% endif %}
 
 deployed:
   type: bool

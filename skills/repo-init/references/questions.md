@@ -19,6 +19,7 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 | Level: base or full | always | `level` |
 | Report schedule: monthly, weekly (recommended), twice a week, off | always | `report_schedule` |
 | Language of comments and documents: English (default), Russian, or detect | always | `language` |
+| Maintenance agent: none (recommended for rarely edited projects) or manual | always | `maintain_adapter` |
 | Is the detected stack right? | the profile is ambiguous or missing | `stack` |
 | Architecture: confirm the detected methodology, or decide whether one is needed | code repositories; not for infrastructure or documentation | `architecture`, ADR |
 | Own configs found: keep the differences with a reason in `overrides`, or bring them to the template | the project already has configs that the template also brings | `overrides` or the template file |
@@ -41,6 +42,12 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 1. English (default, recommended for new projects): comments, documents, commits and PRs in English. Costs: Russian text of an existing project is translated.
 2. Russian: the same in Russian; `check-comments` and `check-md-language` fail on Latin prose without Cyrillic words. Costs: English text of an existing project is translated.
 3. Detect (`auto`): `detect-language` counts prose blocks and `repo-init` stores `en` or `ru`; the owner decides when no language exceeds 80 %. Costs: `auto` stays red until resolved.
+
+**Maintenance agent** (ADR 0035). `maintain_schedule` stays `off`: the template has no CI adapter yet and rejects other values.
+
+1. None (default, recommended for projects that change rarely): no `.maintain/` folder, no `maintain` task. Costs: no jobs against drifting documents and old baseline entries.
+2. Manual: `.maintain/` with the jobs `docs-drift`, `baseline-burndown`, `dead-code` and the adapter `manual`; the owner starts a job with a local agent command. Each job ends in a pull request. Costs: the owner runs it; the folder and the `maintain` task need no upkeep.
+3. Own adapter: any other name; the contract is rendered without `manual`, the owner writes the adapter folder.
 
 **Report schedule.**
 
