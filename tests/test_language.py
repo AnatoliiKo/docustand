@@ -37,7 +37,7 @@ def test_en_fails_on_russian_comment(project):
     result = run(dest, "check-comments", "src/a.ts")
 
     assert result.returncode == 1
-    assert "src/a.ts:1: comment not in English; quote a UI string in «»" in result.stdout
+    assert "src/a.ts:1: comment not in English; quote a UI string in «» or backticks" in result.stdout
 
 
 def test_ru_fails_on_english_comment(project):
@@ -47,7 +47,7 @@ def test_ru_fails_on_english_comment(project):
     result = run(dest, "check-comments", "src/a.ts")
 
     assert result.returncode == 1
-    assert "comment not in Russian; quote a UI string in «»" in result.stdout
+    assert "comment not in Russian; quote a UI string in «» or backticks" in result.stdout
 
 
 def test_ru_passes_mixed_comment_block(project):
@@ -72,6 +72,40 @@ def test_en_fails_on_russian_paragraph(project):
 
     assert result.returncode == 1
     assert "README.md:3:" in result.stdout
+
+
+TABLE_HEAD = "# Demo\n\n| Phrase | Key | Screens |\n|---|---|---|\n"
+
+
+@pytest.mark.parametrize("row", [
+    pytest.param(f"| `{RU}` | key | home |", id="first-column"),
+    pytest.param(f"| home | key | `{RU}` |", id="third-column"),
+])
+def test_en_passes_backticked_table_cell(project, row):
+    dest = project()
+    write(dest, "README.md", f"{TABLE_HEAD}{row}\n")
+
+    result = run(dest, "check-md-language", "README.md")
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+@pytest.mark.parametrize("row", [
+    pytest.param(f"| {RU} | key | home |", id="first-column"),
+    pytest.param(f"| {RU} | `key` | home |", id="first-column-backticked-neighbour"),
+    pytest.param(f"| `home` | {RU} | `key` |", id="second-column-between-backticks"),
+    pytest.param(f"| home | `key` | {RU} |", id="third-column-backticked-neighbour"),
+])
+def test_en_fails_on_unquoted_table_cell(project, row):
+    dest = project()
+    write(dest, "README.md", f"{TABLE_HEAD}{row}\n")
+
+    result = run(dest, "check-md-language", "README.md")
+
+    assert result.returncode == 1
+    assert result.stdout.splitlines() == [
+        "README.md:5: prose not in English; quote a UI string in «» or backticks"]
 
 
 def test_ru_fails_on_english_paragraph(project):

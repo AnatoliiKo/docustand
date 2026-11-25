@@ -69,7 +69,7 @@ HISTORY = [
 ]
 # Engineering text is in `language` of `.repo.yaml`; a UI string in «…» may wrap to the next comment line,
 # so a comment block is read as one text (ADR 0033).
-LANGUAGE_MESSAGE = "comment not in {}; quote a UI string in «»"
+LANGUAGE_MESSAGE = "comment not in {}; quote a UI string in «» or backticks"
 UNRESOLVED = "language is `auto` in .repo.yaml; run repo-init to resolve it to `en` or `ru`"
 
 

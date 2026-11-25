@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `check-comments` and `check-md-language` name both ways to quote a UI string, «» and backticks, in the hint of a language finding.
 - The `ask` rules of `.claude/settings.json` also cover `.maintain/**`, `.mise/**`, `mise*.toml`, `.mise*.toml`, `hk.*` and `.hkrc.pkl`: `.mise/config.toml`, `mise.local.toml` and `hk.local.pkl` replace the tasks of `mise run check` and were not protected.
 - Renovate merges the weekly `non-major dependencies` pull request and the lock file maintenance pull request after the external checks pass; major updates and `copier` updates stay manual, see ADR 0034.
 
