@@ -42,7 +42,7 @@ def main(argv: list[str]) -> int:
         if lang.DOCUMENTS_SKIPPED.match(document) or lang.is_standard(document, language) or not path.is_file():
             continue
         for number in lang.violations(lang.markdown_blocks(path.read_text()), language):
-            print(f"{document}:{number}: prose not in {lang.MESSAGES[language]}; quote a UI string in «»")
+            print(f"{document}:{number}: prose not in {lang.MESSAGES[language]}; quote a UI string in «» or backticks")
             found += 1
     return 1 if found else 0
 

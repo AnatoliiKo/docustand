@@ -221,7 +221,7 @@ def test_non_english_comment_fails_and_quoted_ui_strings_pass(tmp_path, git_repo
     code, out = run(repo, "check-comments")
 
     assert code == 1
-    assert out.splitlines() == ["src/a.ts:6: comment not in English; quote a UI string in «»"]
+    assert out.splitlines() == ["src/a.ts:6: comment not in English; quote a UI string in «» or backticks"]
 
 
 def test_comments_of_configs_known_by_name_are_checked(tmp_path, git_repo):
