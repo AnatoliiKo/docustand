@@ -1,3 +1,7 @@
 # Spelling check; project-owned and protected (ADR 0017): exclude external data, never source code.
 [files]
 extend-exclude = ["docs/temp/", "*.lock", ".terraform.lock.hcl"]
+
+# The abbreviated hash in `_commit` of `.repo.yaml` can end in a two-letter word and fail as a typo.
+[default]
+extend-ignore-re = ["(?m)^_commit: .*$"]

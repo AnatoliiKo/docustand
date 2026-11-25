@@ -171,6 +171,69 @@ def test_fails_on_md_lint(project):
     assert_step_fails(check(project), "rumdl")
 
 
+def test_list_with_code_block_in_item_passes_md_lint(project):
+    root = project[0]
+    write(
+        root,
+        "docs/runbooks/steps.md",
+        "# Steps\n\n"
+        "- First step.\n"
+        "- Second step:\n\n"
+        "  ```sh\n  echo ok\n  ```\n\n"
+        "- Third step.\n",
+    )
+
+    result = check(project)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_fails_on_mixed_blank_lines_between_list_items(project):
+    root = project[0]
+    write(root, "docs/runbooks/steps.md", "# Steps\n\n- One.\n\n- Two.\n- Three.\n")
+
+    result = check(project)
+
+    assert_step_fails(result, "rumdl")
+    assert failed_steps(result) == {"rumdl"}
+    assert re.search(r"docs/runbooks/steps\.md:\d+.*MD076", result.stdout + result.stderr)
+
+
+# The tail of the hash is a two-letter typo for `typos`.
+def set_commit_hash(root: Path) -> None:
+    answers = root / ".repo.yaml"
+    text = answers.read_text()
+    replaced = re.sub(r"(?m)^_commit: .*$", "_commit: v0.10.2-13-g78b34" + "b" + "a", text)
+    assert replaced != text
+    answers.write_text(replaced)
+
+
+def test_commit_hash_of_answers_passes_spelling(project):
+    set_commit_hash(project[0])
+
+    result = check(project)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_fails_on_typo_in_answers(project):
+    root = project[0]
+    set_commit_hash(root)
+    answers = root / ".repo.yaml"
+    text = answers.read_text()
+    replaced = re.sub(r"(?m)^project_name: .*$", "project_name: te" + "h", text)
+    assert replaced != text
+    answers.write_text(replaced)
+
+    result = check(project)
+
+    assert_step_fails(result, "typos")
+    assert failed_steps(result) == {"typos"}
+    out = result.stdout + result.stderr
+    assert ".repo.yaml" in out
+    assert "project_name: te" + "h" in out
+
+
 def test_fails_on_md_placement(project):
     write(project[0], "notes/a.md", "# Notes\n\nText.\n")
 
