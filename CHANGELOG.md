@@ -17,6 +17,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The `ask` rules of `.claude/settings.json` also cover `.maintain/**`, `.mise/**`, `mise*.toml`, `.mise*.toml`, `hk.*` and `.hkrc.pkl`: `.mise/config.toml`, `mise.local.toml` and `hk.local.pkl` replace the tasks of `mise run check` and were not protected.
 - Renovate merges the weekly `non-major dependencies` pull request and the lock file maintenance pull request after the external checks pass; major updates and `copier` updates stay manual, see ADR 0034.
 
+### Fixed
+
+- `rumdl` rule MD076 accepts a blank line inside a list item (a code block or a second paragraph) through `allow-loose-continuation = true` in `.config/rumdl.toml`; a list with blank lines between only some items still fails. The rule stays enabled.
+- `typos` skips the `_commit` line of `.repo.yaml`: a commit hash that ends in a two-letter word, as in `git describe` output, read as a typo and failed the hook at random. `.config/typos.toml` is written once (`_skip_if_exists`), so an existing project adds this to the table `[default]` of its file by hand: `extend-ignore-re = ["(?m)^_commit: .*$"]`. Other lines of `.repo.yaml` stay checked.
+
 ## 0.10.2 — 2026-11-16
 
 ### Fixed
