@@ -1,0 +1,74 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Print the share of English and Russian prose in documents and comments as JSON"
+# /// script
+# requires-python = ">=3.13"
+# ///
+"""Usage: detect-language
+
+Prints {"language": "en"|"ru"|null, "documents": {"en": N, "ru": N}, "comments": {"en": N, "ru": N}}.
+The result comes from document blocks, or from comment blocks when no document has prose.
+A language wins above 80 % of the counted blocks; otherwise the result is null and `repo-init` asks the owner.
+The exit code is always 0.
+"""
+import importlib.machinery
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from types import ModuleType
+
+HERE = Path(__file__).resolve().parent
+# A cache folder in `.mise/lib/` would dirty the work tree.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE.parent / "lib"))
+import language as lang
+
+THRESHOLD = 0.8
+
+
+def load_comments() -> ModuleType:
+    loader = importlib.machinery.SourceFileLoader("check_comments", str(HERE / "check-comments"))
+    module = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+    loader.exec_module(module)
+    return module
+
+
+def winner(count: dict[str, int]) -> str | None:
+    total = sum(count.values())
+    return next((key for key, n in count.items() if total and n / total > THRESHOLD), None)
+
+
+def main() -> int:
+    comments = load_comments()
+    root = Path(comments.git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    files = [p for p in comments.git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0") if p]
+    documents = {"en": 0, "ru": 0}
+    found = {"en": 0, "ru": 0}
+    for path in files:
+        full = root / path
+        if not full.is_file():
+            continue
+        try:
+            source = full.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+        if path.endswith(".md"):
+            if not (lang.DOCUMENTS_SKIPPED.match(path) or lang.is_standard(path, "ru")):
+                for key, n in lang.shares(lang.markdown_blocks(source)).items():
+                    documents[key] += n
+            continue
+        starts = comments.style_of(path)
+        if starts is None or lang.is_standard(path, "ru"):
+            continue
+        items = comments.python_comments(source) if full.suffix == ".py" else None
+        if items is None:
+            items = comments.line_comments(source.splitlines(), starts)
+        for key, n in lang.shares(lang.group(items), comment=True).items():
+            found[key] += n
+    source_counts = documents if sum(documents.values()) else found
+    print(json.dumps({"language": winner(source_counts), "documents": documents, "comments": found}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -9,6 +9,7 @@
     "project_name": {"type": "string"},
     "level": {"enum": ["base", "full"]},
     "team": {"enum": ["solo"]},
+    "language": {"enum": ["en", "ru", "auto"]},
     "stack": {"type": "array", "items": {"enum": ["terraform", "typescript"]}, "uniqueItems": true},
     "architecture": {
       "type": "object",
@@ -30,6 +31,8 @@
     "md_exceptions": {"type": "array", "items": {"type": "string"}},
     "root_files": {"type": "array", "items": {"type": "string"}},
     "report_schedule": {"enum": ["off", "monthly", "weekly", "twice-weekly"]},
+    "maintain_adapter": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "not": {"const": "jobs"}},
+    "maintain_schedule": {"enum": ["off", "monthly", "weekly"]},
     "deployed": {"type": "boolean"},
     "overrides": {
       "type": "array",

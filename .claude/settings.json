@@ -17,9 +17,16 @@
       "Edit(/.claude/hooks/**)",
       "Edit(/.mise/tasks/**)",
       "Edit(/.mise/data/**)",
+      "Edit(/.mise/lib/**)",
       "Edit(/.github/repo.schema.json)",
       "Edit(/.baselines/**)",
-      "Edit(/.config/**)"
+      "Edit(/.config/**)",
+      "Edit(/.maintain/**)",
+      "Edit(/.mise/**)",
+      "Edit(/mise*.toml)",
+      "Edit(/.mise*.toml)",
+      "Edit(/hk.*)",
+      "Edit(/.hkrc.pkl)"
     ],
     "deny": [
       "mcp__github__merge_pull_request",

@@ -15,3 +15,8 @@ force-exclude = true
 "CLAUDE.md" = ["MD041"]
 "docs/tasks.md" = ["MD041"]
 ".github/pull_request_template.md" = ["MD041"]
+
+# A blank line inside a list item (a code block, a second paragraph) is not a
+# loose list; MD076 still fails on blank lines between only some items.
+[MD076]
+allow-loose-continuation = true
