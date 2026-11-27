@@ -35,7 +35,6 @@
 - Add a Python profile — `stockpit`, `ai-investing` and the Lambda code of `infrastructure` have no stack checks.
 - Add a PHP profile for Laravel — `backend-api` has no stack profile.
 - Support yarn classic in the `typescript` profile — `mobile-app` uses `yarn@1.22.22`.
-- Move the macOS jobs of `manifold` to the owner's Mac — a macOS minute costs $0.062 on GitHub runners.
 - Add a Swift profile — `mac/` of `manifold` gets only the standard checks.
 - Implement maintenance jobs started by report findings — the report lists expiring baselines and drift, and nothing acts on them.
 - Migrate the `infrastructure` project to the repository standard — second pilot project, results go to `docs/pilot-log.md`.

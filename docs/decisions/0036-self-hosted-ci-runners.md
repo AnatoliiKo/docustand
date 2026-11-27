@@ -19,7 +19,7 @@ Public repositories use GitHub-hosted Linux runners at no cost. A self-hosted ru
 - All runner containers run in one systemd slice with a total limit of 6 vCPU and 10 GB of memory, and a CPU weight below the other containers of the VM. Each container has its own limit of 4 vCPU, 6 GB of memory and 4096 processes.
 - Runner containers use a separate Docker network without access to the Docker socket, the LAN, NetBird or Tailscale: only the internet.
 - The template answer `ci_runner` sets `runs-on` of the template workflows; the default stays `ubuntu-latest`.
-- macOS and Windows jobs and jobs that build Docker images stay on GitHub-hosted runners.
+- Windows jobs and jobs that build Docker images stay on GitHub-hosted runners. macOS checks follow [ADR 0037](0037-macos-checks-in-pre-push.md).
 
 ## Rejected
 
