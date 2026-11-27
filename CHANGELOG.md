@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Added
+
+- The answer `ci_runner` (default `ubuntu-latest`) sets `runs-on` of `standard-ci` and `standard-report`: a label that starts with `ubuntu-` stays a GitHub-hosted runner, any other label renders `[self-hosted, <label>]`, see ADR 0036.
+
 ## 0.11.0 — 2026-11-25
 
 ### Added
