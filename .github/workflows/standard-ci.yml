@@ -29,7 +29,7 @@ jobs:
       # Git 2.54+ stores hk hooks in git config; the log records which mode CI exercises.
       - name: Git version
         run: git --version
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       # A commit of a merged pull request with a green `check` run was checked in the pull request.
       - name: Merged pull request (push)
         id: merged

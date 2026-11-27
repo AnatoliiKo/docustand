@@ -30,6 +30,11 @@ from typing import Any, Callable
 
 import yaml
 
+# A cache folder in `.mise/lib/` would dirty the work tree.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+from protected import glob_to_regex, load_protected
+
 # Period of the schedule plus one day for a delayed run: a repeated finding is
 # cheaper than a missed red merge.
 SINCE_DAYS = {"monthly": 32, "weekly": 8, "twice-weekly": 5}
@@ -38,7 +43,6 @@ BRANCH = "report"
 RED = {"FAILURE", "ERROR", "TIMED_OUT", "STARTUP_FAILURE", "CANCELLED"}
 SKIP_TRAILER = re.compile(r"^Skip-Check:\s*\S", re.I | re.M)
 ADDED = {"added", "renamed", "copied"}
-ASK_EDIT = re.compile(r"^Edit\(/(.+)\)$")
 NO_APP = "report app is not configured, see docs/access.md"
 NO_SLUG = "REPORT_APP_SLUG is not set; the report commit needs the app as its author"
 VULN_NOT_CHECKED = "Not checked, needs the report app"
@@ -275,16 +279,9 @@ def skip_check_trailers(commits: list[dict]) -> list[str]:
     return found
 
 
-def _glob(pattern: str) -> re.Pattern:
-    parts = re.split(r"(\*\*/|\*\*|\*)", pattern)
-    body = "".join("(?:.*/)?" if p == "**/" else ".*" if p == "**" else "[^/]*" if p == "*" else re.escape(p)
-                   for p in parts)
-    return re.compile(body + r"\Z")
-
-
 def protected_changes(files_by_pr: dict[int, list[str]], protected: list[str]) -> dict[int, list[str]]:
     """Files of each PR that match a protected pattern (`**` crosses directories)."""
-    patterns = [_glob(p) for p in protected]
+    patterns = [glob_to_regex(p) for p in protected]
     result = {}
     for number, files in files_by_pr.items():
         hit = [f for f in files if any(p.match(f) for p in patterns)]
@@ -309,13 +306,6 @@ def files_of_other_authors(commits: list[dict], files_of: Callable[[str], list[s
             continue
         found += [f for f in files_of(item["sha"]) if f not in found]
     return found
-
-
-def load_protected(root: Path) -> list[str]:
-    """Protected paths: the `Edit(/<path>)` rules of `permissions.ask` in .claude/settings.json."""
-    settings = json.loads((root / ".claude" / "settings.json").read_text())
-    rules = (settings.get("permissions") or {}).get("ask") or []
-    return [m.group(1) for rule in rules if (m := ASK_EDIT.match(rule))]
 
 
 def stack_drift(detected: list[str], declared: list[str]) -> list[str]:

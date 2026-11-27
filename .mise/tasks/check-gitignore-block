@@ -43,11 +43,12 @@ TRACKED = [
     ".github/pull_request_template.md", ".github/repo.schema.json",
     ".github/workflows/standard-ci.yml", ".gitignore", ".mise/conf.d/standard.toml",
     ".mise/data/root-files.txt", ".mise/data/size-limits.json", ".mise/data/task-verbs.txt",
+    ".mise/lib/language.py", ".mise/lib/protected.py",
     ".mise/tasks/check-adr", ".mise/tasks/check-adr-history", ".mise/tasks/check-agents-md", ".mise/tasks/check-baseline", ".mise/tasks/check-comments",
     ".mise/tasks/check-doc-paths", ".mise/tasks/check-eslint-suppressions", ".mise/tasks/check-env-example", ".mise/tasks/check-gitignore-block",
-    ".mise/tasks/check-md-placement", ".mise/tasks/check-pr-body", ".mise/tasks/check-pr-commits",
+    ".mise/tasks/check-md-language", ".mise/tasks/check-md-placement", ".mise/tasks/check-pr-body", ".mise/tasks/check-pr-commits",
     ".mise/tasks/check-repo-yaml", ".mise/tasks/check-root", ".mise/tasks/check-size", ".mise/tasks/check-tasks-format",
-    ".mise/tasks/ci-merged-pr", ".mise/tasks/detect-stack", ".mise/tasks/pr-ready",
+    ".mise/tasks/ci-merged-pr", ".mise/tasks/detect-language", ".mise/tasks/detect-stack", ".mise/tasks/pr-ready",
     ".mise/tasks/report", ".repo.yaml", ".config/rumdl.toml", ".worktreeinclude", "AGENTS.md", "CLAUDE.md",
     "README.md", ".config/commitlint.config.mjs", "docs/access.md", "docs/architecture.md",
     "docs/decisions/0000-adopt-repository-standard.md", "docs/tasks.md", ".config/hk.pkl", ".config/lychee.toml",
@@ -59,6 +60,12 @@ TYPESCRIPT_TRACKED = [
     "eslint.config.mjs", ".config/eslint.project.mjs", ".config/knip.json", ".baselines/eslint-suppressions.json",
 ]
 DEPLOYED_TRACKED = ["docs/operations.md"]
+MAINTAIN_TRACKED = [
+    ".maintain/README.md", ".maintain/jobs.yaml", ".maintain/jobs/baseline-burndown.md",
+    ".maintain/jobs/dead-code.md", ".maintain/jobs/docs-drift.md", ".mise/lib/maintain.py",
+    ".mise/tasks/maintain",
+]
+MANUAL_TRACKED = [".maintain/manual/README.md", ".maintain/manual/run"]
 REPORT_TRACKED = [".github/workflows/standard-report.yml"]
 IGNORED = ["CLAUDE.local.md"]
 
@@ -80,9 +87,12 @@ def stack(data: dict) -> list:
 def tracked(data: dict) -> list[str]:
     """The files the template renders for these answers."""
     profiles = stack(data)
+    adapter = data.get("maintain_adapter", "none")
     return (TRACKED + (TERRAFORM_TRACKED if "terraform" in profiles else [])
             + (TYPESCRIPT_TRACKED if "typescript" in profiles else [])
             + (DEPLOYED_TRACKED if data.get("deployed") is True else [])
+            + (MAINTAIN_TRACKED if adapter != "none" else [])
+            + (MANUAL_TRACKED if adapter == "manual" else [])
             + (REPORT_TRACKED if data.get("report_schedule", "weekly") != "off" else []))
 
 
