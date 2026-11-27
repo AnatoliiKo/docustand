@@ -106,6 +106,19 @@ report_schedule:
     twice-weekly: twice-weekly
   default: weekly
 
+ci_runner:
+  type: str
+  help: Runner label of standard-ci and standard-report (ubuntu-latest, or the label of a self-hosted runner)
+  default: ubuntu-latest
+  validator: >-
+    {% if not ci_runner | regex_search('^[a-z0-9][a-z0-9.-]*$') %}ci_runner needs a runner label of lowercase letters, digits, dots and hyphens.{% endif %}
+
+# A label that starts with "ubuntu-" is a GitHub-hosted runner; any other label is self-hosted (ADR 0036).
+ci_runs_on:
+  type: str
+  default: "{{ ci_runner if ci_runner.startswith('ubuntu-') else '[self-hosted, ' ~ ci_runner ~ ']' }}"
+  when: false
+
 maintain_adapter:
   type: str
   help: Maintenance agent adapter (none, manual or the name of an own adapter)

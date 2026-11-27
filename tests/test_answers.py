@@ -173,3 +173,57 @@ def test_schema_accepts_missing_maintain_answers(render, tmp_path):
                                if not line.startswith("maintain_")))
 
     assert _validate(dest, "").returncode == 0
+
+
+WORKFLOWS = (".github/workflows/standard-ci.yml", ".github/workflows/standard-report.yml")
+
+
+def _runs_on(dest) -> list[str]:
+    return [line.strip() for name in WORKFLOWS
+            for line in (dest / name).read_text().splitlines() if line.strip().startswith("runs-on:")]
+
+
+def test_ci_runner_defaults_to_github_hosted_ubuntu(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+
+    assert yaml.safe_load((dest / ".repo.yaml").read_text())["ci_runner"] == "ubuntu-latest"
+    assert _runs_on(dest) == ["runs-on: ubuntu-latest"] * 3
+    assert "ci_runs_on" not in (dest / ".repo.yaml").read_text()
+
+
+def test_ci_runner_label_selects_a_self_hosted_runner(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", ci_runner="vm-docker")
+
+    assert _runs_on(dest) == ["runs-on: [self-hosted, vm-docker]"] * 3
+    for name in WORKFLOWS:
+        assert yaml.safe_load((dest / name).read_text())
+
+
+def test_ci_runner_keeps_other_github_hosted_ubuntu_labels(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", ci_runner="ubuntu-24.04")
+
+    assert _runs_on(dest) == ["runs-on: ubuntu-24.04"] * 3
+
+
+@pytest.mark.parametrize("label", ["VM Docker", "-x", "a/b"])
+def test_copier_rejects_invalid_ci_runner(render, tmp_path, label):
+    result = render(tmp_path, check=False, project_name="demo", ci_runner=label)
+
+    assert result.returncode != 0
+    assert "ci_runner needs a runner label" in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("text, valid", [
+    ("ci_runner: vm-docker\n", True),
+    ("ci_runner: ubuntu-24.04\n", True),
+    ("ci_runner: VM Docker\n", False),
+])
+def test_schema_checks_ci_runner(render, tmp_path, text, valid):
+    dest = render(tmp_path, project_name="demo")
+    answers = dest / ".repo.yaml"
+    answers.write_text("".join(line + "\n" for line in answers.read_text().splitlines()
+                               if not line.startswith("ci_runner:")))
+
+    result = _validate(dest, text)
+
+    assert (result.returncode == 0) is valid, result.stdout + result.stderr

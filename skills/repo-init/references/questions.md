@@ -18,6 +18,7 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 |---|---|---|
 | Level: base or full | always | `level` |
 | Report schedule: monthly, weekly (recommended), twice a week, off | always | `report_schedule` |
+| CI runner: GitHub-hosted `ubuntu-latest` (default) or the label of a self-hosted runner | the repository is private and the owner has self-hosted runners | `ci_runner` |
 | Language of comments and documents: English (default), Russian, or detect | always | `language` |
 | Maintenance agent: none (recommended for rarely edited projects) or manual | always | `maintain_adapter` |
 | Is the detected stack right? | the profile is ambiguous or missing | `stack` |
@@ -48,6 +49,11 @@ Copier, hk and the tools through mise; the structure, the checks and the profile
 1. None (default, recommended for projects that change rarely): no `.maintain/` folder, no `maintain` task. Costs: no jobs against drifting documents and old baseline entries.
 2. Manual: `.maintain/` with the jobs `docs-drift`, `baseline-burndown`, `dead-code` and the adapter `manual`; the owner starts a job with a local agent command. Each job ends in a pull request. Costs: the owner runs it; the folder and the `maintain` task need no upkeep.
 3. Own adapter: any other name; the contract is rendered without `manual`, the owner writes the adapter folder.
+
+**CI runner** (ADR 0036). Never a self-hosted label for a public repository: any outside pull request runs its code on the runner.
+
+1. `ubuntu-latest` (default): GitHub-hosted. Costs: Actions minutes of a private repository count against the included compute.
+2. A self-hosted label, such as `vm-docker`: `standard-ci` and `standard-report` run on `[self-hosted, <label>]`. Costs: the runner must be online and reach the tool downloads of `mise`, PyPI included.
 
 **Report schedule.**
 
