@@ -1,11 +1,19 @@
 ## In progress
 
+### Add self-hosted runners for private repositories
+
+- Goal: CI of private projects runs on the owner's machines and stays within the $12 of included GitHub Actions compute per month.
+- Done when: the template answer `ci_runner` sets `runs-on` of `standard-ci` and `standard-report`; a runner container on the VM `docker` runs one job at a time under a CPU and memory limit and is recreated after each job; `standard-ci` of `cinema-ops` passes on it; the Actions usage of `cinema-ops` for one month is under $2.
+- Stopped at: not started. Actions of private repositories stopped on 2026-11-27: the $12 of included compute is used (`stockpit` $5.16, `cinema-ops` $4.83, `manifold` $1.96) and the account has no payment method.
+- Next: an ADR with 2-3 runner images and their registry data; the owner chooses between a free GitHub organization with one runner and one runner per repository.
+- Refs: `template/.github/workflows/standard-ci.yml.jinja` and the report workflow of the template.
+
 ### Set up `cinema-ops` as the reference repository
 
 - Goal: one repository shows the whole standard working before docustand reaches other projects.
 - Done when: each condition holds and has a row in `docs/pilot-log.md`: `cinema-ops` is on the latest release and `mise run check` passes 3 times in a row with green CI; a Renovate template update merged without the owner; the scheduled report ran on its own; `docs-drift` and `baseline-burndown` ran on schedule and each opened a PR; `.baselines/` holds only `betterleaks.ignore`; a fresh clone passes `mise install && mise run check`; an agent without context answers the six questions of `README.md`.
 - Stopped at: `cinema-ops` is on `v0.11.0` (PR 139); `.baselines/` holds only `betterleaks.ignore`; `mise run check` passed once and failed once in `apps/agent/src/station/settings.test.ts` under load.
-- Next: automatic merge of template updates; the maintenance task below.
+- Next: the self-hosted runner task above; then automatic merge of template updates and the maintenance task below.
 - Refs: ADR 0027, ADR 0034, ADR 0035, `cinema-ops` PR 139 and PR 140.
 
 ### Add the maintenance agent contract
@@ -27,6 +35,7 @@
 - Add a Python profile — `stockpit`, `ai-investing` and the Lambda code of `infrastructure` have no stack checks.
 - Add a PHP profile for Laravel — `backend-api` has no stack profile.
 - Support yarn classic in the `typescript` profile — `mobile-app` uses `yarn@1.22.22`.
+- Move the macOS jobs of `manifold` to the owner's Mac — a macOS minute costs $0.062 on GitHub runners.
 - Add a Swift profile — `mac/` of `manifold` gets only the standard checks.
 - Implement maintenance jobs started by report findings — the report lists expiring baselines and drift, and nothing acts on them.
 - Migrate the `infrastructure` project to the repository standard — second pilot project, results go to `docs/pilot-log.md`.
