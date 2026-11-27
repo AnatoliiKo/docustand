@@ -3,10 +3,10 @@
 ### Add self-hosted runners for private repositories
 
 - Goal: CI of private projects runs on the owner's machines and stays within the $12 of included GitHub Actions compute per month.
-- Done when: the template answer `ci_runner` sets `runs-on` of `standard-ci` and `standard-report`; a runner container on the VM `docker` runs one job at a time under a CPU and memory limit and is recreated after each job; `standard-ci` of `cinema-ops` passes on it; the Actions usage of `cinema-ops` for one month is under $2.
-- Stopped at: not started. Actions of private repositories stopped on 2026-11-27: the $12 of included compute is used (`stockpit` $5.16, `cinema-ops` $4.83, `manifold` $1.96) and the account has no payment method.
-- Next: an ADR with 2-3 runner images and their registry data; the owner chooses between a free GitHub organization with one runner and one runner per repository.
-- Refs: `template/.github/workflows/standard-ci.yml.jinja` and the report workflow of the template.
+- Done when: the template answer `ci_runner` sets `runs-on` of `standard-ci` and `standard-report`; a runner container on the VM `docker` runs one job at a time under the limits of ADR 0036 and re-registers after each job; `standard-ci` of `cinema-ops` passes on it; the Actions usage of `cinema-ops` for one month is under $2.
+- Stopped at: ADR 0036 sets the image, the limits and the jobs that move. Actions of private repositories stopped on 2026-11-27: the $12 of included compute is used and the account has no payment method.
+- Next: the owner creates the fine-grained token of `docs/access.md`; then the runner stack on the VM `docker`, the answer `ci_runner` and `runs-on` of `cinema-ops`, `stockpit` and `manifold`.
+- Refs: ADR 0036, `template/.github/workflows/standard-ci.yml.jinja` and the report workflow of the template.
 
 ### Set up `cinema-ops` as the reference repository
 
