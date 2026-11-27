@@ -4,8 +4,8 @@
 
 - Goal: CI of private projects runs on the owner's machines and stays within the $12 of included GitHub Actions compute per month.
 - Done when: the template answer `ci_runner` sets `runs-on` of `standard-ci` and `standard-report`; a runner container on the VM `docker` runs one job at a time under the limits of ADR 0036 and re-registers after each job; `standard-ci` of `cinema-ops` passes on it; the Actions usage of `cinema-ops` for one month is under $2.
-- Stopped at: ADR 0036 sets the image, the limits and the jobs that move. Actions of private repositories stopped on 2026-11-27: the $12 of included compute is used and the account has no payment method.
-- Next: the owner creates the fine-grained token of `docs/access.md`; then the runner stack on the VM `docker`, the answer `ci_runner` and `runs-on` of `cinema-ops`, `stockpit` and `manifold`.
+- Stopped at: five runners with the label `vm-docker` run on the VM `docker` since 2026-11-28; `ci-runner-guard` closes the VM, the other containers, the LAN and the VPNs to them; `pypi.org` times out from the network of the cinema. Pull requests move the Linux jobs of `cinema-ops`, `stockpit`, `manifold`, `kids-wallet` and `my-visits-dashboard` to them.
+- Next: the answer `ci_runner` for `standard-ci` and `standard-report` of the template; then the Actions usage of `cinema-ops` for December.
 - Refs: ADR 0036, `template/.github/workflows/standard-ci.yml.jinja` and the report workflow of the template.
 
 ### Set up `cinema-ops` as the reference repository

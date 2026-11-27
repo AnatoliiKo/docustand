@@ -8,7 +8,7 @@ Expiry is a date in `YYYY-MM-DD` format or `never`.
 | Code hosting: public repository `AnatoliiKo/docustand` | Owner | No secrets | never |
 | Renovate GitHub App on the repositories that use the standard | Owner | GitHub App settings | never |
 | Report GitHub App `anatoliiko-repo-report` of `AnatoliiKo`, installed on that account only: Contents RW, Pull requests RW, Administration read, Checks read, Commit statuses read, Dependabot alerts read | Owner | Private key in the owner's keychain; repository secrets `REPORT_APP_CLIENT_ID` and `REPORT_APP_PRIVATE_KEY` in each repository | never |
-| Fine-grained token of `AnatoliiKo` for self-hosted runners (ADR 0036): Administration read and write on `cinema-ops`, `stockpit` and `manifold` only | Owner | `/opt/stacks/sys-ci-runners/.env` on the VM `docker`, readable by its owner only | 2027-11-27 |
+| Fine-grained token of `AnatoliiKo` for self-hosted runners (ADR 0036): Administration read and write on `cinema-ops`, `stockpit`, `manifold`, `kids-wallet` and `my-visits-dashboard` only, name `vm-docker-ci-runners` | Owner | `/opt/stacks/sys-ci-runners/.env` on the VM `docker`, readable by its owner only | 2027-11-27 |
 
 ## Owner steps
 
