@@ -3,7 +3,7 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 0.11.0 — 2026-11-25
 
 ### Added
 
@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `check-comments` and `check-md-language` name both ways to quote a UI string, «» and backticks, in the hint of a language finding.
 - The `ask` rules of `.claude/settings.json` also cover `.maintain/**`, `.mise/**`, `mise*.toml`, `.mise*.toml`, `hk.*` and `.hkrc.pkl`: `.mise/config.toml`, `mise.local.toml` and `hk.local.pkl` replace the tasks of `mise run check` and were not protected.
 - Renovate merges the weekly `non-major dependencies` pull request and the lock file maintenance pull request after the external checks pass; major updates and `copier` updates stay manual, see ADR 0034.
+- The template pins hk 2.13.0, pkl 0.33.1, uv 0.13.9, betterleaks 1.10.1, typos 1.52.2, rumdl 0.3.5, node 26.13.1, terraform 1.17.2, tflint 0.66.0, jscpd 5.4.3 and `jdx/mise-action` 5.2.10.
 
 ### Fixed
 
