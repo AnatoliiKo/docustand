@@ -12,9 +12,9 @@
 
 - Goal: one repository shows the whole standard working before docustand reaches other projects.
 - Done when: each condition holds and has a row in `docs/pilot-log.md`: `cinema-ops` is on the latest release and `mise run check` passes 3 times in a row with green CI; a Renovate template update merged without the owner; the scheduled report ran on its own; `docs-drift` and `baseline-burndown` ran on schedule and each opened a PR; `.baselines/` holds only `betterleaks.ignore`; a fresh clone passes `mise install && mise run check`; an agent without context answers the six questions of `README.md`.
-- Stopped at: `cinema-ops` is on `v0.12.1` (PR 143) and `standard-ci` runs on `vm-docker`; `.baselines/` holds only `betterleaks.ignore`. Under the load of the full suite on the VM, `apps/server/src/actions/agent-update.test.ts` exceeded 5 s and got a 30 s timeout (PR 144); `apps/agent/src/station/settings.test.ts` failed once under load earlier.
-- Next: 3 green runs of `mise run check` in a row; then automatic merge of template updates and the maintenance task below.
-- Refs: ADR 0027, ADR 0034, ADR 0035, `cinema-ops` PR 139, PR 140, PR 143 and PR 144.
+- Stopped at: `cinema-ops` is on `v0.12.2` (PR 148) and `standard-ci` runs on `vm-docker`; `mise run check` passed 3 times in a row locally and in CI, see `docs/pilot-log.md`; `.baselines/` holds only `betterleaks.ignore`. Under the load of the full suite on the VM, `apps/server/src/actions/agent-update.test.ts` exceeded 5 s and got a 30 s timeout (PR 144).
+- Next: a Renovate template update merged without the owner on the next release; the scheduled runs of the maintenance task below.
+- Refs: ADR 0027, ADR 0034, ADR 0035, `cinema-ops` PR 139, PR 140, PR 143, PR 144 and PR 148.
 
 ### Add the maintenance agent contract
 
