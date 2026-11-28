@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """PreToolUse hook: `gh pr merge` only when every CI check is SUCCESS or SKIPPED.
 
-The check runs in the hook's cwd; a `cd` earlier in the same command is not followed
-(CI is the backstop). `gh pr merge --auto` is blocked while checks are pending: intended,
+The checks are read in the directory after `cd` or `pushd` in the same command, or for
+`-R`/`--repo`/`GH_REPO` or a PR URL. A merge after a `cd` the hook cannot resolve is blocked
+until it names the repository. `gh pr merge --auto` is blocked while checks are pending: intended,
 because on the Free plan there is no branch protection to make auto-merge wait safely.
 """
 
@@ -14,37 +15,32 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _shell import block, read_bash_input, all_commands, strip_prefix  # noqa: E402
+from _shell import block, read_bash_input, all_commands, gh_repo, with_directories  # noqa: E402
 
 NO_CHECKS = "no checks reported; CI did not run"
+NO_REPO = "cannot tell the repository after cd; pass -R OWNER/REPO or a PR URL"
 OK_STATES = {"SUCCESS", "SKIPPED"}
 # gh pr merge flags that take a value (the value must not be taken for the PR argument).
 VALUE_FLAGS = {"-b", "--body", "-F", "--body-file", "-t", "--subject", "-A", "--author-email",
                "--match-head-commit", "-R", "--repo"}
 
 
-def merge_target(words):
+def merge_target(words, assigns):
     """For `gh pr merge ...` return (pr_argument_or_None, repo_or_None); else None."""
     if words[:3] != ["gh", "pr", "merge"]:
         return None
-    arg = repo = None
+    arg = None
     rest, i = words[3:], 0
     while i < len(rest):
         w = rest[i]
-        if w in ("-R", "--repo") and i + 1 < len(rest):
-            repo = rest[i + 1]
-            i += 2
-        elif w.startswith("--repo="):
-            repo = w.split("=", 1)[1]
-            i += 1
-        elif w in VALUE_FLAGS:
+        if w in VALUE_FLAGS:
             i += 2
         elif w.startswith("-"):
             i += 1
         else:
             arg = arg or w
             i += 1
-    return arg, repo
+    return arg, gh_repo(rest, assigns, VALUE_FLAGS)
 
 
 def check(arg, repo, cwd):
@@ -73,15 +69,19 @@ def main():
     if parsed is None:
         return
     command, cwd = parsed
-    cwd = cwd if cwd and os.path.isdir(cwd) else None
+    cwd = cwd if cwd and os.path.isdir(cwd) else os.getcwd()
     try:
         commands = all_commands(command)
     except ValueError:
         commands = [command.split()]
-    for words in commands:
-        target = merge_target(strip_prefix(words)[1])
-        if target:
-            check(*target, cwd)
+    for assigns, words, directory in with_directories(commands, cwd):
+        target = merge_target(words, assigns)
+        if not target:
+            continue
+        arg, repo = target
+        if directory is None and not repo and "://" not in (arg or ""):
+            block(NO_REPO)
+        check(arg, repo, directory)
 
 
 if __name__ == "__main__":
