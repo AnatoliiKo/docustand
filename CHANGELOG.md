@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Changed
+
+- A self-hosted `ci_runner` turns off the cache of `jdx/mise-action` in `standard-ci` and `standard-report`: the runner keeps the tools between jobs, and the upload of about 290 MB to the GitHub cache took 1.5–2 min on the VM `docker`.
+
 ## 0.12.0 — 2026-11-28
 
 ### Added

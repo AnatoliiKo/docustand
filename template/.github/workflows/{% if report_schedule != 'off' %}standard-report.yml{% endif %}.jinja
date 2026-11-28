@@ -36,6 +36,13 @@ jobs:
           client-id: ${{ secrets.REPORT_APP_CLIENT_ID }}
           private-key: ${{ secrets.REPORT_APP_PRIVATE_KEY }}
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+{%- endraw %}
+{%- if not ci_runner.startswith('ubuntu-') %}
+        # A self-hosted runner keeps the tools between jobs; the GitHub cache only adds an upload of about 290 MB.
+        with:
+          cache: false
+{%- endif %}
+{%- raw %}
       - name: Monthly checks due
         id: due
         env:

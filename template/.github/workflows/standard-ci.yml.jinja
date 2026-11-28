@@ -31,6 +31,11 @@ jobs:
         run: git --version
       - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
 {%- endraw %}
+{%- if not ci_runner.startswith('ubuntu-') %}
+        # A self-hosted runner keeps the tools between jobs; the GitHub cache only adds an upload of about 290 MB.
+        with:
+          cache: false
+{%- endif %}
 {%- if 'typescript' in stack %}
 {%- raw %}
       # The hooks run ESLint, Prettier and the other tools from `node_modules`.

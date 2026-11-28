@@ -4,8 +4,8 @@
 
 - Goal: CI of private projects runs on the owner's machines and stays within the $12 of included GitHub Actions compute per month.
 - Done when: the template answer `ci_runner` sets `runs-on` of `standard-ci` and `standard-report`; a runner container on the VM `docker` runs one job at a time under the limits of ADR 0036 and re-registers after each job; `standard-ci` of `cinema-ops` passes on it; the Actions usage of `cinema-ops` for one month is under $2.
-- Stopped at: five runners with the label `vm-docker` run on the VM `docker` since 2026-11-28; `ci-runner-guard` closes the VM, the other containers, the LAN and the VPNs to them; `pypi.org` times out from the network of the cinema. Pull requests move the Linux jobs of `cinema-ops`, `stockpit`, `manifold`, `kids-wallet` and `my-visits-dashboard` to them.
-- Next: a release with the answer `ci_runner`; then `copier update -a .repo.yaml --defaults --data ci_runner=vm-docker` in `cinema-ops` and the Actions usage of `cinema-ops` for December.
+- Stopped at: five runners with the label `vm-docker` run on the VM `docker` since 2026-11-28; `ci-runner-guard` closes the VM, the other containers, the LAN and the VPNs to them. The Linux jobs of `cinema-ops`, `stockpit`, `manifold`, `kids-wallet` and `my-visits-dashboard` run on them; `cinema-ops` takes `ci_runner: vm-docker` from template 0.12.0. A volume per runner keeps the tools of `mise`; GitHub release assets reach the VM through the VPN at about 0.5 MB/s.
+- Next: a release without the `mise` cache on self-hosted runners, its update in `cinema-ops`, and the Actions usage of `cinema-ops` for December.
 - Refs: ADR 0036, `template/.github/workflows/standard-ci.yml.jinja` and the report workflow of the template.
 
 ### Set up `cinema-ops` as the reference repository
