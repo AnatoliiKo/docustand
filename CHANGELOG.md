@@ -3,6 +3,12 @@
 All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Fixed
+
+- `mise run maintain -- run` prints its steps before the output of the agent command and the commit after it; a piped stdout printed them after the agent and after an error.
+
 ## 0.12.1 — 2026-11-28
 
 ### Changed
