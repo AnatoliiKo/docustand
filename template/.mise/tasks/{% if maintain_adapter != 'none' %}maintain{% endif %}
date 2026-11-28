@@ -16,6 +16,8 @@ from pathlib import Path
 
 # A cache folder in `.mise/lib/` would dirty the work tree.
 sys.dont_write_bytecode = True
+# The agent writes to the same stdout; a piped buffer would print the steps after its output.
+sys.stdout.reconfigure(line_buffering=True)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 import maintain as m
 

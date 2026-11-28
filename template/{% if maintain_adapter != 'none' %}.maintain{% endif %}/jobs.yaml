@@ -13,6 +13,7 @@ jobs:
       - docs/tasks.md
       - .claude/**
       - .github/**
+      - .maintain/**
       - openspec/**
     # Documents of `md_exceptions` and documents that name a generator stay as they are.
     skip_md_exceptions: true

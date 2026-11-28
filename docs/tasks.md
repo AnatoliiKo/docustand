@@ -20,9 +20,9 @@
 
 - Goal: a project runs scheduled maintenance jobs through a model provider that the owner picks per project; without a provider every other part of the standard works.
 - Done when: `.repo.yaml` accepts `maintain_adapter` and `maintain_schedule` with `none` and `off` as defaults; the `manual` adapter and the `manifold` provider run `docs-drift` and `baseline-burndown` on `cinema-ops` and open a PR; the adapter folder holds a `README` with the run command.
-- Stopped at: the contract and the adapter `manual` are in the template and covered by tests; they did not run on `cinema-ops`. The owner chose a provider contract of the template instead of one CI action: a command reads a JSON request and writes JSON edits, and docustand applies the edits.
-- Next: run `docs-drift` and `baseline-burndown` on `cinema-ops` with the `manual` adapter; then an ADR on the provider contract that supersedes the CI adapter of ADR 0035; then the `manifold` provider with a scheduled workflow through Tailscale Funnel.
-- Refs: ADR 0027, ADR 0035, PR 24, `protocol/v1.md` of `manifold`.
+- Stopped at: the adapter `manual` ran on `cinema-ops` on 2026-11-28: `docs-drift` opened PR 146, `baseline-burndown` ended without changes, see `docs/pilot-log.md`. The owner chose a provider contract of the template instead of one CI action: a command reads a JSON request and writes JSON edits, and docustand applies the edits.
+- Next: an ADR on the provider contract that supersedes the CI adapter of ADR 0035; then the `manifold` provider with a scheduled workflow through Tailscale Funnel.
+- Refs: ADR 0027, ADR 0035, PR 24, `cinema-ops` PR 145 and PR 146, `protocol/v1.md` of `manifold`.
 
 ## Backlog
 

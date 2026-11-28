@@ -357,3 +357,27 @@ def test_maintain_leaves_no_bytecode_cache(world):
 
     assert not list(w.root.rglob("__pycache__"))
     assert w.git("status", "--porcelain").strip() == ""
+
+
+def test_run_prints_its_steps_before_the_agent_output(world):
+    w = world()
+    agent = "cat > /dev/null; echo AGENT-OUTPUT; printf '\\nMore.\\n' >> README.md"
+
+    result = w.maintain("run", "docs-drift", "--local", "--", "sh", "-c", agent)
+
+    assert result.returncode == 0, out(result)
+    lines = result.stdout.splitlines()
+    created = next(i for i, line in enumerate(lines) if "created from" in line)
+    agent_line = lines.index("AGENT-OUTPUT")
+    committed = next(i for i, line in enumerate(lines) if line.startswith("committed "))
+    assert created < agent_line < committed, result.stdout
+
+
+def test_docs_drift_prompt_excludes_the_maintain_folder(world):
+    w = world()
+
+    result = w.maintain("prompt", "docs-drift")
+
+    assert result.returncode == 0, out(result)
+    excluded = result.stdout.split("## Excluded paths", 1)[1]
+    assert "- `.maintain/**`" in excluded
