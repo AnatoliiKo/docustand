@@ -371,3 +371,13 @@ def test_run_prints_its_steps_before_the_agent_output(world):
     agent_line = lines.index("AGENT-OUTPUT")
     committed = next(i for i, line in enumerate(lines) if line.startswith("committed "))
     assert created < agent_line < committed, result.stdout
+
+
+def test_docs_drift_prompt_excludes_the_maintain_folder(world):
+    w = world()
+
+    result = w.maintain("prompt", "docs-drift")
+
+    assert result.returncode == 0, out(result)
+    excluded = result.stdout.split("## Excluded paths", 1)[1]
+    assert "- `.maintain/**`" in excluded

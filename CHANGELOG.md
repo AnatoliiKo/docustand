@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - `mise run maintain -- run` prints its steps before the output of the agent command and the commit after it; a piped stdout printed them after the agent and after an error.
+- The job `docs-drift` excludes `.maintain/**`: the documents of the contract are protected, and an edit of them failed the whole run.
 
 ## 0.12.1 — 2026-11-28
 
