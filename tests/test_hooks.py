@@ -481,6 +481,63 @@ def test_pr_create_alias_and_wrapped_forms_blocked(tmp_path, command):
     assert run_hook("guard_pr_create", command, cwd=repo).returncode == 2
 
 
+def _remote(repo: Path, slug):
+    subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", f"git@github.com:{slug}.git"],
+                   check=True, capture_output=True)
+    return repo
+
+
+def test_pr_create_follows_cd(tmp_path):
+    session = init_git_repo(tmp_path / "session")
+    other = init_git_repo(tmp_path / "other")
+    _mark(other)
+    assert run_hook("guard_pr_create", f"cd {other} && gh pr create", cwd=session).returncode == 0
+    assert run_hook("guard_pr_create", "cd ../other && gh pr create", cwd=session).returncode == 0
+    _mark(session)
+    assert run_hook("guard_pr_create", "pushd ../session; cd ../other && gh pr create",
+                    cwd=session).returncode == 0
+    fresh = init_git_repo(tmp_path / "fresh")
+    assert run_hook("guard_pr_create", f"cd {fresh} && gh pr create", cwd=session).returncode == 2
+
+
+@pytest.mark.parametrize("command", [
+    "gh pr create --repo o/other --fill",
+    "gh pr create -R o/other",
+    "gh pr create --repo=o/other",
+    "gh pr create -Ro/other",
+    "GH_REPO=o/other gh pr create",
+    'cd "$OTHER" && gh pr create',
+    "cd - && gh pr create",
+    "cd /no/such/dir; gh pr create",
+])
+def test_pr_create_passes_unknown_checkout(tmp_path, command):
+    session = _remote(init_git_repo(tmp_path / "session"), "o/session")
+    assert run_hook("guard_pr_create", command, cwd=session).returncode == 0
+
+
+@pytest.mark.parametrize("command", [
+    "gh pr create --repo o/session",
+    "gh pr create -R github.com/O/Session --fill",
+    "gh pr create --repo https://github.com/o/session.git",
+    "gh pr create -t -R --repo o/session",
+])
+def test_pr_create_repo_of_session_blocked(tmp_path, command):
+    session = _remote(init_git_repo(tmp_path / "session"), "o/session")
+    assert run_hook("guard_pr_create", command, cwd=session).returncode == 2
+    _mark(session)
+    assert run_hook("guard_pr_create", command, cwd=session).returncode == 0
+
+
+def test_pr_create_repo_found_by_git_c(tmp_path):
+    session = _remote(init_git_repo(tmp_path / "session"), "o/session")
+    _mark(session)
+    other = _remote(init_git_repo(tmp_path / "other"), "o/other")
+    command = f"git -C {other} push -u origin feat && gh pr create --repo o/other --fill"
+    assert run_hook("guard_pr_create", command, cwd=session).returncode == 2
+    _mark(other)
+    assert run_hook("guard_pr_create", command, cwd=session).returncode == 0
+
+
 def test_pr_create_ignores_other_commands(tmp_path):
     repo = init_git_repo(tmp_path / "r")
     assert run_hook("guard_pr_create", "gh pr view 3", cwd=repo).returncode == 0
@@ -497,6 +554,7 @@ def fake_gh(tmp_path, stdout, code=0):
     script.write_text(
         "#!/bin/sh\n"
         f'echo "$@" > "{tmp_path}/gh-args"\n'
+        f'pwd > "{tmp_path}/gh-cwd"\n'
         f"cat <<'JSON'\n{stdout}\nJSON\n"
         f"exit {code}\n"
     )
@@ -565,6 +623,33 @@ def test_pr_merge_blocked_on_timeout(tmp_path, monkeypatch):
 def test_pr_merge_wrapped_form_blocked(tmp_path):
     env = fake_gh(tmp_path, "[]")
     assert run_hook("guard_pr_merge", "{ gh pr merge 5; }", cwd=tmp_path, env=env).returncode == 2
+
+
+def test_pr_merge_follows_cd(tmp_path):
+    other = tmp_path / "other"
+    other.mkdir()
+    env = fake_gh(tmp_path, '[{"name":"ci","state":"SUCCESS"}]')
+    assert run_hook("guard_pr_merge", "cd other && gh pr merge 5", cwd=tmp_path, env=env).returncode == 0
+    assert Path((tmp_path / "gh-cwd").read_text().strip()).resolve() == other.resolve()
+
+
+def test_pr_merge_unknown_directory_blocked(tmp_path):
+    env = fake_gh(tmp_path, '[{"name":"ci","state":"SUCCESS"}]')
+    r = run_hook("guard_pr_merge", 'cd "$REPO" && gh pr merge 5', cwd=tmp_path, env=env)
+    assert r.returncode == 2 and "-R OWNER/REPO" in r.stderr
+    assert not (tmp_path / "gh-args").exists()
+
+
+@pytest.mark.parametrize("command, args", [
+    ('cd "$REPO" && gh pr merge 5 -R o/r', ["pr", "checks", "5", "-R", "o/r", "--json", "state,name"]),
+    ("GH_REPO=o/r gh pr merge 5", ["pr", "checks", "5", "-R", "o/r", "--json", "state,name"]),
+    ("cd - && gh pr merge https://github.com/o/r/pull/5",
+     ["pr", "checks", "https://github.com/o/r/pull/5", "--json", "state,name"]),
+])
+def test_pr_merge_repo_without_directory(tmp_path, command, args):
+    env = fake_gh(tmp_path, '[{"name":"ci","state":"SUCCESS"}]')
+    assert run_hook("guard_pr_merge", command, cwd=tmp_path, env=env).returncode == 0
+    assert (tmp_path / "gh-args").read_text().split() == args
 
 
 def test_pr_merge_ignores_other_commands(tmp_path):
