@@ -4,17 +4,17 @@
 
 - Goal: CI of private projects runs on the owner's machines and stays within the $12 of included GitHub Actions compute per month.
 - Done when: the template answer `ci_runner` sets `runs-on` of `standard-ci` and `standard-report`; a runner container on the VM `docker` runs one job at a time under the limits of ADR 0036 and re-registers after each job; `standard-ci` of `cinema-ops` passes on it; the Actions usage of `cinema-ops` for one month is under $2.
-- Stopped at: five runners with the label `vm-docker` run on the VM `docker` since 2026-11-28; `ci-runner-guard` closes the VM, the other containers, the LAN and the VPNs to them. The Linux jobs of `cinema-ops`, `stockpit`, `manifold`, `kids-wallet` and `my-visits-dashboard` run on them; `cinema-ops` takes `ci_runner: vm-docker` from template 0.12.0. A volume per runner keeps the tools of `mise`; GitHub release assets reach the VM through the VPN at about 0.5 MB/s.
-- Next: a release without the `mise` cache on self-hosted runners, its update in `cinema-ops`, and the Actions usage of `cinema-ops` for December.
+- Stopped at: five runners with the label `vm-docker` run on the VM `docker` since 2026-11-28; `ci-runner-guard` closes the VM, the other containers, the LAN and the VPNs to them. The Linux jobs of `cinema-ops`, `stockpit`, `manifold`, `kids-wallet` and `my-visits-dashboard` run on them; `cinema-ops` takes `ci_runner: vm-docker` from template 0.12.1, which skips the `mise` cache on self-hosted runners. Volumes per runner keep the tools of `mise` and a fixed workdir, so checkout and `mise` take under 30 s; `standard-ci` of a pull request in `cinema-ops` takes 9-11 min.
+- Next: the Actions usage of `cinema-ops` for December.
 - Refs: ADR 0036, `template/.github/workflows/standard-ci.yml.jinja` and the report workflow of the template.
 
 ### Set up `cinema-ops` as the reference repository
 
 - Goal: one repository shows the whole standard working before docustand reaches other projects.
 - Done when: each condition holds and has a row in `docs/pilot-log.md`: `cinema-ops` is on the latest release and `mise run check` passes 3 times in a row with green CI; a Renovate template update merged without the owner; the scheduled report ran on its own; `docs-drift` and `baseline-burndown` ran on schedule and each opened a PR; `.baselines/` holds only `betterleaks.ignore`; a fresh clone passes `mise install && mise run check`; an agent without context answers the six questions of `README.md`.
-- Stopped at: `cinema-ops` is on `v0.11.0` (PR 139); `.baselines/` holds only `betterleaks.ignore`; `mise run check` passed once and failed once in `apps/agent/src/station/settings.test.ts` under load.
-- Next: the self-hosted runner task above; then automatic merge of template updates and the maintenance task below.
-- Refs: ADR 0027, ADR 0034, ADR 0035, `cinema-ops` PR 139 and PR 140.
+- Stopped at: `cinema-ops` is on `v0.12.1` (PR 143) and `standard-ci` runs on `vm-docker`; `.baselines/` holds only `betterleaks.ignore`. Under the load of the full suite on the VM, `apps/server/src/actions/agent-update.test.ts` exceeded 5 s and got a 30 s timeout (PR 144); `apps/agent/src/station/settings.test.ts` failed once under load earlier.
+- Next: 3 green runs of `mise run check` in a row; then automatic merge of template updates and the maintenance task below.
+- Refs: ADR 0027, ADR 0034, ADR 0035, `cinema-ops` PR 139, PR 140, PR 143 and PR 144.
 
 ### Add the maintenance agent contract
 
