@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `guard_pr_create` and `guard_pr_merge` judge the repository a command targets, not the session folder. Both follow `cd` and `pushd` in the same command. `guard_pr_create` reads the `pr-ready` mark of the checkout whose remote matches `-R`, `--repo` or `GH_REPO`, found among the hook's cwd and the `cd`, `pushd` and `git -C` directories of the command, and passes when no such checkout is known. `guard_pr_merge` blocks a merge after an unresolvable `cd` until it names `-R OWNER/REPO` or a PR URL.
 - `mise run maintain -- run` prints its steps before the output of the agent command and the commit after it; a piped stdout printed them after the agent and after an error.
 - The job `docs-drift` excludes `.maintain/**`: the documents of the contract are protected, and an edit of them failed the whole run.
 

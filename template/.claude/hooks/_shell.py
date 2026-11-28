@@ -6,6 +6,7 @@ the separators `&&`, `||`, `;`, `|`, `&`, parentheses, backticks and newlines.
 """
 
 import json
+import os
 import sys
 
 sys.dont_write_bytecode = True
@@ -345,3 +346,45 @@ def all_commands(text, depth=0):
     for words in split_commands(text):
         _collect(words, depth, result)
     return result
+
+
+def _change_dir(current, args):
+    """Return the directory after `cd args`, or None when it is unknown."""
+    args = [a for a in args if a not in ("-L", "-P", "-e", "-@", "--")]
+    target = os.path.expanduser(args[0] if args else "~")
+    # `cd -`, variables and substitutions resolve only at run time.
+    if target == "-" or "$" in target or "`" in target or (current is None and not os.path.isabs(target)):
+        return None
+    path = os.path.normpath(os.path.join(current or "/", target))
+    return path if os.path.isdir(path) else None
+
+
+def with_directories(commands, cwd):
+    """Yield (assignments, words, directory) for each command; `directory` follows `cd` and `pushd`.
+
+    Subshell scope is not tracked: a `cd` inside `( )` or `sh -c` stays in effect for
+    later commands. `directory` is None after a `cd` the hook cannot resolve.
+    """
+    current = cwd
+    for words in commands:
+        assigns, rest = strip_prefix(words)
+        if rest[:1] in (["cd"], ["pushd"]):
+            current = _change_dir(current, rest[1:])
+        elif rest[:1] == ["popd"]:
+            current = None
+        yield assigns, rest, current
+
+
+def gh_repo(args, assigns, value_flags):
+    """Return the repository of a gh subcommand: `-R`/`--repo` in `args`, else `GH_REPO`, else None."""
+    i = 0
+    while i < len(args):
+        w = args[i]
+        if w in ("-R", "--repo"):
+            return args[i + 1] if i + 1 < len(args) else None
+        if w.startswith("--repo="):
+            return w.split("=", 1)[1]
+        if w.startswith("-R") and not w.startswith("--"):
+            return w[2:]
+        i += 2 if w in value_flags else 1
+    return dict(assigns).get("GH_REPO")
