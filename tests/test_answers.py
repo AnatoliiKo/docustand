@@ -199,6 +199,27 @@ def test_ci_runner_label_selects_a_self_hosted_runner(render, tmp_path):
         assert yaml.safe_load((dest / name).read_text())
 
 
+# The `cache` input of each `jdx/mise-action` step that installs tools; None when unset.
+def _mise_cache(dest) -> list:
+    return [(step.get("with") or {}).get("cache")
+            for name in WORKFLOWS
+            for job in yaml.safe_load((dest / name).read_text())["jobs"].values()
+            for step in job["steps"]
+            if step.get("uses", "").startswith("jdx/mise-action@") and (step.get("with") or {}).get("install") is not False]
+
+
+def test_github_hosted_runner_keeps_the_mise_cache(render, tmp_path):
+    dest = render(tmp_path, project_name="demo")
+
+    assert _mise_cache(dest) == [None, None]
+
+
+def test_self_hosted_runner_turns_off_the_mise_cache(render, tmp_path):
+    dest = render(tmp_path, project_name="demo", ci_runner="vm-docker")
+
+    assert _mise_cache(dest) == [False, False]
+
+
 def test_ci_runner_keeps_other_github_hosted_ubuntu_labels(render, tmp_path):
     dest = render(tmp_path, project_name="demo", ci_runner="ubuntu-24.04")
 
