@@ -1,7 +1,8 @@
 # Managed by Copier while the project follows the template; change answers with copier update -a .repo.yaml --defaults --data.
-_commit: v0.11.0
+_commit: v0.12.2
 _src_path: gh:AnatoliiKo/docustand
 architecture: {}
+ci_runner: ubuntu-latest
 contract: null
 deployed: false
 language: en
